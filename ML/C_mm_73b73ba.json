@@ -1,0 +1,18 @@
+[
+    {
+        "Function Path": "<\tctx = damon_new_ctx();, damon_reclaim_init>",
+        "Path": "<Lines: 3-8, Source: `\tctx = damon_new_ctx();`,  Function: `damon_reclaim_init`, Status: Bug. File: ../benchmark/C/mm_73b73ba/damon/reclaim.c>",
+        "Explanation": "The pointer ctx at line 3 is not freed before the function returns at line 8. Thus there is a memory leak bug.",
+        "Model": "Claude-3.5, Deepseek-R1",
+        "Is Reproduce": "Yes",
+        "Functions": [
+            {
+                "Function": "damon_reclaim_init",
+                "Function Body": "static int __init damon_reclaim_init(void)\n{\n\tctx = damon_new_ctx();\n\tif (!ctx)\n\t\treturn -ENOMEM;\n\n\tif (damon_select_ops(ctx, DAMON_OPS_PADDR))\n\t\treturn -EINVAL;\n\n\tctx->callback.after_wmarks_check = damon_reclaim_after_wmarks_check;\n\tctx->callback.after_aggregation = damon_reclaim_after_aggregation;\n\n\ttarget = damon_new_target();\n\tif (!target) {\n\t\tdamon_destroy_ctx(ctx);\n\t\treturn -ENOMEM;\n\t}\n\tdamon_add_target(ctx, target);\n\n\tschedule_delayed_work(&damon_reclaim_timer, 0);\n\n\tdamon_reclaim_initialized = true;\n\treturn 0;\n}"
+            }
+        ],
+        "Links": [
+            "https://github.com/torvalds/linux/tree/73b73bac90d97400e29e585c678c4d0ebfd2680d/mm/damon/reclaim.c#L434"
+        ]
+    }
+]

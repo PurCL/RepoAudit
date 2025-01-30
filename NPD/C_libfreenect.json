@@ -1,0 +1,23 @@
+[
+    {
+        "Function Path": "<\\tfreenect_init(&ctx, 0);, init_thread> --> <ctx, freenect_select_subdevices>",
+        "Path": "<Lines: 3-9, Source: `\\tfreenect_init(&ctx, 0);`,  Function: `init_thread`, Status: Unknown. File: ../benchmark/C/libfreenect/wrappers/c_sync/libfreenect_sync.c> --> <Lines: 1-4, Source: `ctx`,  Function: `freenect_select_subdevices`, Status: Bug. File: ../benchmark/C/libfreenect/src/core.c>",
+        "Explanation": "The NULL value of pointer `ctx` at line 4 is passed as the first argument to the function freenect_select_subdevices at line 8.\nThe NULL value of pointer `ctx` at line 1 is deferenced at line 3.",
+        "Model": "Claude-3.5, Deepseek-R1",
+        "Is Reproduce": "Yes",
+        "Functions": [
+            {
+                "Function": "init_thread",
+                "Function Body": "static void init_thread(void)\n{\n\tthread_running = 1;\n\tfreenect_init(&ctx, 0);\n\t\n\t\n\t\n\tfreenect_select_subdevices(ctx, (freenect_device_flags)(FREENECT_DEVICE_MOTOR | FREENECT_DEVICE_CAMERA));\n\tpthread_create(&thread, NULL, init, NULL);\n}"
+            },
+            {
+                "Function": "freenect_select_subdevices",
+                "Function Body": "FREENECTAPI void freenect_select_subdevices(freenect_context *ctx, freenect_device_flags subdevs)\n{\n\tctx->enabled_subdevices = (freenect_device_flags)(subdevs & (FREENECT_DEVICE_MOTOR | FREENECT_DEVICE_CAMERA | FREENECT_DEVICE_AUDIO));\n}"
+            }
+        ],
+        "Links": [
+            "https://github.com/OpenKinect/libfreenect/tree/d913755a25d09fbe2869a0d2acea78f589bfe6bf/wrappers/c_sync/libfreenect_sync.c#L220",
+            "https://github.com/OpenKinect/libfreenect/tree/d913755a25d09fbe2869a0d2acea78f589bfe6bf/src/core.c#L133"
+        ]
+    }
+]

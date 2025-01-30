@@ -1,0 +1,18 @@
+[
+    {
+        "Function Path": "<            close_and_free_remote(EV_A_ remote);, remote_recv_cb>",
+        "Path": "<Lines: 49-51, 58-61, 69-72, Source: `            close_and_free_remote(EV_A_ remote);`,  Function: `remote_recv_cb`, Status: Bug. File: ../benchmark/C/shadowsocks-libev/src/local.c>",
+        "Explanation": "The freed `remote` is dereferenced at line 72 via `setsockopt(remote->fd, ...)`.",
+        "Model": "Claude-3.5, Deepseek-R1",
+        "Is Reproduce": "Yes",
+        "Functions": [
+            {
+                "Function": "remote_recv_cb",
+                "Function Body": "static void\nremote_recv_cb(EV_P_ ev_io *w, int revents)\n{\n    remote_ctx_t *remote_recv_ctx = (remote_ctx_t *)w;\n    remote_t *remote              = remote_recv_ctx->remote;\n    server_t *server              = remote->server;\n\n    ev_timer_again(EV_A_ & remote->recv_ctx->watcher);\n\n#ifdef ANDROID\n    stat_update_cb();\n#endif\n\n    ssize_t r = recv(remote->fd, server->buf->array, BUF_SIZE, 0);\n\n    if (r == 0) {\n        \n        close_and_free_remote(EV_A_ remote);\n        close_and_free_server(EV_A_ server);\n        return;\n    } else if (r == -1) {\n        if (errno == EAGAIN || errno == EWOULDBLOCK) {\n            \n            \n            return;\n        } else {\n            ERROR(\"remote_recv_cb_recv\");\n            close_and_free_remote(EV_A_ remote);\n            close_and_free_server(EV_A_ server);\n            return;\n        }\n    }\n\n    server->buf->len = r;\n\n    if (!remote->direct) {\n#ifdef ANDROID\n        rx += server->buf->len;\n#endif\n        int err = ss_decrypt(server->buf, server->d_ctx, BUF_SIZE);\n        if (err) {\n            LOGE(\"invalid password or cipher\");\n            close_and_free_remote(EV_A_ remote);\n            close_and_free_server(EV_A_ server);\n            return;\n        }\n    }\n\n    int s = send(server->fd, server->buf->array, server->buf->len, 0);\n\n    if (s == -1) {\n        if (errno == EAGAIN || errno == EWOULDBLOCK) {\n            , wait for send\n            server->buf->idx = 0;\n            ev_io_stop(EV_A_ & remote_recv_ctx->io);\n            ev_io_start(EV_A_ & server->send_ctx->io);\n        } else {\n            ERROR(\"remote_recv_cb_send\");\n            close_and_free_remote(EV_A_ remote);\n            close_and_free_server(EV_A_ server);\n        }\n    } else if (s < (int)(server->buf->len)) {\n        server->buf->len -= s;\n        server->buf->idx  = s;\n        ev_io_stop(EV_A_ & remote_recv_ctx->io);\n        ev_io_start(EV_A_ & server->send_ctx->io);\n    }\n\n    \n    int opt = 0;\n    setsockopt(server->fd, SOL_TCP, TCP_NODELAY, &opt, sizeof(opt));\n    setsockopt(remote->fd, SOL_TCP, TCP_NODELAY, &opt, sizeof(opt));\n}"
+            }
+        ],
+        "Links": [
+            "https://github.com/shadowsocks/shadowsocks-libev/tree/8e52029d311df3880ffb1c5bea922f6e0e3cecdd/src/local.c#L857"
+        ]
+    }
+]

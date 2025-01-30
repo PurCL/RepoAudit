@@ -1,0 +1,18 @@
+[
+    {
+        "Function Path": "<    delete[] data;, ProgramMain>",
+        "Path": "<Lines: 11, 13-19, 47-48, Source: `    delete[] data;`,  Function: `ProgramMain`, Status: Bug. File: ../benchmark/C++/wabt_tools/wasm-opcodecnt.cc>",
+        "Explanation": "The freed pointer data is freed again at line 47.",
+        "Model": "Claude-3.5, Deepseek-R1",
+        "Is Reproduce": "Yes",
+        "Functions": [
+            {
+                "Function": "ProgramMain",
+                "Function Body": "int ProgramMain(int argc, char** argv) {\n  init_stdio();\n  parse_options(argc, argv);\n\n  char* data;\n  size_t size;\n  Result result = read_file(s_infile, &data, &size);\n  if (Failed(result)) {\n    const char* input_name = s_infile ? s_infile : \"stdin\";\n    ERROR(\"Unable to parse: %s\", input_name);\n    delete[] data;\n  }\n  FILE* out = stdout;\n  if (s_outfile) {\n    out = fopen(s_outfile, \"w\");\n    if (!out)\n      ERROR(\"fopen \\\"%s\\\" failed, errno=%d\\n\", s_outfile, errno);\n    result = Result::Error;\n  }\n  if (Succeeded(result)) {\n    OpcntData opcnt_data;\n    result = read_binary_opcnt(data, size, &s_read_binary_options, &opcnt_data);\n    if (Succeeded(result)) {\n      display_sorted_int_counter_vector(\n          out, \"Opcode counts:\", opcnt_data.opcode_vec, opcode_counter_gt,\n          display_opcode_name, nullptr);\n      display_sorted_int_counter_vector(\n          out, \"\\ni32.const:\", opcnt_data.i32_const_vec, int_counter_gt,\n          display_intmax, Opcode::I32Const_Opcode.GetName());\n      display_sorted_int_counter_vector(\n          out, \"\\nget_local:\", opcnt_data.get_local_vec, int_counter_gt,\n          display_intmax, Opcode::GetLocal_Opcode.GetName());\n      display_sorted_int_counter_vector(\n          out, \"\\nset_local:\", opcnt_data.set_local_vec, int_counter_gt,\n          display_intmax, Opcode::SetLocal_Opcode.GetName());\n      display_sorted_int_counter_vector(\n          out, \"\\ntee_local:\", opcnt_data.tee_local_vec, int_counter_gt,\n          display_intmax, Opcode::TeeLocal_Opcode.GetName());\n      display_sorted_int_pair_counter_vector(\n          out, \"\\ni32.load:\", opcnt_data.i32_load_vec, int_pair_counter_gt,\n          display_intmax, display_intmax, Opcode::I32Load_Opcode.GetName());\n      display_sorted_int_pair_counter_vector(\n          out, \"\\ni32.store:\", opcnt_data.i32_store_vec, int_pair_counter_gt,\n          display_intmax, display_intmax, Opcode::I32Store_Opcode.GetName());\n    }\n  }\n  delete[] data;\n  return result != Result::Ok;\n}"
+            }
+        ],
+        "Links": [
+            "https://github.com/WebAssembly/wabt/tree/b2194657c4b9b90599ae02b36a02a10dbedc32c4/src/tools/wasm-opcodecnt.cc#L227"
+        ]
+    }
+]

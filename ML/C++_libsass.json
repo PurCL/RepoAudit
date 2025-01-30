@@ -1,0 +1,128 @@
+[
+    {
+        "Function Path": "<    size_t* state = new size_t[L + 1];, permutate>",
+        "Path": "<Lines: 7-11, 12, Source: `    size_t* state = new size_t[L + 1];`,  Function: `permutate`, Status: Bug. File: ../benchmark/C++/libsass/src/permutate.hpp>",
+        "Explanation": "The pointer `state` allocated at line 7 is not freed when the function returns early at line 12, causing a memory leak.",
+        "Model": "Claude-3.5, Deepseek-R1",
+        "Is Reproduce": "Yes",
+        "Functions": [
+            {
+                "Function": "permutate",
+                "Function Body": "std::vector<std::vector<T>> permutate(\n    const std::vector<std::vector<T>>& in)\n  {\n\n    size_t L = in.size();\n    size_t n = 0;\n    size_t* state = new size_t[L + 1];\n    std::vector<std::vector<T>> out;\n\n    \n    for (size_t i = 0; i < L; i += 1) {\n      if (in[i].size() == 0) return {};\n      state[i] = in[i].size() - 1;\n    }\n    while (true) {\n      std::vector<T> perm;\n      \n      for (size_t i = 0; i < L; i += 1) {\n        perm.push_back(in.at(i).at(in[i].size() - state[i] - 1));\n      }\n      \n      if (state[n] == 0) {\n        \n        while (n < L && state[++n] == 0) {}\n\n        if (n == L) {\n          out.push_back(perm);\n          break;\n        }\n\n        state[n] -= 1;\n\n        for (size_t p = 0; p < n; p += 1) {\n          state[p] = in[p].size() - 1;\n        }\n\n        \n        n = 0;\n\n      }\n      else {\n        state[n] -= 1;\n      }\n      out.push_back(perm);\n    }\n\n    delete[] state;\n    return out;\n  }"
+            }
+        ],
+        "Links": [
+            "https://github.com/sass/libsass/tree/4da7c4bd13b8e9e5cd034f358dceda0bbba917d2/src/permutate.hpp#L27"
+        ]
+    },
+    {
+        "Function Path": "<    size_t* state = new size_t[L];, permutateAlt>",
+        "Path": "<Lines: 6-10, 11, Source: `    size_t* state = new size_t[L];`,  Function: `permutateAlt`, Status: Bug. File: ../benchmark/C++/libsass/src/permutate.hpp>",
+        "Explanation": "The pointer `state` allocated at line 6 is not freed when the function returns early at line 11, causing a memory leak.",
+        "Model": "Claude-3.5, Deepseek-R1",
+        "Is Reproduce": "No",
+        "Functions": [
+            {
+                "Function": "permutateAlt",
+                "Function Body": "std::vector<std::vector<T>>\n    permutateAlt(const std::vector<std::vector<T>>& in) {\n\n    size_t L = in.size();\n    size_t n = in.size() - 1;\n    size_t* state = new size_t[L];\n    std::vector< std::vector<T>> out;\n\n    \n    for (size_t i = 0; i < L; i += 1) {\n      if (in[i].size() == 0) return {};\n      state[i] = in[i].size() - 1;\n    }\n\n    while (true) {\n      \n\n\n\n\n\n      std::vector<T> perm;\n      \n      for (size_t i = 0; i < L; i += 1) {\n        perm.push_back(in.at(i).at(in[i].size() - state[i] - 1));\n      }\n      \n      if (state[n] == 0) {\n        \n        while (n > 0 && state[--n] == 0)\n        {\n\n        }\n        \n        if (state[n] != 0) {\n          \n          state[n] -= 1;\n          \n          for (size_t p = n + 1; p < L; p += 1) {\n            state[p] = in[p].size() - 1;\n          }\n          \n          n = L - 1;\n        }\n        else {\n          out.push_back(perm);\n          break;\n        }\n      }\n      else {\n        state[n] -= 1;\n      }\n      out.push_back(perm);\n    }\n\n    delete[] state;\n    return out;\n  }"
+            }
+        ],
+        "Links": [
+            "https://github.com/sass/libsass/tree/4da7c4bd13b8e9e5cd034f358dceda0bbba917d2/src/permutate.hpp#L79"
+        ]
+    },
+    {
+        "Function Path": "<    void* ptr = malloc(size);, sass_alloc_memory> --> <sass_alloc_memory(len), sass_copy_c_string> --> <sass_copy_c_string(imp_path), sass_make_import> --> <sass_make_import(\n      inc.imp_path.c_str(),\n      inc.abs_path.c_str(),\n      res.contents,\n      res.srcmap\n    ), register_resource>",
+        "Path": "<Lines: 3-4, 8, Source: `    void* ptr = malloc(size);`,  Function: `sass_alloc_memory`, Status: Unknown. File: ../benchmark/C++/libsass/src/sass.cpp> --> <Lines: 3-6, Source: `sass_alloc_memory(len)`,  Function: `sass_copy_c_string`, Status: Unknown. File: ../benchmark/C++/libsass/src/sass.cpp> --> <Lines: 3, 5-12, Source: `sass_copy_c_string(imp_path)`,  Function: `sass_make_import`, Status: Unknown. File: ../benchmark/C++/libsass/src/sass_functions.cpp> --> <Lines: 28-35, 38-59, Source: `sass_make_import(\n      inc.imp_path.c_str(),\n      inc.abs_path.c_str(),\n      res.contents,\n      res.srcmap\n    )`,  Function: `register_resource`, Status: Bug. File: ../benchmark/C++/libsass/src/context.cpp>",
+        "Explanation": "The pointer `ptr` at line 3 is returned to the caller function at line 8.\nThe pointer `cpy` at line 4 is returned to the caller function at line 6 through the return statement.\nThe memory object returned by sass_copy_c_string at line 5 is assigned to v->imp_path at line 5, and the struct pointer v is returned to the caller at line 12.\nThe pointer `import` created at line 28 is stored in import_stack at line 35, but the function throws an exception at line 58 before reaching the free site at line 71. This causes a memory leak.",
+        "Model": "Claude-3.5",
+        "Is Reproduce": "No",
+        "Functions": [
+            {
+                "Function": "sass_alloc_memory",
+                "Function Body": "void* ADDCALL sass_alloc_memory(size_t size)\n  {\n    void* ptr = malloc(size);\n    if (ptr == NULL) {\n      std::cerr << \"Out of memory.\\n\";\n      exit(EXIT_FAILURE);\n    }\n    return ptr;\n  }"
+            },
+            {
+                "Function": "sass_copy_c_string",
+                "Function Body": "char* ADDCALL sass_copy_c_string(const char* str)\n  {\n    size_t len = strlen(str) + 1;\n    char* cpy = (char*) sass_alloc_memory(len);\n    std::memcpy(cpy, str, len);\n    return cpy;\n  }"
+            },
+            {
+                "Function": "sass_make_import",
+                "Function Body": "Sass_Import_Entry ADDCALL sass_make_import(const char* imp_path, const char* abs_path, char* source, char* srcmap)\n  {\n    Sass_Import* v = (Sass_Import*) calloc(1, sizeof(Sass_Import));\n    if (v == 0) return 0;\n    v->imp_path = imp_path ? sass_copy_c_string(imp_path) : 0;\n    v->abs_path = abs_path ? sass_copy_c_string(abs_path) : 0;\n    v->source = source;\n    v->srcmap = srcmap;\n    v->error = 0;\n    v->line = -1;\n    v->column = -1;\n    return v;\n  }"
+            },
+            {
+                "Function": "register_resource",
+                "Function Body": "void Context::register_resource(const Include& inc, const Resource& res, ParserState& prstate)\n  {\n    traces.push_back(Backtrace(prstate));\n    register_resource(inc, res);\n    traces.pop_back();\n  }"
+            }
+        ],
+        "Links": [
+            "https://github.com/sass/libsass/tree/4da7c4bd13b8e9e5cd034f358dceda0bbba917d2/src/sass.cpp#L39",
+            "https://github.com/sass/libsass/tree/4da7c4bd13b8e9e5cd034f358dceda0bbba917d2/src/sass.cpp#L50",
+            "https://github.com/sass/libsass/tree/4da7c4bd13b8e9e5cd034f358dceda0bbba917d2/src/sass_functions.cpp#L109",
+            "https://github.com/sass/libsass/tree/4da7c4bd13b8e9e5cd034f358dceda0bbba917d2/src/context.cpp#L265"
+        ]
+    },
+    {
+        "Function Path": "<    Context* cpp_ctx = new Data_Context(*data_ctx);, sass_make_data_compiler> --> <c_ctx, sass_prepare_context>",
+        "Path": "<Lines: 3-5, Source: `    Context* cpp_ctx = new Data_Context(*data_ctx);`,  Function: `sass_make_data_compiler`, Status: Unknown. File: ../benchmark/C++/libsass/src/sass_context.cpp> --> <Lines: 3-44, Source: `c_ctx`,  Function: `sass_prepare_context`, Status: Bug. File: ../benchmark/C++/libsass/src/sass_context.cpp>",
+        "Explanation": "The pointer `cpp_ctx` at line 4 is passed as the second argument (index 1) to `sass_prepare_context` at line 5.\\n`c_ctx` is not freed and not propagated to any function or caller after `calloc` fails at line 44.",
+        "Model": "Deepseek-R1",
+        "Is Reproduce": "No",
+        "Functions": [
+            {
+                "Function": "sass_make_data_compiler",
+                "Function Body": "struct Sass_Compiler* ADDCALL sass_make_data_compiler (struct Sass_Data_Context* data_ctx)\n  {\n    if (data_ctx == 0) return 0;\n    Context* cpp_ctx = new Data_Context(*data_ctx);\n    return sass_prepare_context(data_ctx, cpp_ctx);\n  }"
+            },
+            {
+                "Function": "sass_prepare_context",
+                "Function Body": "static Sass_Compiler* sass_prepare_context (Sass_Context* c_ctx, Context* cpp_ctx) throw()\n  {\n    try {\n      \n      if (c_ctx->c_functions) {\n        auto this_func_data = c_ctx->c_functions;\n        while (this_func_data && *this_func_data) {\n          cpp_ctx->add_c_function(*this_func_data);\n          ++this_func_data;\n        }\n      }\n\n      \n      if (c_ctx->c_headers) {\n        auto this_head_data = c_ctx->c_headers;\n        while (this_head_data && *this_head_data) {\n          cpp_ctx->add_c_header(*this_head_data);\n          ++this_head_data;\n        }\n      }\n\n      \n      if (c_ctx->c_importers) {\n        auto this_imp_data = c_ctx->c_importers;\n        while (this_imp_data && *this_imp_data) {\n          cpp_ctx->add_c_importer(*this_imp_data);\n          ++this_imp_data;\n        }\n      }\n\n      \n      c_ctx->error_json = 0;\n      c_ctx->error_text = 0;\n      c_ctx->error_message = 0;\n      c_ctx->error_status = 0;\n      \n      c_ctx->error_src = 0;\n      c_ctx->error_file = 0;\n      c_ctx->error_line = std::string::npos;\n      c_ctx->error_column = std::string::npos;\n\n      \n      void* ctxmem = calloc(1, sizeof(struct Sass_Compiler));\n      if (ctxmem == 0) { std::cerr << \"Error allocating memory for context\" << std::endl; return 0; }\n      Sass_Compiler* compiler = (struct Sass_Compiler*) ctxmem;\n      compiler->state = SASS_COMPILER_CREATED;\n\n      \n      compiler->c_ctx = c_ctx;\n      compiler->cpp_ctx = cpp_ctx;\n      cpp_ctx->c_compiler = compiler;\n\n      \n      return compiler;\n\n    }\n    \n    catch (...) { handle_errors(c_ctx); }\n\n    \n    return 0;\n\n  }"
+            }
+        ],
+        "Links": [
+            "https://github.com/sass/libsass/tree/4da7c4bd13b8e9e5cd034f358dceda0bbba917d2/src/sass_context.cpp#L384",
+            "https://github.com/sass/libsass/tree/4da7c4bd13b8e9e5cd034f358dceda0bbba917d2/src/sass_context.cpp#L244"
+        ]
+    },
+    {
+        "Function Path": "<    Context* cpp_ctx = new File_Context(*file_ctx);, sass_make_file_compiler> --> <c_ctx, sass_prepare_context>",
+        "Path": "<Lines: 4-5, Source: `    Context* cpp_ctx = new File_Context(*file_ctx);`,  Function: `sass_make_file_compiler`, Status: Unknown. File: ../benchmark/C++/libsass/src/sass_context.cpp> --> <Lines: 3-44, Source: `c_ctx`,  Function: `sass_prepare_context`, Status: Bug. File: ../benchmark/C++/libsass/src/sass_context.cpp>",
+        "Explanation": "`cpp_ctx` at line 4 is passed as the second argument to `sass_prepare_context` at line 5.\\n`c_ctx` is not freed and not propagated to any function or caller after `calloc` fails at line 44.",
+        "Model": "Deepseek-R1",
+        "Is Reproduce": "No",
+        "Functions": [
+            {
+                "Function": "sass_make_file_compiler",
+                "Function Body": "struct Sass_Compiler* ADDCALL sass_make_file_compiler (struct Sass_File_Context* file_ctx)\n  {\n    if (file_ctx == 0) return 0;\n    Context* cpp_ctx = new File_Context(*file_ctx);\n    return sass_prepare_context(file_ctx, cpp_ctx);\n  }"
+            },
+            {
+                "Function": "sass_prepare_context",
+                "Function Body": "static Sass_Compiler* sass_prepare_context (Sass_Context* c_ctx, Context* cpp_ctx) throw()\n  {\n    try {\n      \n      if (c_ctx->c_functions) {\n        auto this_func_data = c_ctx->c_functions;\n        while (this_func_data && *this_func_data) {\n          cpp_ctx->add_c_function(*this_func_data);\n          ++this_func_data;\n        }\n      }\n\n      \n      if (c_ctx->c_headers) {\n        auto this_head_data = c_ctx->c_headers;\n        while (this_head_data && *this_head_data) {\n          cpp_ctx->add_c_header(*this_head_data);\n          ++this_head_data;\n        }\n      }\n\n      \n      if (c_ctx->c_importers) {\n        auto this_imp_data = c_ctx->c_importers;\n        while (this_imp_data && *this_imp_data) {\n          cpp_ctx->add_c_importer(*this_imp_data);\n          ++this_imp_data;\n        }\n      }\n\n      \n      c_ctx->error_json = 0;\n      c_ctx->error_text = 0;\n      c_ctx->error_message = 0;\n      c_ctx->error_status = 0;\n      \n      c_ctx->error_src = 0;\n      c_ctx->error_file = 0;\n      c_ctx->error_line = std::string::npos;\n      c_ctx->error_column = std::string::npos;\n\n      \n      void* ctxmem = calloc(1, sizeof(struct Sass_Compiler));\n      if (ctxmem == 0) { std::cerr << \"Error allocating memory for context\" << std::endl; return 0; }\n      Sass_Compiler* compiler = (struct Sass_Compiler*) ctxmem;\n      compiler->state = SASS_COMPILER_CREATED;\n\n      \n      compiler->c_ctx = c_ctx;\n      compiler->cpp_ctx = cpp_ctx;\n      cpp_ctx->c_compiler = compiler;\n\n      \n      return compiler;\n\n    }\n    \n    catch (...) { handle_errors(c_ctx); }\n\n    \n    return 0;\n\n  }"
+            }
+        ],
+        "Links": [
+            "https://github.com/sass/libsass/tree/4da7c4bd13b8e9e5cd034f358dceda0bbba917d2/src/sass_context.cpp#L391",
+            "https://github.com/sass/libsass/tree/4da7c4bd13b8e9e5cd034f358dceda0bbba917d2/src/sass_context.cpp#L244"
+        ]
+    },
+    {
+        "Function Path": "<    Sass_Import* v = (Sass_Import*) calloc(1, sizeof(Sass_Import));, sass_make_import> --> <sass_make_import(\\n      inc.imp_path.c_str(),\\n      inc.abs_path.c_str(),\\n      res.contents,\\n      res.srcmap\\n    ), register_resource>",
+        "Path": "<Lines: 3,5-12, Source: `    Sass_Import* v = (Sass_Import*) calloc(1, sizeof(Sass_Import));`,  Function: `sass_make_import`, Status: Unknown. File: ../benchmark/C++/libsass/src/sass_functions.cpp> --> <Lines: 28-35, 46-58 (throws exception), Source: `sass_make_import(\\n      inc.imp_path.c_str(),\\n      inc.abs_path.c_str(),\\n      res.contents,\\n      res.srcmap\\n    )`,  Function: `register_resource`, Status: Bug. File: ../benchmark/C++/libsass/src/context.cpp>",
+        "Explanation": "The pointer `v` allocated at line 3 is returned to the caller of `sass_make_import` at line 12.\\nThe function throws an exception at line 58 before `import` is freed, resulting in a memory leak.",
+        "Model": "Deepseek-R1",
+        "Is Reproduce": "No",
+        "Functions": [
+            {
+                "Function": "sass_make_import",
+                "Function Body": "Sass_Import_Entry ADDCALL sass_make_import(const char* imp_path, const char* abs_path, char* source, char* srcmap)\n  {\n    Sass_Import* v = (Sass_Import*) calloc(1, sizeof(Sass_Import));\n    if (v == 0) return 0;\n    v->imp_path = imp_path ? sass_copy_c_string(imp_path) : 0;\n    v->abs_path = abs_path ? sass_copy_c_string(abs_path) : 0;\n    v->source = source;\n    v->srcmap = srcmap;\n    v->error = 0;\n    v->line = -1;\n    v->column = -1;\n    return v;\n  }"
+            },
+            {
+                "Function": "register_resource",
+                "Function Body": "void Context::register_resource(const Include& inc, const Resource& res, ParserState& prstate)\n  {\n    traces.push_back(Backtrace(prstate));\n    register_resource(inc, res);\n    traces.pop_back();\n  }"
+            }
+        ],
+        "Links": [
+            "https://github.com/sass/libsass/tree/4da7c4bd13b8e9e5cd034f358dceda0bbba917d2/src/sass_functions.cpp#L107",
+            "https://github.com/sass/libsass/tree/4da7c4bd13b8e9e5cd034f358dceda0bbba917d2/src/context.cpp#L265"
+        ]
+    }
+]

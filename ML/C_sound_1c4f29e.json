@@ -1,0 +1,18 @@
+[
+    {
+        "Function Path": "<\tgraph->graph = audioreach_alloc_graph_pkt(apm, &info->sg_list, graph_id);, q6apm_get_audioreach_graph>",
+        "Path": "<Lines: 29-30, 37-44, Source: `\tgraph->graph = audioreach_alloc_graph_pkt(apm, &info->sg_list, graph_id);`,  Function: `q6apm_get_audioreach_graph`, Status: Bug. File: ../benchmark/C/sound_1c4f29e/soc/qcom/qdsp6/q6apm.c>",
+        "Explanation": "graph->graph is allocated successfully but not freed when idr_alloc fails at line 38, causing a memory leak.",
+        "Model": "Claude-3.5, Deepseek-R1",
+        "Is Reproduce": "Yes",
+        "Functions": [
+            {
+                "Function": "q6apm_get_audioreach_graph",
+                "Function Body": "static struct audioreach_graph *q6apm_get_audioreach_graph(struct q6apm *apm, uint32_t graph_id)\n{\n\tstruct audioreach_graph_info *info;\n\tstruct audioreach_graph *graph;\n\tint id;\n\n\tmutex_lock(&apm->lock);\n\tgraph = idr_find(&apm->graph_idr, graph_id);\n\tmutex_unlock(&apm->lock);\n\n\tif (graph) {\n\t\tkref_get(&graph->refcount);\n\t\treturn graph;\n\t}\n\n\tinfo = idr_find(&apm->graph_info_idr, graph_id);\n\n\tif (!info)\n\t\treturn ERR_PTR(-ENODEV);\n\n\tgraph = kzalloc(sizeof(*graph), GFP_KERNEL);\n\tif (!graph)\n\t\treturn ERR_PTR(-ENOMEM);\n\n\tgraph->apm = apm;\n\tgraph->info = info;\n\tgraph->id = graph_id;\n\n\tgraph->graph = audioreach_alloc_graph_pkt(apm, &info->sg_list, graph_id);\n\tif (IS_ERR(graph->graph)) {\n\t\tvoid *err = graph->graph;\n\n\t\tkfree(graph);\n\t\treturn ERR_CAST(err);\n\t}\n\n\tmutex_lock(&apm->lock);\n\tid = idr_alloc(&apm->graph_idr, graph, graph_id, graph_id + 1, GFP_KERNEL);\n\tif (id < 0) {\n\t\tdev_err(apm->dev, \"Unable to allocate graph id (%d)\\n\", graph_id);\n\t\tkfree(graph);\n\t\tmutex_unlock(&apm->lock);\n\t\treturn ERR_PTR(id);\n\t}\n\tmutex_unlock(&apm->lock);\n\n\tkref_init(&graph->refcount);\n\n\tq6apm_send_cmd_sync(apm, graph->graph, 0);\n\n\treturn graph;\n}"
+            }
+        ],
+        "Links": [
+            "https://github.com/torvalds/linux/tree/1c4f29ec878bbf1cc0a1eb54ae7da5ff98e19641/sound/soc/qcom/qdsp6/q6apm.c#L66"
+        ]
+    }
+]

@@ -1,0 +1,18 @@
+[
+    {
+        "Function Path": "<\tarea = nfp_cpp_area_alloc(cpp, NFP_CPP_ID(7, NFP_CPP_ACTION_RW, 0),, nfp_cpp_area_cache_add>",
+        "Path": "<Lines: 9-16, Source: `\tarea = nfp_cpp_area_alloc(cpp, NFP_CPP_ID(7, NFP_CPP_ACTION_RW, 0),`,  Function: `nfp_cpp_area_cache_add`, Status: Bug. File: ../benchmark/C/net_4cd8371/ethernet/netronome/nfp/nfpcore/nfp_cppcore.c>",
+        "Explanation": "The pointer `area` at line 9 is not freed and not propagated to any function before the function returns at line 16. Thus there is a memory leak bug.",
+        "Model": "Claude-3.5, Deepseek-R1",
+        "Is Reproduce": "Yes",
+        "Functions": [
+            {
+                "Function": "nfp_cpp_area_cache_add",
+                "Function Body": "int nfp_cpp_area_cache_add(struct nfp_cpp *cpp, size_t size)\n{\n\tstruct nfp_cpp_area_cache *cache;\n\tstruct nfp_cpp_area *area;\n\n\t\n\n\n\tarea = nfp_cpp_area_alloc(cpp, NFP_CPP_ID(7, NFP_CPP_ACTION_RW, 0),\n\t\t\t\t  0, size);\n\tif (!area)\n\t\treturn -ENOMEM;\n\n\tcache = kzalloc(sizeof(*cache), GFP_KERNEL);\n\tif (!cache)\n\t\treturn -ENOMEM;\n\n\tcache->id = 0;\n\tcache->addr = 0;\n\tcache->size = size;\n\tcache->area = area;\n\tmutex_lock(&cpp->area_cache_mutex);\n\tlist_add_tail(&cache->entry, &cpp->area_cache_list);\n\tmutex_unlock(&cpp->area_cache_mutex);\n\n\treturn 0;\n}"
+            }
+        ],
+        "Links": [
+            "https://github.com/torvalds/linux/tree/4cd8371a234d051f9c9557fcbb1f8c523b1c0d10/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_cppcore.c#L800"
+        ]
+    }
+]

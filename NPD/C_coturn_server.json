@@ -1,0 +1,55 @@
+[
+    {
+        "Function Path": "<\tch_info *ret = NULL;, ch_map_get> --> <ch_map_get(&(a->chns), chnum, 1), allocation_get_new_ch_info>",
+        "Path": "<Lines: 3-4, 47, Source: `\tch_info *ret = NULL;`,  Function: `ch_map_get`, Status: Unknown. File: ../benchmark/C/coturn_server/ns_turn_allocation.c> --> <Lines: 9-19, Source: `ch_map_get(&(a->chns), chnum, 1)`,  Function: `allocation_get_new_ch_info`, Status: Bug. File: ../benchmark/C/coturn_server/ns_turn_allocation.c>",
+        "Explanation": "The NULL value of pointer `ret` at line 3 is returned to the caller at line 47 when `map` is NULL.\nThe NULL value returned from ch_map_get at line 9 is dereferenced at line 11 without any NULL check.",
+        "Model": "Claude-3.5",
+        "Is Reproduce": "No",
+        "Functions": [
+            {
+                "Function": "ch_map_get",
+                "Function Body": "ch_info *ch_map_get(ch_map* map, uint16_t chnum, int new_chn)\n{\n\tch_info *ret = NULL;\n\tif(map) {\n\t\tsize_t index = (size_t)(chnum & (CH_MAP_HASH_SIZE-1));\n\t\tch_map_array *a = &(map->table[index]);\n\n\t\tsize_t i;\n\t\tfor(i=0;i<CH_MAP_ARRAY_SIZE;++i) {\n\t\t\tch_info *chi = &(a->main_chns[i]);\n\t\t\tif(chi->allocated) {\n\t\t\t\tif(!new_chn && (chi->chnum == chnum)) {\n\t\t\t\t\treturn chi;\n\t\t\t\t}\n\t\t\t} else if(new_chn) {\n\t\t\t\treturn chi;\n\t\t\t}\n\t\t}\n\n\t\tsize_t old_sz = a->extra_sz;\n\t\tif(old_sz && a->extra_chns) {\n\t\t\tfor(i=0;i<old_sz;++i) {\n\t\t\t\tch_info *chi = a->extra_chns[i];\n\t\t\t\tif(chi) {\n\t\t\t\t\tif(chi->allocated) {\n\t\t\t\t\t\tif(!new_chn && (chi->chnum == chnum)) {\n\t\t\t\t\t\t\treturn chi;\n\t\t\t\t\t\t}\n\t\t\t\t\t} else if(new_chn) {\n\t\t\t\t\t\treturn chi;\n\t\t\t\t\t}\n\t\t\t\t}\n\t\t\t}\n\t\t}\n\n\t\tif(new_chn) {\n\t\t\tsize_t old_sz_mem = old_sz * sizeof(ch_info*);\n\t\t\ta->extra_chns = (ch_info**)realloc(a->extra_chns,old_sz_mem + sizeof(ch_info*));\n\t\t\ta->extra_chns[old_sz] = (ch_info*)malloc(sizeof(ch_info));\n\t\t\tbzero(a->extra_chns[old_sz],sizeof(ch_info));\n\t\t\ta->extra_sz += 1;\n\n\t\t\treturn a->extra_chns[old_sz];\n\t\t}\n\t}\n\n\treturn ret;\n}"
+            },
+            {
+                "Function": "allocation_get_new_ch_info",
+                "Function Body": "ch_info* allocation_get_new_ch_info(allocation* a, uint16_t chnum, ioa_addr* peer_addr)\n{\n\n\tturn_permission_info* tinfo = get_from_turn_permission_hashtable(&(a->addr_to_perm), peer_addr);\n\n\tif (!tinfo)\n\t\ttinfo = allocation_add_permission(a, peer_addr);\n\n\tch_info* chn = ch_map_get(&(a->chns), chnum, 1);\n\n\tchn->allocated = 1;\n\tchn->chnum = chnum;\n\tchn->port = addr_get_port(peer_addr);\n\taddr_cpy(&(chn->peer_addr), peer_addr);\n\tchn->owner = tinfo;\n\n\tlm_map_put(&(tinfo->chns), (ur_map_key_type) addr_get_port(peer_addr), (ur_map_value_type) chn);\n\n\treturn chn;\n}"
+            }
+        ],
+        "Links": [
+            "https://github.com/coturn/coturn/tree/47008229cefaff6bfc4b231642d342f99712a5ad/src/server/ns_turn_allocation.c#L453",
+            "https://github.com/coturn/coturn/tree/47008229cefaff6bfc4b231642d342f99712a5ad/src/server/ns_turn_allocation.c#L326"
+        ]
+    },
+    {
+        "Function Path": "<\tts_ur_super_session *ss=NULL;, tcp_client_input_handler_rfc6062data>",
+        "Path": "<Lines: 10-42, Source: `\tts_ur_super_session *ss=NULL;`,  Function: `tcp_client_input_handler_rfc6062data`, Status: Bug. File: ../benchmark/C/coturn_server/ns_turn_server.c>",
+        "Explanation": "NULL value from line 10 can reach here without NULL check when `a` is NULL.",
+        "Model": "Claude-3.5, Deepseek-R1",
+        "Is Reproduce": "Yes",
+        "Functions": [
+            {
+                "Function": "tcp_client_input_handler_rfc6062data",
+                "Function Body": "static void tcp_client_input_handler_rfc6062data(ioa_socket_handle s, int event_type, ioa_net_data *in_buffer, void *arg, int can_resume)\n{\n\tif (!(event_type & IOA_EV_READ) || !arg)\n\t\treturn;\n\n\tUNUSED_ARG(s);\n\tUNUSED_ARG(can_resume);\n\n\ttcp_connection *tc = (tcp_connection*)arg;\n\tts_ur_super_session *ss=NULL;\n\tallocation *a=(allocation*)tc->owner;\n\tif(a) {\n\t\tss=(ts_ur_super_session*)a->owner;\n\t}\n\n\tif(tc->state != TC_STATE_READY)\n\t\treturn;\n\n\tif(!(tc->peer_s))\n\t\treturn;\n\n\tioa_network_buffer_handle nbh = in_buffer->nbh;\n\tin_buffer->nbh = NULL;\n\n\tuint32_t bytes = (uint32_t)ioa_network_buffer_get_size(nbh);\n\tif(ss) {\n\t\t++(ss->received_packets);\n\t\tss->received_bytes += bytes;\n\t}\n\n\tint skip = 0;\n\tint ret = send_data_from_ioa_socket_nbh(tc->peer_s, NULL, nbh, TTL_IGNORE, TOS_IGNORE, &skip);\n\tif (ret < 0) {\n\t\tset_ioa_socket_tobeclosed(s);\n\t}\n\n\tif (!skip) {\n\t\t++(ss->peer_sent_packets);\n\t\tss->peer_sent_bytes += bytes;\n\t}\n\n\tturn_report_session_usage(ss, 0);\n}"
+            }
+        ],
+        "Links": [
+            "https://github.com/coturn/coturn/tree/47008229cefaff6bfc4b231642d342f99712a5ad/src/server/ns_turn_server.c#L1957"
+        ]
+    },
+    {
+        "Function Path": "<slh->extra_list = (addr_elem*)realloc(slh->extra_list, old_sz_mem + sizeof(addr_elem));, addr_list_add>",
+        "Path": "<Lines: 5,8-13,15-21,24-28, Source: `slh->extra_list = (addr_elem*)realloc(slh->extra_list, old_sz_mem + sizeof(addr_elem));`,  Function: `addr_list_add`, Status: Bug. File: ../benchmark/C/coturn_server/ns_turn_maps.c>",
+        "Explanation": "`realloc` failure causes `slh->extra_list` to be NULL, leading to NPD during array access.",
+        "Model": "Deepseek-R1",
+        "Is Reproduce": "No",
+        "Functions": [
+            {
+                "Function": "addr_list_add",
+                "Function Body": "static void addr_list_add(addr_list_header* slh, const ioa_addr* key,  ur_addr_map_value_type value) {\n\n  if(!key || !value) return;\n\n  addr_elem *elem = NULL;\n  size_t i;\n\n  for(i=0;i<ADDR_ARRAY_SIZE;++i) {\n\t  if(!(slh->main_list[i].value)) {\n\t\t  elem = &(slh->main_list[i]);\n\t\t  break;\n\t  }\n  }\n\n  if(!elem && slh->extra_list) {\n\t  for(i=0;i<slh->extra_sz;++i) {\n\t\t  if(!(slh->extra_list[i].value)) {\n\t\t\t  elem = &(slh->extra_list[i]);\n\t\t\t  break;\n\t\t  }\n\t  }\n  }\n\n  if(!elem) {\n\t  size_t old_sz = slh->extra_sz;\n\t  size_t old_sz_mem = old_sz * sizeof(addr_elem);\n\t  slh->extra_list = (addr_elem*)realloc(slh->extra_list, old_sz_mem + sizeof(addr_elem));\n\t  elem = &(slh->extra_list[old_sz]);\n\t  slh->extra_sz += 1;\n  }\n\n  addr_cpy(&(elem->key),key);\n  elem->value=value;\n}"
+            }
+        ],
+        "Links": [
+            "https://github.com/coturn/coturn/tree/47008229cefaff6bfc4b231642d342f99712a5ad/src/server/ns_turn_maps.c#L623"
+        ]
+    }
+]

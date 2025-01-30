@@ -1,0 +1,44 @@
+[
+    {
+        "Function Path": "<    if (c) redisFree(c);, getRedisConfig>",
+        "Path": "<Lines: 42, 44-53, Source: `    if (c) redisFree(c);`,  Function: `getRedisConfig`, Status: Bug. File: ../benchmark/C/redis/src/redis-benchmark.c>",
+        "Explanation": "The pointer c is freed at line 46 and dereferenced at line 49 to access its connection_type field.",
+        "Model": "Claude-3.5, Deepseek-R1",
+        "Is Reproduce": "Yes",
+        "Functions": [
+            {
+                "Function": "getRedisConfig",
+                "Function Body": "static redisConfig *getRedisConfig(const char *ip, int port,\n                                   const char *hostsocket)\n{\n    redisConfig *cfg = zcalloc(sizeof(*cfg));\n    if (!cfg) return NULL;\n    redisContext *c = NULL;\n    redisReply *reply = NULL, *sub_reply = NULL;\n    if (hostsocket == NULL)\n        c = redisConnect(ip, port);\n    else\n        c = redisConnectUnix(hostsocket);\n    if (c->err) {\n        fprintf(stderr,\"Could not connect to Redis at \");\n        if (hostsocket == NULL)\n            fprintf(stderr,\"%s:%d: %s\\n\",ip,port,c->errstr);\n        else fprintf(stderr,\"%s: %s\\n\",hostsocket,c->errstr);\n        goto fail;\n    }\n    redisAppendCommand(c, \"CONFIG GET %s\", \"save\");\n    redisAppendCommand(c, \"CONFIG GET %s\", \"appendonly\");\n    int i = 0;\n    void *r = NULL;\n    for (; i < 2; i++) {\n        int res = redisGetReply(c, &r);\n        if (reply) freeReplyObject(reply);\n        reply = ((redisReply *) r);\n        if (res != REDIS_OK || !r) goto fail;\n        if (reply->type == REDIS_REPLY_ERROR) {\n            fprintf(stderr, \"ERROR: %s\\n\", reply->str);\n            goto fail;\n        }\n        if (reply->type != REDIS_REPLY_ARRAY || reply->elements < 2) goto fail;\n        sub_reply = reply->element[1];\n        char *value = sub_reply->str;\n        if (!value) value = \"\";\n        switch (i) {\n        case 0: cfg->save = sdsnew(value); break;\n        case 1: cfg->appendonly = sdsnew(value); break;\n        }\n    }\n    if (reply) freeReplyObject(reply);\n    if (c) redisFree(c);\n    return cfg;\nfail:\n    if (reply) freeReplyObject(reply);\n    if (c) redisFree(c);\n    zfree(cfg);\n    fprintf(stderr, \"ERROR: failed to fetch CONFIG from \");\n    if (c->connection_type == REDIS_CONN_TCP)\n        fprintf(stderr, \"%s:%d\\n\", c->tcp.host, c->tcp.port);\n    else if (c->connection_type == REDIS_CONN_UNIX)\n        fprintf(stderr, \"%s\\n\", c->unix_sock.path);\n    return NULL;\n}"
+            }
+        ],
+        "Links": [
+            "https://github.com/redis/redis/tree/8fadebfcca0d514fd6949eaa72599ab5e163bd4c/src/redis-benchmark.c#L284"
+        ]
+    },
+    {
+        "Function Path": "<    free(s);, strbuf_free> --> <        strbuf_free(json);, json_check_encode_depth> --> <        json_check_encode_depth(l, cfg, current_depth, json);, json_append_data>",
+        "Path": "<Lines: 3, 9-10, Source: `    free(s);`,  Function: `strbuf_free`, Status: Unknown. File: ../benchmark/C/redis/deps/lua/src/strbuf.c> --> <Lines: 2-18, Source: `strbuf_free(json);`,  Function: `json_check_encode_depth`, Status: Unknown. File: ../benchmark/C/redis/deps/lua/src/lua_cjson.c> --> <Lines: 19-22, Source: `json_check_encode_depth(l, cfg, current_depth, json);`,  Function: `json_append_data`, Status: Bug. File: ../benchmark/C/redis/deps/lua/src/lua_cjson.c>",
+        "Explanation": "The src object propagates to the caller function through pointer parameter `s`.\nThe src object propagates to the caller function through the pointer parameter `json`.\nWhen lua_type(l, -1) is LUA_TTABLE, the freed pointer json from line 21 reaches the usage at line 22 where it's used as an argument to lua_array_length. This constitutes a use-after-free bug.",
+        "Model": "Claude-3.5",
+        "Is Reproduce": "No",
+        "Functions": [
+            {
+                "Function": "strbuf_free",
+                "Function Body": "void strbuf_free(strbuf_t *s)\n{\n    debug_stats(s);\n\n    if (s->buf) {\n        free(s->buf);\n        s->buf = NULL;\n    }\n    if (s->dynamic)\n        free(s);\n}"
+            },
+            {
+                "Function": "json_check_encode_depth",
+                "Function Body": "static void json_check_encode_depth(lua_State *l, json_config_t *cfg,\n                                    int current_depth, strbuf_t *json)\n{\n    \n\n\n\n\n\n\n\n\n\n    if (current_depth <= cfg->encode_max_depth && lua_checkstack(l, 3))\n        return;\n\n    if (!cfg->encode_keep_buffer)\n        strbuf_free(json);\n\n    luaL_error(l, \"Cannot serialise, excessive nesting (%d)\",\n               current_depth);\n}"
+            },
+            {
+                "Function": "json_append_data",
+                "Function Body": "static void json_append_data(lua_State *l, json_config_t *cfg,\n                             int current_depth, strbuf_t *json)\n{\n    int len;\n\n    switch (lua_type(l, -1)) {\n    case LUA_TSTRING:\n        json_append_string(l, json, -1);\n        break;\n    case LUA_TNUMBER:\n        json_append_number(l, cfg, json, -1);\n        break;\n    case LUA_TBOOLEAN:\n        if (lua_toboolean(l, -1))\n            strbuf_append_mem(json, \"true\", 4);\n        else\n            strbuf_append_mem(json, \"false\", 5);\n        break;\n    case LUA_TTABLE:\n        current_depth++;\n        json_check_encode_depth(l, cfg, current_depth, json);\n        len = lua_array_length(l, cfg, json);\n        if (len > 0)\n            json_append_array(l, cfg, current_depth, json, len);\n        else\n            json_append_object(l, cfg, current_depth, json);\n        break;\n    case LUA_TNIL:\n        strbuf_append_mem(json, \"null\", 4);\n        break;\n    case LUA_TLIGHTUSERDATA:\n        if (lua_touserdata(l, -1) == NULL) {\n            strbuf_append_mem(json, \"null\", 4);\n            break;\n        }\n    default:\n        \n\n        json_encode_exception(l, cfg, json, -1, \"type not supported\");\n        \n    }\n}"
+            }
+        ],
+        "Links": [
+            "https://github.com/redis/redis/tree/8fadebfcca0d514fd6949eaa72599ab5e163bd4c/deps/lua/src/strbuf.c#L113",
+            "https://github.com/redis/redis/tree/8fadebfcca0d514fd6949eaa72599ab5e163bd4c/deps/lua/src/lua_cjson.c#L553",
+            "https://github.com/redis/redis/tree/8fadebfcca0d514fd6949eaa72599ab5e163bd4c/deps/lua/src/lua_cjson.c#L680"
+        ]
+    }
+]
