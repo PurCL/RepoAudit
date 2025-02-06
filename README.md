@@ -1,6 +1,6 @@
-# LLMSCAN
+# RepoScan
 
-LLMSCAN is a tool designed to parse and analyze source code to instantiate LLM-based program analysis. Based on Tree-sitter, it provides functionality to identify and extract functions from the source code, along with their metadata such as function name, line numbers, parameters, call sites, and other program constructs (including branches and loops). Importantly, it achieves light-weighted call graph analysis based on parsing, which enables more effective code browsing and navigation for real-world programs. The latest version of LLMSCAN can support four programming languages, including C, C++, Java, and Python.
+RepoScan is a tool designed to parse and analyze source code to instantiate LLM-based program analysis. Based on Tree-sitter, it provides functionality to identify and extract functions from the source code, along with their metadata such as function name, line numbers, parameters, call sites, and other program constructs (including branches and loops). Importantly, it achieves light-weighted call graph analysis based on parsing, which enables more effective code browsing and navigation for real-world programs. The latest version of LLMSCAN can support four programming languages, including C, C++, Java, and Python.
 
 ## Features
 
