@@ -1,0 +1,26 @@
+{
+    "<    Callback* callback = NULL;, erase>": [
+        {
+            "Path": "<Lines: 3-7, 9-15, Source: `    Callback* callback = NULL;`,  Function: `erase`, Status: Bug. File: ../benchmark/C++/sofa-pbrpc/src/sofa/pbrpc/timeout_manager_impl.cc>",
+            "Explanation": "The pointer `callback` is deferenced at line 12 without any NULL check.",
+            "SrcSinkPath": "<Name:erase, ID:161, SRC:104, SINK:113>",
+            "Validate": "FP"
+        }
+    ],
+    "<                char* endptr = NULL;, ParseInternal>": [
+        {
+            "Path": "<Lines: 82-94, Source: `                char* endptr = NULL;`,  Function: `ParseInternal`, Status: Bug. File: ../benchmark/C++/sofa-pbrpc/src/sofa/pbrpc/http_rpc_request_parser.cc>",
+            "Explanation": "The NULL value of pointer `endptr` at line 88 is deferenced at line 90 without any NULL check after being passed to strtoll at line 89.",
+            "SrcSinkPath": "<Name:ParseInternal, ID:185, SRC:205, SINK:207>",
+            "Validate": "FP"
+        }
+    ],
+    "<            _desc_pool = NULL;, UpdateServiceInfo>": [
+        {
+            "Path": "<Lines: 29, 32-47, Source: `            _desc_pool = NULL;`,  Function: `UpdateServiceInfo`, Status: Bug. File: ../benchmark/C++/sofa-pbrpc/src/sofa/pbrpc/http-agent/http_agent.cc>",
+            "Explanation": "After NULL assignment at line 29, `_desc_pool` is dereferenced at line 37 without any NULL check.",
+            "SrcSinkPath": "<Name:UpdateServiceInfo, ID:382, SRC:71, SINK:79>",
+            "Validate": "FP"
+        }
+    ]
+}
