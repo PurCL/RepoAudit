@@ -9,7 +9,7 @@ RepoScan is a repo-level bug detector for data-flow bugs. Currently it supports 
 1. Clone the repository:
 
    ```sh
-   git clone git@github.com:PurCL/RepoScan.git
+   git clone git@github.com:PurCL/RepoScan.git --recursive
    cd RepoScan
    ```
 
