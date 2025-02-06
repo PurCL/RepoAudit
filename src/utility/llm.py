@@ -194,7 +194,6 @@ class LLM:
             raise KeyboardInterrupt("Simulating Ctrl+C")
 
         api_key = os.environ.get("DEEPSEEK_API_KEY")
-        api_key = os.environ.get("DEEPSEEK_API_KEY2")
 
         model_input = [
             {
