@@ -53,12 +53,12 @@ def get_function_content(path, src_sink_path, language_setting="C") -> dict:
         with open(file, "r") as f:
             file_code = f.read()
             tree = parser.parse(bytes(file_code, "utf8"))
-            function_body = parse_function_body(file_code, function_name, tree)
+            function_body = parse_function_body(file_code, function_name, tree, line_number=int(src_line_match[i]))
             result[function_name] = function_body
 
     return result
 
-def parse_function_body(source_code:str, tgt_function_name, tree:tree_sitter.Tree) -> str:
+def parse_function_body(source_code:str, tgt_function_name, tree:tree_sitter.Tree, line_number) -> str:
     """
     Parse the function body of the given function name
     """
@@ -95,7 +95,11 @@ def parse_function_body(source_code:str, tgt_function_name, tree:tree_sitter.Tre
                 break
         if not is_function_definition:
             continue
-
+        
+        function_start_line = source_code[:function_node.start_byte].count("\n") + 1
+        function_end_line = source_code[:function_node.end_byte].count("\n") + 1
+        if function_start_line > line_number or function_end_line < line_number:
+            continue
         function_body = source_code[function_node.start_byte:function_node.end_byte]
     return function_body
 
