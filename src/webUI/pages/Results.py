@@ -145,10 +145,24 @@ def main():
     result_path = f"{BASE_PATH}/result-{model}/{bug_type}/{language}_{selected_project}/bug_report.json"
 
     if Path(result_path).exists():
-        if st.button("Show Results"):
-            with open(result_path, 'r') as f:
-                results = json.load(f)
-            st.session_state.analysis_results = results
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            if st.button("Show All Results"):
+                with open(result_path, 'r') as f:
+                    results = json.load(f)
+                st.session_state.analysis_results = results
+        with col2:
+            if st.button("Show TP Results"):
+                with open(result_path, 'r') as f:
+                    all_results = json.load(f)
+                    # Filter results to keep only TP items
+                    tp_results = {
+                        key: items for key, items in all_results.items() 
+                        if any(item.get("Type", item.get("Validate")) == "TP" for item in items)
+                    }
+                st.session_state.analysis_results = tp_results
+        with col3:
+            pass
     else:
         st.info("No analysis results available. Please run analysis first.")
         
@@ -181,22 +195,24 @@ def main():
                     st.session_state.bug_validations[validation_key] = item["Type"] if "Type" in item else item["Validate"]
                 
                 st.write("**Bug Validation:**")
-                validation = st.radio(
-                    "Is this bug true positive or false positive?",
-                    options=["TP", "FP", "Unsure"],
-                    key=validation_key,
-                    horizontal=True,
-                    index=["TP", "FP", "Unsure"].index(st.session_state.bug_validations[validation_key])
-                )
+                col1, col2 = st.columns(2)
+                with col1:
+                    validation = st.radio(
+                        "Is this bug true positive or false positive?",
+                        options=["TP", "FP", "Unsure"],
+                        key=validation_key,
+                        horizontal=True,
+                        index=["TP", "FP", "Unsure"].index(st.session_state.bug_validations[validation_key])
+                    )
                 
-                if validation != st.session_state.bug_validations.get(validation_key):
-                    st.session_state.bug_validations[validation_key] = validation
-                
-                if st.button("Save", key=f"save_{key}"):
-                    item["Type"] = validation
-                    with open(result_path, 'w') as f:
-                        json.dump(results, f, indent=4)
-
+                    if validation != st.session_state.bug_validations.get(validation_key):
+                        st.session_state.bug_validations[validation_key] = validation
+                with col2:
+                    if st.button("Save", key=f"save_{key}", use_container_width=True):
+                        item["Type"] = validation
+                        with open(result_path, 'w') as f:
+                            json.dump(results, f, indent=4)
+                            
                 # Show function content
                 if st.button(
                     "Show Function Content" if not st.session_state.show_function.get(key) 
