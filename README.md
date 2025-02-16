@@ -3,6 +3,12 @@
 RepoScan is a repo-level bug detector for data-flow bugs. Currently it supports the detection of 3 types of bug: Null Pointer Dereference (NPD), Memory Leak (MLK) and Use After Free (UAF). It leverages [LLMSCAN](https://github.com/PurCL/LLMSCAN) to parse the codebase and use LLM to simulate the program's execution to analyze the data-flow facts starting with the designated source points.
 
 
+## Features
+- Compilation Free Analysis of C/C++ Code
+- Multiple Bug Type Detection
+- Detailed Bug Reports
+- Convinent WebUI Interface
+
 
 ## Installation
 
@@ -42,7 +48,8 @@ RepoScan is a repo-level bug detector for data-flow bugs. Currently it supports 
    * sofa-pbrpc (NPD)
    * memcached (ML)
 
-2. Run the test script:
+
+2. (Option1) Command Line: Run the test script
 
    ```sh
    cd src
@@ -52,6 +59,13 @@ RepoScan is a repo-level bug detector for data-flow bugs. Currently it supports 
    
    # For null pointer dereference bug detection
    ./test_NPD.sh
+   ```
+
+3. (Option2) WebUI:
+
+   ```sh
+   cd src/webUI
+   streamlit run Home.py
    ```
 
 The extracted source and sink lists are dumped in the directory `result`. The detection results are dumped in the directory `result-{model_name}`.
