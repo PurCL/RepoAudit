@@ -214,8 +214,11 @@ def main():
                 with col2:
                     if st.button("Save", key=f"save_{key}", use_container_width=True):
                         item["Type"] = validation
+                        with open(result_path, 'r') as f:
+                            temp_results = json.load(f)
+                        temp_results[key][0]["Type"] = validation
                         with open(result_path, 'w') as f:
-                            json.dump(results, f, indent=4)
+                            json.dump(temp_results, f, indent=4)
                             
                 # Show function content
                 if st.button(
