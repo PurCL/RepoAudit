@@ -4,7 +4,8 @@ from pathlib import Path
 import glob
 from pipeline.apiscan import *
 from pipeline.metascan import *
-from pipeline.bugscan import *
+from pipeline.dataflow_scan import *
+from pipeline.neumeric_scan import *
 
 class BatchScan:
     def __init__(
@@ -72,8 +73,8 @@ class BatchScan:
             )
             metascan_pipeline.start_scan()
 
-        if "bugscan" in self.scanners:
-            bugscan_pipeline = BugScanPipeline(
+        if "dataflow" in self.scanners:
+            dataflowScan_pipeline = DataflowBugScanPipeline(
                 self.src_spec_file,
                 self.sink_spec_file,
                 self.analyze_prompt_file,
@@ -87,8 +88,23 @@ class BatchScan:
                 self.bug_type,
                 self.sink_functions
             )
-            bugscan_pipeline.start_scan()
-
+            dataflowScan_pipeline.start_scan()
+        
+        if "neumeric" in self.scanners:
+            neumericScan_pipeline = NeumericBugScanPipeline(
+                self.src_spec_file,
+                self.sink_spec_file,
+                self.analyze_prompt_file,
+                self.validate_prompt_file,
+                project_name,
+                self.language,
+                self.all_files,
+                self.inference_model_name,
+                self.temperature,
+                self.is_fscot,
+                self.bug_type
+            )
+            neumericScan_pipeline.start_scan()
 
     def travese_files(self, project_path: str, suffixs: List) -> None:
         """
@@ -113,7 +129,7 @@ def run_dev_mode():
     )
     parser.add_argument(
         "--bug-type",
-        choices=["NPD", "ML", "UAF"],
+        choices=["NPD", "ML", "UAF", "BOF"],
         help="Specify the bug type",
     )
     parser.add_argument(
@@ -133,7 +149,9 @@ def run_dev_mode():
             "gpt-4-turbo",
             "gemini",
             "gpt-4o-mini",
-            "claude",
+            "o3-mini",
+            "claude-3.5",
+            "claude-3.7",
             "deepseek-chat",
             "deepseek-reasoner"
         ],
@@ -152,7 +170,7 @@ def run_dev_mode():
     parser.add_argument(
         "--scanners",
         nargs='+',
-        choices=["metascan", "bugscan"],
+        choices=["metascan", "dataflow", "neumeric"],
         help="Specify which scanners to invoke",
     )
     parser.add_argument(
@@ -212,7 +230,6 @@ def run_dev_mode():
         bug_type,
         sink_functions
     )
-    print("Starting batch scan...")
     batch_scan.start_batch_scan()
 
 

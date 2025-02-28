@@ -24,7 +24,7 @@ class PostPath:
         self.src_name = src_name
 
 
-class BugScanPipeline:
+class DataflowBugScanPipeline:
     def __init__(self,
                  src_spec_file,
                  sink_spec_file,
@@ -101,11 +101,10 @@ class BugScanPipeline:
         result_dir_path = str(
             Path(__file__).resolve().parent.parent.parent / (f"result-{self.model_name}/{self.bug_type}/{self.project_name}")
         )
-
         if not os.path.exists(result_dir_path):
             os.makedirs(result_dir_path)
 
-        print("Start Path scan...")
+        print("Start Dataflow scan...")
         src_lines = []
         with open (self.src_spec_file, "r") as f:
             src_spec = json.load(f)
@@ -129,7 +128,7 @@ class BugScanPipeline:
             src_function = self.ts_analyzer.get_function_from_localvalue(src)
             if src_function == None:
                 continue
-            key = (src.line_number, src_function.function_name)
+            key = (src.line_number, src_function.function_name, src_function.file_name)
 
             print("\n\n")
             print(src)

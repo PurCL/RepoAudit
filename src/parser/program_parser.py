@@ -33,6 +33,7 @@ class TSParser:
         self.functionNameToId = {}
         self.functionToFile = {}
         self.fileContentDic = {}
+        self.macro_map = {}
 
         cwd = Path(__file__).resolve().parent.absolute()
         TSPATH = cwd / "../../lib/build/"
@@ -132,6 +133,60 @@ class TSParser:
         return
     
 
+    def parse_macro_info(self, file_path: str, source_code: str, tree: tree_sitter.Tree) -> None:
+        """
+        Parse the global variable information in a source file.
+        :param file_path: The path of the source file.
+        :param source_code: The content of the source file.
+        :param tree: The parse tree of the source file.
+        """
+        # TODO: only support C/C++ now
+        if not self.language_setting in ["C", "C++"]:
+            return
+        all_macro_nodes = TSAnalyzer.find_nodes_by_type(tree.root_node, "preproc_def")
+
+        for node in all_macro_nodes:
+            macro_name = ""
+            macro_definition = ""
+            for child in node.children:
+                if child.type == "identifier":
+                    macro_name = source_code[child.start_byte:child.end_byte]
+                if child.type == "preproc_arg":
+                    macro_definition = source_code[child.start_byte:child.end_byte]
+            if macro_name != "" and macro_definition != "":
+                self.macro_map[macro_name] = macro_definition
+        
+        all_macro_nodes = TSAnalyzer.find_nodes_by_type(tree.root_node, "preproc_function_def")
+
+        for node in all_macro_nodes:
+            function_name = ""
+            for child in node.children:
+                if child.type == "identifier":
+                    function_name = source_code[child.start_byte:child.end_byte]
+                if child.type == "preproc_params":
+                    function_name += source_code[child.start_byte:child.end_byte]
+            if function_name == "":
+                continue
+            function_node = node
+            start_line_number = source_code[: function_node.start_byte].count("\n") + 1
+            end_line_number = source_code[: function_node.end_byte].count("\n") + 1
+            function_id = len(self.functionRawDataDic) + 1
+            
+            self.functionRawDataDic[function_id] = (
+                function_name,
+                start_line_number,
+                end_line_number,
+                function_node
+            )
+            self.functionToFile[function_id] = file_path
+            
+            if function_name not in self.functionNameToId:
+                self.functionNameToId[function_name] = set([])
+            self.functionNameToId[function_name].add(function_id)
+
+        return
+
+
     def parse_project(self) -> None:
         """
         Parse the project.
@@ -142,6 +197,7 @@ class TSParser:
             source_code = self.code_in_projects[file_path]
             tree = self.parser.parse(bytes(source_code, "utf8"))
             self.parse_function_info(file_path, source_code, tree)
+            self.parse_macro_info(file_path, source_code, tree)
             self.fileContentDic[file_path] = source_code
         return
 
@@ -168,6 +224,9 @@ class TSAnalyzer:
         # (1) AST node type analysis
         # (2) intraprocedural control flow analysis
         self.environment = {}  
+
+        # Macro variable map
+        self.macro_map = self.ts_parser.macro_map
 
         # Results of call graph analysis
         self.caller_callee_map = {}
@@ -314,7 +373,7 @@ class TSAnalyzer:
                 for element in arg_list:
                     if element.type != ",":
                         arguments.append(source_code[element.start_byte:element.end_byte])
-            return arguments
+        return arguments
     
 
     def find_callee(self, file_content: str, call_site_node: tree_sitter.Node) -> List[int]:
@@ -326,6 +385,9 @@ class TSAnalyzer:
         callee_name = self.get_callee_name_at_call_site(call_site_node, file_content, self.ts_parser.language_setting)
         arguments = self.get_arguments_at_call_site(call_site_node, file_content)
         temp_callee_ids = []
+        # support macro defination
+        while callee_name in self.ts_parser.macro_map:
+            callee_name = self.ts_parser.macro_map[callee_name]
         if callee_name in self.ts_parser.functionNameToId:
             temp_callee_ids.extend(list(self.ts_parser.functionNameToId[callee_name]))
         # check parameter number and the argument number
@@ -362,6 +424,7 @@ class TSAnalyzer:
     def extract_paras_in_C_CPP(self, current_function: Function, file_content: str) -> Set[Tuple[str, int, int]]:
         paras = set([])
         parameters = self.find_nodes_by_type(current_function.parse_tree_root_node, "parameter_declaration")
+        parameters.extend(self.find_nodes_by_type(current_function.parse_tree_root_node, "preproc_params"))
         index = 0
         for parameter_node in parameters:
             for sub_node in TSAnalyzer.find_nodes_by_type(parameter_node, "identifier"):                
@@ -985,7 +1048,11 @@ class TSAnalyzer:
     def get_callee_functions_by_name(self, function: Function, callee:str) -> List[Function]:
         """
         Get the callee function of the function with name `callee`.
+        :param function: the function to be analyzed
+        :param callee: the name of the callee function
         """
+        while callee in self.ts_parser.macro_map:
+            callee = self.ts_parser.macro_map[callee]
         if function.function_id not in self.caller_callee_map.keys():
             return []
         callee_list = []
@@ -994,9 +1061,12 @@ class TSAnalyzer:
                 callee_list.append(self.environment[callee_id])
         return callee_list
     
+
     def get_parameter_by_index(self, function: Function, index: int) -> LocalValue:
         """
         Get the parameter of the function with index `index`.
+        :param function: the function to be analyzed
+        :param index: the index of the parameter, starting from 0
         """
         file_code = self.code_in_projects[function.file_name]
         parameters = self.find_nodes_by_type(function.parse_tree_root_node, "parameter_declaration")
@@ -1010,9 +1080,13 @@ class TSAnalyzer:
         line_number = file_code[:parameter_node.start_byte].count("\n") + 1
         return LocalValue(name, line_number, ValueType.PARA, function.file_name)
     
+
     def get_argument_by_index(self, function: Function, callee_name: str, index: int) -> List[LocalValue]:
         """
-        Get the argument by callee_name and index
+        Get the argument by callee_name and index.
+        :param function: the function to be analyzed
+        :param callee_name: the name of the callee function
+        :param index: the index of the argument, starting from 0
         """
         result = []
         call_site_nodes = self.find_nodes_by_type(function.parse_tree_root_node, "call_expression")
@@ -1061,6 +1135,7 @@ class TSAnalyzer:
                         result.append(LocalValue(name, line_number, ValueType.RET, function.file_name))
         return result
 
+
     def get_name_by_line_number(self, line_number: int, file_name: str) -> str:
         """
         Get the content at `line_number` in `file`.
@@ -1072,6 +1147,7 @@ class TSAnalyzer:
         if line_number > len(file_lines):
             return ""
         return file_lines[line_number - 1]
+
 
     def extract_global_variables(self, function: Function) -> List[LocalValue]:
         """

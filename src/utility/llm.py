@@ -8,11 +8,16 @@ import sys
 import tiktoken
 import time
 import os
+import concurrent.futures
+from functools import partial
+import threading
 
 import json
 from botocore.config import Config
 from botocore.exceptions import BotoCoreError, ClientError
 import boto3
+
+
 
 class LLM:
     """
@@ -36,6 +41,9 @@ class LLM:
     ) -> Tuple[str, int, int]:
         print(self.online_model_name, "is running")
         output = ""
+        self.local = False
+        if "local" in self.online_model_name:
+            self.local = True
         if "gemini" in self.online_model_name:
             output = self.infer_with_gemini(message)
         elif "gpt" in self.online_model_name:
@@ -57,144 +65,91 @@ class LLM:
         )
         return output, input_token_cost, output_token_cost
 
-    def infer_with_gemini(self, message: str) -> str:
-        """
-        Infer using the Gemini model from Google Generative AI
-        """
-        def timeout_handler(signum, frame):
-            raise TimeoutError("ChatCompletion timeout")
-
-        def simulate_ctrl_c(signal, frame):
-            raise KeyboardInterrupt("Simulating Ctrl+C")
-
-        gemini_model = genai.GenerativeModel("gemini-pro")
-        signal.signal(signal.SIGALRM, timeout_handler)
-
-        received = False
-        tryCnt = 0
-        while not received:
-            tryCnt += 1
-            time.sleep(2)
+    def run_with_timeout(self, func, timeout):
+        """Run a function with timeout that works in multiple threads"""
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+            future = executor.submit(func)
             try:
-                signal.alarm(50)  # Set a timeout of 50 seconds
-                message = self.systemRole + "\n" + message
-
-                safety_settings = [
-                    {
-                        "category": "HARM_CATEGORY_DANGEROUS",
-                        "threshold": "BLOCK_NONE",
-                    },
-                    {
-                        "category": "HARM_CATEGORY_HARASSMENT",
-                        "threshold": "BLOCK_NONE",
-                    },
-                    {
-                        "category": "HARM_CATEGORY_HATE_SPEECH",
-                        "threshold": "BLOCK_NONE",
-                    },
-                    {
-                        "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT",
-                        "threshold": "BLOCK_NONE",
-                    },
-                    {
-                        "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
-                        "threshold": "BLOCK_NONE",
-                    },
-                ]
-
-                response = gemini_model.generate_content(
-                    message,
-                    safety_settings=safety_settings,
-                    generation_config=genai.types.GenerationConfig(
-                        temperature=self.temperature
-                    ),
-                )
-                time.sleep(2)
-                signal.alarm(0)  # Cancel the timeout
-                output = response.text
-                print("Inference succeeded...")
-                return output
-            except TimeoutError:
-                print("ChatCompletion call timed out")
-                received = False
-                simulate_ctrl_c(None, None)  # Simulate Ctrl+C effect
-            except KeyboardInterrupt:
-                print("ChatCompletion cancelled by user")
-                received = False
-                continue
-            except Exception:
-                print("API error:", sys.exc_info())
+                return future.result(timeout=timeout)
+            except concurrent.futures.TimeoutError:
+                print("Operation timed out")
                 return ""
-            if tryCnt > 5:
+            except Exception as e:
+                print(f"Operation failed: {e}")
                 return ""
+
+    def infer_with_gemini(self, message: str) -> str:
+        """Infer using the Gemini model from Google Generative AI"""
+        gemini_model = genai.GenerativeModel("gemini-pro")
+        
+        def call_api():
+            message_with_role = self.systemRole + "\n" + message
+            safety_settings = [
+                {
+                    "category": "HARM_CATEGORY_DANGEROUS",
+                    "threshold": "BLOCK_NONE",
+                },
+                # ...existing safety settings...
+            ]
+            
+            response = gemini_model.generate_content(
+                message_with_role,
+                safety_settings=safety_settings,
+                generation_config=genai.types.GenerationConfig(
+                    temperature=self.temperature
+                ),
+            )
+            return response.text
+
+        tryCnt = 0
+        while tryCnt < 5:
+            tryCnt += 1
+            try:
+                output = self.run_with_timeout(call_api, timeout=50)
+                if output:
+                    print("Inference succeeded...")
+                    return output
+            except Exception as e:
+                print(f"API error: {e}")
+            time.sleep(2)
+        
+        return ""
 
     def infer_with_openai_model(self, message):
-        """
-        Infer using the OpenAI model
-        """
-        def timeout_handler(signum, frame):
-            raise TimeoutError("ChatCompletion timeout")
-
-        def simulate_ctrl_c(signal, frame):
-            raise KeyboardInterrupt("Simulating Ctrl+C")
-
+        """Infer using the OpenAI model"""
         api_key = os.environ.get("OPENAI_API_KEY").split(":")[0]
-
         model_input = [
-            {
-                "role": "system",
-                "content": self.systemRole,
-            },
+            {"role": "system", "content": self.systemRole},
             {"role": "user", "content": message},
         ]
+        
+        def call_api():
+            client = OpenAI(api_key=api_key)
+            response = client.chat.completions.create(
+                model=self.online_model_name,
+                messages=model_input,
+                temperature=self.temperature,
+            )
+            return response.choices[0].message.content
 
-        received = False
         tryCnt = 0
-        output = ""
-
-        signal.signal(signal.SIGALRM, timeout_handler)
-        while not received:
+        while tryCnt < 5:
             tryCnt += 1
-            time.sleep(2)
             try:
-                signal.alarm(100)  # Set a timeout of 100 seconds
-                client = OpenAI(api_key=api_key)
-                response = client.chat.completions.create(
-                    model=self.online_model_name,
-                    messages=model_input,
-                    temperature=self.temperature,
-                )
-
-                signal.alarm(0)  # Cancel the timeout
-                output = response.choices[0].message.content
-                break
-            except TimeoutError:
-                print("ChatCompletion call timed out")
-                received = False
-                simulate_ctrl_c(None, None)  # Simulate Ctrl+C effect
-            except KeyboardInterrupt:
-                print("ChatCompletion cancelled by user")
-                output = ""
-                break
-            except Exception:
-                print("API error:", sys.exc_info())
-                received = False
-            if tryCnt > 5:
-                output = ""
-        return output
+                output = self.run_with_timeout(call_api, timeout=100)
+                if output:
+                    return output
+            except Exception as e:
+                print(f"API error: {e}")
+            time.sleep(2)
+        
+        return ""
     
     def infer_with_deepseek_model(self, message):
         """
         Infer using the DeepSeek model
         """
-        def timeout_handler(signum, frame):
-            raise TimeoutError("ChatCompletion timeout")
-
-        def simulate_ctrl_c(signal, frame):
-            raise KeyboardInterrupt("Simulating Ctrl+C")
-
-        api_key = os.environ.get("DEEPSEEK_API_KEY")
-
+        api_key = os.environ.get("DEEPSEEK_API_KEY2")
         model_input = [
             {
                 "role": "system",
@@ -203,53 +158,44 @@ class LLM:
             {"role": "user", "content": message},
         ]
 
-        received = False
-        tryCnt = 0
-        output = ""
-
-        signal.signal(signal.SIGALRM, timeout_handler)
-        while not received:
-            tryCnt += 1
-            time.sleep(2)
-            try:
-                signal.alarm(100)  # Set a timeout of 100 seconds
+        def call_api():
+            if self.local:
+                client = OpenAI(base_url="http://10.145.21.28:8083/v1", api_key="guo233")
+                response = client.chat.completions.create(
+                    model="deepseek-ai/DeepSeek-R1-Distill-Llama-70B",
+                    messages=model_input,
+                    temperature=self.temperature,
+                )
+                return response.choices[0].message.content
+            else:
                 client = OpenAI(api_key=api_key, base_url="https://api.deepseek.com")
                 response = client.chat.completions.create(
                     model=self.online_model_name,
                     messages=model_input,
                     temperature=self.temperature,
                 )
+                return response.choices[0].message.content
 
-                signal.alarm(0)  # Cancel the timeout
-                output = response.choices[0].message.content
-                break
-            except TimeoutError:
-                print("ChatCompletion call timed out")
-                received = False
-                simulate_ctrl_c(None, None)  # Simulate Ctrl+C effect
-            except KeyboardInterrupt:
-                print("ChatCompletion cancelled by user")
-                output = ""
-                break
-            except Exception:
-                print("API error:", sys.exc_info())
-                received = False
-            if tryCnt > 5:
-                output = ""
-        return output
+        tryCnt = 0
+        while tryCnt < 5:
+            tryCnt += 1
+            try:
+                output = self.run_with_timeout(call_api, timeout=300)
+                if output:
+                    return output
+            except Exception as e:
+                print(f"API error: {e}")
+            time.sleep(2)
+        
+        return ""
 
     def infer_with_claude(self, message):
-        """
-        Infer using the OpenAI model
-        """
-        def timeout_handler(signum, frame):
-            raise TimeoutError("ChatCompletion timeout")
-
-        def simulate_ctrl_c(signal, frame):
-            raise KeyboardInterrupt("Simulating Ctrl+C")
-
-        model_id = "anthropic.claude-3-5-sonnet-20241022-v2:0"
-
+        """Infer using the Claude model via AWS Bedrock"""
+        if "3.5" in self.online_model_name:
+            model_id = "anthropic.claude-3-5-sonnet-20241022-v2:0"
+        if "3.7" in self.online_model_name:
+            model_id = "us.anthropic.claude-3-7-sonnet-20250219-v1:0"
+        
         model_input = [
             {
                 "role": "assistant",
@@ -258,49 +204,39 @@ class LLM:
             {"role": "user", "content": message},
         ]
         
-        body = json.dumps(
-        {
+        body = json.dumps({
             "messages": model_input,
             "max_tokens": 4000,
             "anthropic_version": "bedrock-2023-05-31",
             "temperature": self.temperature,
             "top_k": 50,
-        }
-        )
+        })
 
-        received = False
+        def call_api():
+            client = boto3.client(
+                "bedrock-runtime", 
+                region_name="us-west-2", 
+                config=Config(read_timeout=100)
+            )
+            
+            response = client.invoke_model(
+                modelId=model_id,
+                contentType="application/json",
+                body=body
+            )["body"].read().decode("utf-8")
+            
+            response = json.loads(response)
+            return response["content"][0]["text"]
+
         tryCnt = 0
-        output = ""
-
-        signal.signal(signal.SIGALRM, timeout_handler)
-        while not received:
+        while tryCnt < 5:
             tryCnt += 1
-            time.sleep(2)
             try:
-                signal.alarm(100)  # Set a timeout of 100 seconds
-                client = boto3.client("bedrock-runtime", region_name="us-west-2", config=Config(read_timeout=100))
-                
-                response = client.invoke_model(
-                    modelId=model_id,
-                    contentType="application/json",
-                    body = body
-                )["body"].read().decode("utf-8")
-
-                signal.alarm(0)  # Cancel the timeout
-                response = json.loads(response)
-                output = response["content"][0]["text"]
-                break
-            except TimeoutError:
-                print("ChatCompletion call timed out")
-                received = False
-                simulate_ctrl_c(None, None)  # Simulate Ctrl+C effect
-            except KeyboardInterrupt:
-                print("ChatCompletion cancelled by user")
-                output = ""
-                break
-            except Exception:
-                print("API error:", sys.exc_info())
-                received = False
-            if tryCnt > 5:
-                output = ""
-        return output
+                output = self.run_with_timeout(call_api, timeout=100)
+                if output:
+                    return output
+            except Exception as e:
+                print(f"API error: {str(e)}")
+            time.sleep(2)
+        
+        return ""

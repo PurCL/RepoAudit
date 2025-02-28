@@ -10,6 +10,8 @@ class ValueType(Enum):
     OUT = 6
     FIELD = 7
     GLOBAL = 8
+    BUF = 9
+    VAR = 10
 
 
 class LocalValue:
@@ -53,4 +55,5 @@ class LocalValue:
             v_type = ValueType[v_type]
             return LocalValue(name, line_number, v_type, file, index)
         else:
-            raise ValueError("String does not match the expected format")
+            # raise ValueError("String does not match the expected format")
+            print(f"String does not match the expected format: {s}")

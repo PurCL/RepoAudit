@@ -10,7 +10,6 @@ from utility.df_state import *
 from utility.function import *
 from utility.localvalue import *
 from LMAgent.LM_agent import LMAgent
-from typing import List, Tuple, Set
 
 class DataflowAnalyzer(LMAgent):
     """

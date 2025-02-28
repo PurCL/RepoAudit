@@ -21,8 +21,7 @@ class Function:
         self.end_line_number = end_line_number
         self.file_name = file_name
 
-        self.code_without_comments = ""
-        self.lined_code_without_comments = ""
+        self.lined_code = ""
 
         # Attention: the parse tree is in the context of the whole file
         self.parse_tree_root_node = function_node  # root node of the parse tree of the current function
