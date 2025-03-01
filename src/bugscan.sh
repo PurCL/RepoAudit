@@ -1,7 +1,8 @@
 #!/bin/bash
 LANGUAGE=C
 BUG_TYPE=BOF
-PROJECT_NAME=curl
+# PROJECT_NAME=curl
+PROJECT_NAME=php-src
 SCANNER=neumeric
 
 python3 scan.py \
@@ -15,4 +16,4 @@ python3 scan.py \
   --src-spec-file ../result/$BUG_TYPE/${LANGUAGE}_${PROJECT_NAME}/src_result.json \
   --sink-spec-file ../result/$BUG_TYPE/${LANGUAGE}_${PROJECT_NAME}/sink_result.json \
   --analyze-prompt-file prompt/$BUG_TYPE/analysis_prompt.json \
-  --validate-prompt-file prompt/$BUG_TYPE/validation_prompt.json
+  --validate-prompt-file prompt/$BUG_TYPE/detection_prompt.json

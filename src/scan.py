@@ -4,7 +4,6 @@ from pathlib import Path
 import glob
 from pipeline.apiscan import *
 from pipeline.metascan import *
-from pipeline.dataflow_scan import *
 from pipeline.neumeric_scan import *
 
 class BatchScan:
@@ -72,23 +71,6 @@ class BatchScan:
                 self.temperature
             )
             metascan_pipeline.start_scan()
-
-        if "dataflow" in self.scanners:
-            dataflowScan_pipeline = DataflowBugScanPipeline(
-                self.src_spec_file,
-                self.sink_spec_file,
-                self.analyze_prompt_file,
-                self.validate_prompt_file,
-                project_name,
-                self.language,
-                self.all_files,
-                self.inference_model_name,
-                self.temperature,
-                self.is_fscot,
-                self.bug_type,
-                self.sink_functions
-            )
-            dataflowScan_pipeline.start_scan()
         
         if "neumeric" in self.scanners:
             neumericScan_pipeline = NeumericBugScanPipeline(
@@ -112,9 +94,12 @@ class BatchScan:
         """
         for suffix in suffixs:
             for file in glob.glob(f"{project_path}/**/*.{suffix}", recursive=True):
-                with open(file, "r") as c_file:
-                    c_file_content = c_file.read()
-                    self.all_files[file] = c_file_content
+                try:
+                    with open(file, "r") as c_file:
+                        c_file_content = c_file.read()
+                        self.all_files[file] = c_file_content
+                except:
+                    print(f"Error reading file {file}")
 
 
 def run_dev_mode():

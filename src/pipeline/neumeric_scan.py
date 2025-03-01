@@ -1,14 +1,12 @@
 import json
 import os
-from parser.response_parser import *
 from parser.program_parser import *
 from parser.ts_transform import *
 from utility.llm import *
 from utility.nmr_state import State
 from utility.function import *
 from utility.localvalue import *
-# from LMAgent.nmr_validator import NeumericValidator
-from LMAgent.nmr_analyzer import NeumericAnalyzer
+from LMAgent.bot2up_analyzer import Bot2UpAnalyzer
 from pathlib import Path
 
 
@@ -17,7 +15,7 @@ class NeumericBugScanPipeline:
                  src_spec_file,
                  sink_spec_file,
                  analyze_prompt_file,
-                 validate_prompt_file,
+                 detection_prompt_file,
                  project_name,
                  language,
                  all_files,
@@ -29,7 +27,7 @@ class NeumericBugScanPipeline:
         self.src_spec_file = src_spec_file
         self.sink_spec_file = sink_spec_file
         self.analyze_prompt_file = analyze_prompt_file
-        self.validate_prompt_file = validate_prompt_file
+        self.detection_prompt_file = detection_prompt_file
         self.project_name = project_name
         self.language = language
         self.all_files = all_files
@@ -42,7 +40,7 @@ class NeumericBugScanPipeline:
         self.detection_result = []
         self.ts_analyzer = TSAnalyzer(self.all_files, self.language)
         self.function_processor = TSFunctionProcessor(self.ts_analyzer, self.language)
-        self.nmr_analyzer = NeumericAnalyzer(
+        self.analyzer = Bot2UpAnalyzer(
             self.analyze_prompt_file, 
             self.model_name, 
             temperature, 
@@ -54,8 +52,9 @@ class NeumericBugScanPipeline:
             self.bug_type
             )
         self.run_info = {}
-        self.solve_info = {}
+        self.bug_info = {}
     
+
     def start_scan(self):
         log_dir_path = str(
             Path(__file__).resolve().parent.parent.parent / (f"log/{self.bug_type}/{self.project_name}")
@@ -78,104 +77,109 @@ class NeumericBugScanPipeline:
             if src_value:
                 src_list.append(src_value)
         
-        # For BOF, we need to extract the buffer and index variable
-        if self.bug_type == "BOF":
-            for i, src in enumerate(src_list):
-                name = src.name
-                src_list[i].buffer = name.split("[")[0]
-                src_list[i].index_var = name.split("[")[-1][:-1]
-        
         for src in src_list:
             # Get source function body
+            
+            # # Project curl
+            # if str(src) != "((buffer[len++], -1, 253), ValueType.SINK, ../benchmark/C/curl/lib/sendf.c)":
+            #     continue
 
-            if str(src) != "((buffer[len++], -1, 253), ValueType.SINK, ../benchmark/C/curl/lib/sendf.c)":
+            # # Project php-src
+            if str(src) != "((malloc(length + 1), -1, 2670), ValueType.BUF, ../benchmark/C/php-src/Zend/zend_alloc.c)":
                 continue
 
             src_function = self.ts_analyzer.get_function_from_localvalue(src)
             if src_function == None:
                 continue
             
-            if self.bug_type == "BOF":
-                # For BOF, we need to extract and analyze the buffer and index variable
-                buffer = LocalValue(src.name.split("[")[0], src.line_number, ValueType.BUF, src.file)
-                index_var = LocalValue(src.name.split("[")[-1][:-1], src.line_number, ValueType.VAR, src.file)
-                src_state = State(index_var, src_function, "Index")
-                result = self.nmr_analyzer.analyze(src_state, 0)
-                if not result:
-                    continue
-                buffer_state = State(buffer, src_function, "Buffer Size")
-                result = self.nmr_analyzer.analyze(buffer_state, 0)
-                if not result:
-                    continue
-                src_state.var = src
-                src_state.children.append(buffer_state)
-            else:
-                src_state = State(src, src_function)
-                result = self.nmr_analyzer.analyze(src_state, 0)
-                if not result:
-                    continue
+            src_state = State(src, src_function)
+            result = self.analyzer.analyze(src_state, 0)
+            if not result:
+                continue
 
-            key = (src.line_number, src_function.function_name, src_function.file_name)
-            self.run_info[str(key)] = self.nmr_analyzer.result_list
+            key = src_state.get_key()
+            self.run_info[key] = self.analyzer.result_list
 
-            src_state.print_all_expressions()
-            print("============================")
-            expressions_list = src_state.get_all_expressions()
-            clauses = []
-            for expressions in expressions_list:
-                if expressions == []:
-                    continue
-                # expression_literal = [f"({expression})" for expression in expressions]
-                # expression_clause = " || ".join(expression_literal)
-                # clauses.append(f"({expression_clause})")
-                expression_clause = str(expressions)
-                clauses.append(expression_clause)
-                print(expression_clause)
-            if self.bug_type == "BOF":
-                clauses.extend(["[Buffer Size > 0]", "[Index <= Buffer Size]"])
-            conjunction = " && ".join(clauses)
-            solve_result = self.solve_with_llm(conjunction, key)
+            answer, poc = self.detect_with_llm(src_state)
             
+            # For DEBUG
+            print("====================================")
+            print("Is Bug: ", answer)
+            print("PoC: ", poc)
+            print("===============================================")
 
-        with open(result_dir_path + "/run_info.json", 'w') as run_info_file:
+        with open(result_dir_path + "/slicing_info.json", 'w') as run_info_file:
             json.dump(self.run_info, run_info_file, indent=4)
 
-        with open(result_dir_path + "/solve_info.json", 'w') as solve_info_file:
-            json.dump(self.solve_info, solve_info_file, indent=4)
+        with open(result_dir_path + "/detect_info.json", 'w') as bug_info_file:
+            json.dump(self.bug_info, bug_info_file, indent=4)
 
     
-    def solve_with_llm(self, conjunction, key="") -> str:
+    def detect_with_llm(self, state:State) -> Tuple[str, str]:
         """
-        Solve the conjunction with LLM
+        Detect the bug with LLM
         """
-        with open(self.validate_prompt_file, "r") as f:
+        slice_list = state.get_all_slices()
+        inline_code = self.inline_with_LLM(slice_list)
+        with open(self.detection_prompt_file, "r") as f:
             dump_config_dict = json.load(f)
-        role = dump_config_dict["system_role"]
+        role = dump_config_dict["system_role"].replace("<LANGUAGE>", self.language)
         solve_model = LLM(self.model_name, self.temp, role)
-        answer = "\n".join(dump_config_dict["answer_format"])
+        message = dump_config_dict["task"]
+        message += "\n" + "\n".join(dump_config_dict["analysis_rules"])
+        # message += "\n" + "\n".join(dump_config_dict["analysis_examples"])
+        message += "\n" + "".join(dump_config_dict["meta_prompts"])
+        message = message.replace("<ANSWER>", "\n".join(dump_config_dict["answer_format"]))
+        message = message.replace("<QUESTION>", dump_config_dict["question_template"])
+
+        message = message.replace("<FUNCTION>", inline_code)
+        message = message.replace("<SRC_NAME>", state.var.name)
+
+        current_query_num = 0
+        while current_query_num < self.MAX_QUERY_NUM:
+            current_query_num += 1
+            output, input_token_cost, output_token_cost = solve_model.infer(message, True)
+            
+            answer_match = re.search(r'Answer:\s*(\w+)', output)
+            poc_match = re.search(r'PoC:\s*(.*)', output, re.DOTALL)
+            if answer_match:
+                answer = answer_match.group(1).strip()
+            else:
+                print(f"Answer not found in output")
+                continue
+            poc = poc_match.group(1).strip() if poc_match else ""
+            
+            key = state.get_key()
+            self.bug_info[key] = {"Message":message, "Output": output, "Slices": slice_list, "Inlined Function": inline_code, "Is Bug": answer, "PoC": poc}
+            break
+        return answer, poc
+    
+
+    def inline_with_LLM(self, slices:list[str]):
+        """
+        Inline the slices with LLM
+        """
+        inline_prompt_file = "/data4/guo846/RepoAudit-Neumeric/src/prompt/BOF/inline_prompt.json"
+        with open(inline_prompt_file, "r") as f:
+            dump_config_dict = json.load(f)
+        role = dump_config_dict["system_role"].replace("<LANGUAGE>", self.language)
+        solve_model = LLM(self.model_name, self.temp, role)
         message = dump_config_dict["task"]
         message += "\n" + "".join(dump_config_dict["meta_prompts"])
-        message = message.replace("<CONJUNCTION>", conjunction)
-        message = message.replace("<ANSWER>", answer)
-        output, input_token_cost, output_token_cost = solve_model.infer(message, True)
-        result = ""
-        if "Yes" in output:
-            result = "Yes"
-        if "No" in output:
-            result = "No"
-        self.solve_info[str(key)] = {"Conjunction": conjunction, "Result": result, "Message":message, "Output": output}
-
-        # For DEBUG
-        print("====================================")
-        print("Result: ", result)
-        print("Response: ", output)
-        print("===============================================")
-
-
-        return result
-            
-
-
+        message = message.replace("<ANSWER>", "\n".join(dump_config_dict["answer_format"]))
+        message = message.replace("<FUNCTION>", "\n".join(slices))
         
-                
+        current_query_num = 0
+        while current_query_num < self.MAX_QUERY_NUM:
+            current_query_num += 1
+            output, input_token_cost, output_token_cost = solve_model.infer(message, True)
+            
+            pattern = re.compile(r"```(?:\w+)?\s*([\s\S]*?)\s*```")
+            match = pattern.search(output)
+            if match:
+                return match.group(1).strip()
+            else:
+                print(f"Inline function not found in output")
 
+        return ""
+            

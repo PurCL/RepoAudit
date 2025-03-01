@@ -105,19 +105,26 @@ class BOF_Extractor:
         Extract the potential BOF operations from the source code.
         """
         nodes= TSAnalyzer.find_nodes_by_type(root_node, "subscript_expression")
+        nodes.extend(TSAnalyzer.find_nodes_by_type(root_node, "call_expression"))
 
+        mem_operations = ("memcpy", "memset", "memmove", "strndup")
+        mem_allocations = ("malloc", "calloc", "realloc")
         lines = []
         for node in nodes:
-            line_number = source_code[: node.start_byte].count("\n") + 1
-            name = source_code[node.start_byte: node.end_byte]
-            src = LocalValue(name, line_number, ValueType.SINK, file=file)
-            for child in node.children:
-                if child.type == "identifier":
-                    buffer = source_code[child.start_byte: child.end_byte]
-                if child.type == "subscript_argument_list":
-                    index_node = child.children[1]
-                    index_var = source_code[index_node.start_byte: index_node.end_byte]
-            lines.append(LocalValue(name, line_number, ValueType.BUF, file=file))
+            is_src_node = False
+            if node.type == "subscript_expression":
+                is_src_node = True
+            if node.type == "call_expression":
+                for child in node.children:
+                    if child.type == "identifier":
+                        name = source_code[child.start_byte : child.end_byte]
+                        if name in mem_operations or name in mem_allocations:
+                            is_src_node = True
+
+            if is_src_node:
+                line_number = source_code[: node.start_byte].count("\n") + 1
+                name = source_code[node.start_byte: node.end_byte]
+                lines.append(LocalValue(name, line_number, ValueType.BUF, file=file))
         return lines
     
 

@@ -7,11 +7,8 @@ class ValueType(Enum):
     PARA = 3
     RET = 4
     ARG = 5
-    OUT = 6
-    FIELD = 7
-    GLOBAL = 8
-    BUF = 9
-    VAR = 10
+    GLOBAL = 6
+    BUF = 7
 
 
 class LocalValue:

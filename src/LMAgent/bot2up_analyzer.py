@@ -2,7 +2,6 @@ from os import path
 import json
 import time
 import time
-from parser.response_parser import *
 from parser.program_parser import *
 from parser.ts_transform import *
 from utility.llm import *
@@ -12,7 +11,7 @@ from utility.localvalue import *
 from LMAgent.LM_agent import LMAgent
 
 
-class NeumericAnalyzer(LMAgent):
+class Bot2UpAnalyzer(LMAgent):
     """
     Neumeric analyzer
     """
@@ -45,8 +44,7 @@ class NeumericAnalyzer(LMAgent):
         self.result_list = []
         self.MAX_QUERY_NUM = 10
         self.src_type_prompt = {
-            ValueType.VAR: "integer variable",
-            ValueType.BUF: "buffer",
+            ValueType.BUF: "buffer size and index of",
             ValueType.RET: "return value",
             ValueType.ARG: "argument",
         }
@@ -61,8 +59,7 @@ class NeumericAnalyzer(LMAgent):
         key = str(state.var) + state.function.function_name
         if key in self.cache:
             print(f"Cache hit: {key}")
-            state.expressions.extend(self.cache[key].expressions)
-            state.children.extend(self.cache[key].children)
+            state = self.cache[key]
             return True
         self.cache[key] = state
 
@@ -128,23 +125,14 @@ class NeumericAnalyzer(LMAgent):
                 idx += 1
             answer = "\n".join(lines[idx+1:])
 
-            expr_pattern = r'Expressions:\s*(.*?)\s*External variables:'
-            expr_match = re.search(expr_pattern, answer, re.DOTALL)
-            expressons = []
-            if expr_match:
-                expressons.extend(expr_match.group(1).strip().splitlines())
+            slice_pattern = r'Slicing:\s*(.*?)\s*External variables:'
+            slice_match = re.search(slice_pattern, answer, re.DOTALL)
+            if slice_match:
+                state.slice = slice_match.group(1).strip()
             else:
-                format_error = "Expressions not found"
+                format_error = "Slice not found"
                 print(f"Format error: {format_error}")
                 continue
-            
-            if state.abs != "":
-                for expression in expressons:
-                    left_value = expression.split("=")[0].strip()
-                    expression = expression.replace(left_value, state.abs)
-                    state.expressions.append(expression)
-            else:
-                state.expressions.extend(expressons)
 
             var_pattern = r'External variables:\s*((?:-.*(?:\n|$))+)' 
             var_match = re.search(var_pattern, answer, re.DOTALL)
@@ -152,8 +140,7 @@ class NeumericAnalyzer(LMAgent):
                 var_lines = var_match.group(1).splitlines()
                 for line in var_lines:
                     var_pattern = (
-                        r'-\s*Name:\s*(?P<name>[^.]+)\.\s*'
-                        r'Source:\s*(?P<source>[^.]+)\.'  
+                        r'^\s*(?:-\s*)?Source:\s*(?P<source>[^.]+)\.' 
                         r'(?:\s*Function Name:\s*(?P<function>[^\n.]+))?'  # optional function name
                         r'(?:\s*Index:\s*(?P<index>\d+))?'                # optional index
                         r'(?:\s*Variable Name:\s*(?P<variable>[^\n.]+))?'   # optional variable name
@@ -161,7 +148,6 @@ class NeumericAnalyzer(LMAgent):
                     m = re.match(var_pattern, line)
                     if not m:
                         continue
-                    name = m.group("name")
                     source = m.group("source")
                     if source == "Parameter":
                         index = m.group("index")
@@ -170,22 +156,22 @@ class NeumericAnalyzer(LMAgent):
                             callee_name = state.function.function_name
                             argments = self.ts_analyzer.get_argument_by_index(caller_function, callee_name, int(index)-1)
                             for arg in argments:
-                                child_state = State(arg, caller_function, name)
+                                child_state = State(arg, caller_function)
                                 self.analyze(child_state, depth+1)
                                 state.children.append(child_state)
                     if source == "Global Variable":
                         global_variable_name = m.group("variable")
                         if global_variable_name in self.ts_analyzer.macro_map:
-                            expresson = f"{global_variable_name} = {self.ts_analyzer.macro_map[global_variable_name]}"
-                            child_state = State(LocalValue(global_variable_name, 0, ValueType.VAR, ""), state.function, name)
-                            child_state.expressions.append(expresson)
+                            macro = f"{global_variable_name} = {self.ts_analyzer.macro_map[global_variable_name]}"
+                            child_state = State(LocalValue(global_variable_name, 0, ValueType.GLOBAL, ""), state.function)
+                            child_state.slice = macro
                             state.children.append(child_state)
                     if source == "Return Value":
                         callee_name = m.group("function")
                         callee_functions = self.ts_analyzer.get_callee_functions_by_name(state.function, callee_name)
                         for callee_function in callee_functions:
                             src = LocalValue("", 0, ValueType.RET, callee_function.file_name)
-                            child_state = State(src, callee_function, name)
+                            child_state = State(src, callee_function)
                             self.analyze(child_state, depth+1)
                             state.children.append(child_state)
     

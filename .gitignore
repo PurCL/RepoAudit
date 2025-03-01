@@ -6,10 +6,12 @@ __pycache__/
 # C extensions
 *.so
 
+*.pyc
 benchmark/
 log/
 # **/run_info.json
 **.log
+result**
 
 # Distribution / packaging
 .Python

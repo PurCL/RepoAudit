@@ -46,7 +46,7 @@ class LLM:
             self.local = True
         if "gemini" in self.online_model_name:
             output = self.infer_with_gemini(message)
-        elif "gpt" in self.online_model_name:
+        elif "gpt" in self.online_model_name or "o3-mini" in self.online_model_name:
             output = self.infer_with_openai_model(message)
         elif "claude" in self.online_model_name:
             output = self.infer_with_claude(message)
@@ -118,6 +118,8 @@ class LLM:
     def infer_with_openai_model(self, message):
         """Infer using the OpenAI model"""
         api_key = os.environ.get("OPENAI_API_KEY").split(":")[0]
+        if "o3-mini" in self.online_model_name:
+            api_key = os.environ.get("O3MINI_API_KEY")
         model_input = [
             {"role": "system", "content": self.systemRole},
             {"role": "user", "content": message},
@@ -159,22 +161,13 @@ class LLM:
         ]
 
         def call_api():
-            if self.local:
-                client = OpenAI(base_url="http://10.145.21.28:8083/v1", api_key="guo233")
-                response = client.chat.completions.create(
-                    model="deepseek-ai/DeepSeek-R1-Distill-Llama-70B",
-                    messages=model_input,
-                    temperature=self.temperature,
-                )
-                return response.choices[0].message.content
-            else:
-                client = OpenAI(api_key=api_key, base_url="https://api.deepseek.com")
-                response = client.chat.completions.create(
-                    model=self.online_model_name,
-                    messages=model_input,
-                    temperature=self.temperature,
-                )
-                return response.choices[0].message.content
+            client = OpenAI(api_key=api_key, base_url="https://api.deepseek.com")
+            response = client.chat.completions.create(
+                model=self.online_model_name,
+                messages=model_input,
+                temperature=self.temperature,
+            )
+            return response.choices[0].message.content
 
         tryCnt = 0
         while tryCnt < 5:
