@@ -20,8 +20,7 @@ class Function:
         self.start_line_number = start_line_number
         self.end_line_number = end_line_number
         self.file_name = file_name
-
-        self.lined_code = ""
+        self.lined_code = self.attach_line_number()  # code with line number attached
 
         # Attention: the parse tree is in the context of the whole file
         self.parse_tree_root_node = function_node  # root node of the parse tree of the current function
@@ -37,4 +36,23 @@ class Function:
 
 
     def file_line2function_line(self, file_line: int) -> int:
+        """
+        Convert the line number in the file to the line number in the function
+        """
         return file_line - self.start_line_number + 1
+    
+    
+    def attach_line_number(self) -> str:
+        """
+        Attach line numbers to the function code
+        """
+        lined_code = ""
+        function_content = "1. " + self.function_code
+        line_no = 2
+        for ch in function_content:
+            if ch == "\n":
+                lined_code += "\n" + str(line_no) + ". "
+                line_no += 1
+            else:
+                lined_code += ch
+        return lined_code

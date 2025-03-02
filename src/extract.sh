@@ -2,7 +2,8 @@
 LANGUAGE=C
 BUG_TYPE=BOF
 # PROJECT_NAME=curl
-PROJECT_NAME=php-src
+# PROJECT_NAME=php-src
+PROJECT_NAME=zstd
 
 # create the directory for the result
 if [ ! -d ../result/$BUG_TYPE/${LANGUAGE}_${PROJECT_NAME} ]; then

@@ -1,74 +1,105 @@
 from os import path
 import json
 import time
-import time
-from parser.program_parser import *
-from parser.ts_transform import *
-from utility.llm import *
-from utility.nmr_state import State
+from parser.base_parser import *
+from parser.C_parser import *
+from .utils import *
+from utility.state import State
 from utility.function import *
 from utility.localvalue import *
-from LMAgent.LM_agent import LMAgent
+from LMAgent.LM_agent import *
+BASE_PATH = Path(__file__).resolve().parents[1]
 
-
-class Bot2UpAnalyzer(LMAgent):
+class Bot2TopAnalyzer(LLMAgent):
     """
     Neumeric analyzer
     """
     def __init__(
             self, 
-            prompt_file, 
-            online_model_name, 
+            model_name, 
             temp, 
             language, 
             ts_analyzer, 
-            function_processor, 
             is_fscot, 
-            boundary, 
-            bug_type
+            boundary,
             ) -> None:
-        super().__init__()
-        self.prompt_file = prompt_file
-        self.language = language
+        self.prompt_file = f"{BASE_PATH}/prompt/slicing/bot2top_prompt.json"
+        super().__init__(model_name, language, is_fscot)
         system_role = self.fetch_system_role()
-        self.model = LLM(online_model_name, temp, system_role)
+        self.model = LLM(model_name, temp, system_role)
         self.ts_analyzer = ts_analyzer
-        self.function_processor = function_processor
-        self.is_fscot = is_fscot
         self.boundary = boundary
-        self.bug_type = bug_type
-        self.cache = {}
-        self.input_token_cost = 0
-        self.output_token_cost = 0
-        self.query_num = 0
-        self.result_list = []
-        self.MAX_QUERY_NUM = 10
+
         self.src_type_prompt = {
             ValueType.BUF: "buffer size and index of",
             ValueType.RET: "return value",
             ValueType.ARG: "argument",
         }
+        self.slice_pattern = r'Slicing:\s*(.*?)\s*External variables:'
+        self.exeternal_pattern = r'External variables:\s*((?:-.*(?:\n|$))+)' 
+        self.var_pattern = (
+            r'^\s*(?:-\s*)?Source:\s*(?P<source>[^.]+)\.' 
+            r'(?:\s*Function Name:\s*(?P<function>[^\n.]+))?'  # optional function name
+            r'(?:\s*Index:\s*(?P<index>\d+))?'                # optional index
+            r'(?:\s*Variable Name:\s*(?P<variable>[^\n.]+))?'   # optional variable name
+        )
+
 
     def analyze(self, state: State, depth: int) -> bool:
         """
         Analyze the state
         """
-        if depth > self.boundary:
+        if depth >= self.boundary:
             return False
         
         key = str(state.var) + state.function.function_name
         if key in self.cache:
             print(f"Cache hit: {key}")
-            state = self.cache[key]
-            return True
-        self.cache[key] = state
+        else:
+            message = self.get_prompt(state)
+            if (not self.query_LLM(message, key)):
+                return False
 
+        state.slice = self.cache[key].slice
+        for external_variable in self.cache[key].external_variables:
+            source = external_variable["source"]
+            value = external_variable["value"]
+            if source == "Return Value":
+                callee_name = value
+                callee_functions = self.ts_analyzer.get_callee_functions(state.function, callee_name)
+                for callee_function in callee_functions:
+                    src = LocalValue("", 0, ValueType.RET, callee_function.file_name)
+                    callee_state = State(src, callee_function)
+                    if (self.analyze(callee_state, depth+1)):
+                        state.callees.append(callee_state)
+                        callee_state.callers.append(state)
+            # for callee functions, we don't need to retrieve their callers.
+            if source == "Parameter" and state.var.v_type != ValueType.RET:
+                index = value
+                caller_functions = self.ts_analyzer.get_caller_functions(state.function)
+                for caller_function in caller_functions:
+                    callee_name = state.function.function_name
+                    argments = self.ts_analyzer.get_argument_by_index(caller_function, callee_name, int(value)-1)
+                    for arg in argments:
+                        caller_state = State(arg, caller_function)
+                        if (self.analyze(caller_state, depth+1)):
+                            state.callers.append(caller_state)
+                            caller_state.callees.append(state)
+            if source == "Global Variable":
+                global_variable_name = value
+                if global_variable_name in self.ts_analyzer.glb_var_map:
+                    macro = f"{global_variable_name} = {self.ts_analyzer.glb_var_map[global_variable_name]}"
+                    state.slice += "\n" + macro
+        return True
+
+
+    def get_prompt(self, state: State) -> str:
+        """
+        Generate the prompt
+        """
         src_name = state.var.name
         src_type = self.src_type_prompt[state.var.v_type] if state.var.v_type in self.src_type_prompt else ""
         src_line_number = state.get_src_line()
-        if state.function.lined_code == "":
-            self.function_processor.transform(state.function.function_code)
-            state.function.lined_code = self.function_processor.lined_code
 
         with open(self.prompt_file, "r") as f:
             dump_config_dict = json.load(f)
@@ -92,8 +123,18 @@ class Bot2UpAnalyzer(LMAgent):
         message = message.replace("<QUESTION>", question)
         message = message.replace("<ANSWER>", answer)
 
+        ## For DEBUG
         print(f"\n Function: \n{state.function.lined_code}")
 
+        return message
+
+
+    def query_LLM(self, message: str, key:str) -> bool:
+        """
+        Query the LLM model
+        :message: the prompt message
+        :key: the key to cache the result
+        """
         format_error = " "
         current_query_num = 0
         while format_error != "" and current_query_num < self.MAX_QUERY_NUM:
@@ -101,9 +142,9 @@ class Bot2UpAnalyzer(LMAgent):
             start_time = time.time()
 
             format_error = ""
-            output, input_token_cost, output_token_cost = self.model.infer(
-                message, True
-                )
+            output, input_token_cost, output_token_cost = self.model.infer(message, True)
+            
+            ## For DEBUG
             print(f"\nOutput: \n{output}")
 
             query_result = {}
@@ -125,59 +166,36 @@ class Bot2UpAnalyzer(LMAgent):
                 idx += 1
             answer = "\n".join(lines[idx+1:])
 
-            slice_pattern = r'Slicing:\s*(.*?)\s*External variables:'
-            slice_match = re.search(slice_pattern, answer, re.DOTALL)
+            slice_match = re.search(self.slice_pattern, answer, re.DOTALL)
             if slice_match:
-                state.slice = slice_match.group(1).strip()
+                self.cache[key] = Cache(slice_match.group(1).strip())
             else:
                 format_error = "Slice not found"
                 print(f"Format error: {format_error}")
                 continue
 
-            var_pattern = r'External variables:\s*((?:-.*(?:\n|$))+)' 
-            var_match = re.search(var_pattern, answer, re.DOTALL)
+            var_match = re.search(self.exeternal_pattern, answer, re.DOTALL)
             if var_match:
                 var_lines = var_match.group(1).splitlines()
                 for line in var_lines:
-                    var_pattern = (
-                        r'^\s*(?:-\s*)?Source:\s*(?P<source>[^.]+)\.' 
-                        r'(?:\s*Function Name:\s*(?P<function>[^\n.]+))?'  # optional function name
-                        r'(?:\s*Index:\s*(?P<index>\d+))?'                # optional index
-                        r'(?:\s*Variable Name:\s*(?P<variable>[^\n.]+))?'   # optional variable name
-                    )
-                    m = re.match(var_pattern, line)
+                    m = re.match(self.var_pattern, line)
                     if not m:
                         continue
                     source = m.group("source")
                     if source == "Parameter":
                         index = m.group("index")
-                        caller_functions = self.ts_analyzer.get_caller_functions(state.function)
-                        for caller_function in caller_functions:
-                            callee_name = state.function.function_name
-                            argments = self.ts_analyzer.get_argument_by_index(caller_function, callee_name, int(index)-1)
-                            for arg in argments:
-                                child_state = State(arg, caller_function)
-                                self.analyze(child_state, depth+1)
-                                state.children.append(child_state)
+                        self.cache[key].add_external_variable("Parameter", index)
                     if source == "Global Variable":
                         global_variable_name = m.group("variable")
-                        if global_variable_name in self.ts_analyzer.macro_map:
-                            macro = f"{global_variable_name} = {self.ts_analyzer.macro_map[global_variable_name]}"
-                            child_state = State(LocalValue(global_variable_name, 0, ValueType.GLOBAL, ""), state.function)
-                            child_state.slice = macro
-                            state.children.append(child_state)
+                        self.cache[key].add_external_variable("Global Variable", global_variable_name)
                     if source == "Return Value":
                         callee_name = m.group("function")
-                        callee_functions = self.ts_analyzer.get_callee_functions_by_name(state.function, callee_name)
-                        for callee_function in callee_functions:
-                            src = LocalValue("", 0, ValueType.RET, callee_function.file_name)
-                            child_state = State(src, callee_function)
-                            self.analyze(child_state, depth+1)
-                            state.children.append(child_state)
+                        self.cache[key].add_external_variable("Return Value", callee_name)
     
         if format_error != "":
-            return False
-        return True        
+            print(f"Format error in {self.MAX_QUERY_NUM} queries")
+            return False   
+        return True
 
 
     def fetch_system_role(self):

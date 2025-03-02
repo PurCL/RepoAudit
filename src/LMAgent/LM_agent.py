@@ -1,74 +1,60 @@
-import json
-from pathlib import Path
-from typing import List, Tuple
-from utility.localvalue import *
-from utility.function import *
+from .utils import *
+from abc import ABC, abstractmethod
 
 
-class LMAgent:
-    """
-    LMAgent class for neuro-based analysis
-    """
+class Cache:
+    def __init__(self, slice: str, external_variables: list = []) -> None:
+        self.slice = slice
+        self.external_variables = external_variables
 
-    def __init__(self) -> None:
-        self.total_input_token_cost = 0
-        self.total_output_token_cost = 0
-        self.time_cost = 0
-        self.prompt_config_file_base = (
-            Path(__file__).resolve().parent.parent.absolute() / "prompt"
-        )
+    def add_external_variable(self, source: str, value: str) -> None:
+        self.external_variables.append({"source": source, "value": value})
 
-    def construct_general_prompt(
-        self, config_file_path: str, is_propagation: bool
-    ) -> Tuple[str, str]:
+
+class LLMAgent(ABC):
+    def __init__(self,
+                 model_name: str, 
+                 language: str, 
+                 is_fscot: bool
+                 ) -> None:
+        self.language = language
+        self.is_fscot = is_fscot
+        self.model_name = model_name
+        self.model = LLM(model_name)
+        self.cache: dict[str, Cache] = {}
+        self.input_token_cost = 0
+        self.output_token_cost = 0
+        self.query_num = 0
+        self.result_list = []
+        self.MAX_QUERY_NUM = 5
+
+
+    @abstractmethod
+    def analyze(self, state, depth: int) -> bool:
         """
-        Construct the prompt according to prompt config file
+        Analyze the code for a given state and return the analysis results.
+        :param state: The current state object containing the function, variables, etc.
+        :param depth: The depth of the analysis or the recursion level
+        :return: A boolean value indicating whether the analysis was successful
         """
-        with open(self.prompt_config_file_base / config_file_path, "r") as read_file:
-            dump_config_dict = json.load(read_file)
-        system_role = dump_config_dict["system_role"]
-        prompt = dump_config_dict["task"]
-        prompt += "\n" + "\n".join(dump_config_dict["analysis_rules"])
-        prompt += "\n" + "\n".join(dump_config_dict["analysis_examples"])
-        prompt += "\n" + "".join(dump_config_dict["meta_prompts"])
-        prompt += "\n" + "".join(dump_config_dict["output_constraints"])
-        prompt += "\n" + "\n".join(dump_config_dict["output_examples"])
-        prompt += "\n" + "Here is the program:"
-        return system_role, prompt
+        pass
 
-    @staticmethod
-    def process_response_item_lines(
-        response: str, v_type: ValueType
-    ) -> List[LocalValue]:
+    @abstractmethod
+    def get_prompt(self, state) -> str:
         """
-        Process the response of the model.
+        Generate a prompt for querying the LLM based on the current state.
+        :param state: The current state object containing the relevant code and metadata
+        :return: The prompt string for querying the LLM
         """
-        response_lines = response.split("\n")
-        items = []
-        for line in response_lines:
-            comma_index = line.find(",")
-            name_seg = line[:comma_index]
-            line_seg = line[comma_index + 1 :]
-            ind = name_seg.find(":")
-            val_name = name_seg[ind + 1 :].strip()
-            val_line = line_seg.split(" ")[-1]
-            if val_line.isdigit():
-                items.append(LocalValue(val_name, int(val_line), v_type))
-        return items
+        pass
 
-    @staticmethod
-    def process_yes_no_list_in_response(response: str) -> List[str]:
-        tmp = (
-            response.replace(",", " ")
-            .replace(".", "")
-            .replace("\n", " ")
-            .replace("-", "")
-            .replace("System:", "")
-            .replace('"', "")
-        )
-        ans = []
-        for s in tmp.split(" "):
-            if s not in {"Yes", "No"}:
-                continue
-            ans.append(s)
-        return ans
+    @abstractmethod
+    def query_LLM(self, message: str, key: str) -> bool:
+        """
+        Query the LLM with the given message and cache the results.
+        :param message: The message or prompt to send to the LLM
+        :param key: The key to use for caching the results
+        :return: A boolean value indicating whether the query was successful
+        """
+        pass
+

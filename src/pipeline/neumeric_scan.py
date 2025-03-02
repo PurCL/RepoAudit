@@ -1,21 +1,19 @@
 import json
 import os
-from parser.program_parser import *
-from parser.ts_transform import *
-from utility.llm import *
-from utility.nmr_state import State
+from parser.base_parser import *
+from parser.C_parser import *
+from LMAgent.utils import *
+from utility.state import State
 from utility.function import *
 from utility.localvalue import *
-from LMAgent.bot2up_analyzer import Bot2UpAnalyzer
+from LMAgent.bot2top_analyzer import Bot2TopAnalyzer
 from pathlib import Path
-
+BASE_PATH = Path(__file__).resolve().parents[1]
+BOT2UP_BUG_TYPE = ("BOF")
 
 class NeumericBugScanPipeline:
     def __init__(self,
                  src_spec_file,
-                 sink_spec_file,
-                 analyze_prompt_file,
-                 detection_prompt_file,
                  project_name,
                  language,
                  all_files,
@@ -23,33 +21,36 @@ class NeumericBugScanPipeline:
                  temperature,
                  is_fscot,
                  bug_type,
-                 boundary=2):
+                 boundary
+                 ) -> None:
         self.src_spec_file = src_spec_file
-        self.sink_spec_file = sink_spec_file
-        self.analyze_prompt_file = analyze_prompt_file
-        self.detection_prompt_file = detection_prompt_file
         self.project_name = project_name
         self.language = language
         self.all_files = all_files
-        self.bug_type = bug_type
-        self.boundary = boundary
         self.model_name = inference_model_name
         self.temp = temperature
+        self.bug_type = bug_type
+        self.boundary = boundary
+        self.detection_prompt_file = f"{BASE_PATH}/prompt/detection/{self.bug_type}_prompt.json"
+        self.inline_prompt_file = f"{BASE_PATH}/prompt/helper/inline_prompt.json"
         self.MAX_QUERY_NUM = 5
+        self.detection_role = self.fetch_detection_system_role()
         
         self.detection_result = []
-        self.ts_analyzer = TSAnalyzer(self.all_files, self.language)
-        self.function_processor = TSFunctionProcessor(self.ts_analyzer, self.language)
-        self.analyzer = Bot2UpAnalyzer(
-            self.analyze_prompt_file, 
-            self.model_name, 
-            temperature, 
-            self.language, 
-            self.ts_analyzer, 
-            self.function_processor, 
-            is_fscot,
-            self.boundary,
-            self.bug_type
+        if self.language == "C" or self.language == "C++":
+            self.ts_analyzer = C_Analyzer(self.all_files, self.language)
+        else:
+            print("Unsupported language")
+            exit(1)
+        
+        if self.bug_type in BOT2UP_BUG_TYPE:
+            self.analyzer = Bot2TopAnalyzer(
+                self.model_name, 
+                self.temp, 
+                self.language, 
+                self.ts_analyzer,
+                is_fscot,
+                self.boundary
             )
         self.run_info = {}
         self.bug_info = {}
@@ -80,12 +81,16 @@ class NeumericBugScanPipeline:
         for src in src_list:
             # Get source function body
             
-            # # Project curl
+            # ## Project curl
             # if str(src) != "((buffer[len++], -1, 253), ValueType.SINK, ../benchmark/C/curl/lib/sendf.c)":
             #     continue
 
-            # # Project php-src
-            if str(src) != "((malloc(length + 1), -1, 2670), ValueType.BUF, ../benchmark/C/php-src/Zend/zend_alloc.c)":
+            # ## Project php-src
+            # if str(src) != "((malloc(length + 1), -1, 2670), ValueType.BUF, ../benchmark/C/php-src/Zend/zend_alloc.c)":
+            #     continue
+
+            ## Project zstd
+            if str(src) != "((newTable->fileNames[newTableIdx], -1, 563), ValueType.BUF, ../benchmark/C/zstd/programs/util.c)":
                 continue
 
             src_function = self.ts_analyzer.get_function_from_localvalue(src)
@@ -119,48 +124,45 @@ class NeumericBugScanPipeline:
         """
         Detect the bug with LLM
         """
-        slice_list = state.get_all_slices()
-        inline_code = self.inline_with_LLM(slice_list)
-        with open(self.detection_prompt_file, "r") as f:
-            dump_config_dict = json.load(f)
-        role = dump_config_dict["system_role"].replace("<LANGUAGE>", self.language)
-        solve_model = LLM(self.model_name, self.temp, role)
-        message = dump_config_dict["task"]
-        message += "\n" + "\n".join(dump_config_dict["analysis_rules"])
-        # message += "\n" + "\n".join(dump_config_dict["analysis_examples"])
-        message += "\n" + "".join(dump_config_dict["meta_prompts"])
-        message = message.replace("<ANSWER>", "\n".join(dump_config_dict["answer_format"]))
-        message = message.replace("<QUESTION>", dump_config_dict["question_template"])
+        solve_model = LLM(self.model_name, self.temp, self.detection_role)
+        key = state.get_key()
+        self.bug_info[key] = []
+        root_functions = state.find_root()
+        for root_function in root_functions:
+            slice_list = root_function.get_slice_tree()
+            slices = set(slice_list)
+            inline_code = self.inline_with_LLM(slices)
 
-        message = message.replace("<FUNCTION>", inline_code)
-        message = message.replace("<SRC_NAME>", state.var.name)
+            message = self.fetch_detection_prompt()
+            message = message.replace("<FUNCTION>", inline_code)
+            message = message.replace("<SRC_NAME>", state.var.name)
 
-        current_query_num = 0
-        while current_query_num < self.MAX_QUERY_NUM:
-            current_query_num += 1
-            output, input_token_cost, output_token_cost = solve_model.infer(message, True)
-            
-            answer_match = re.search(r'Answer:\s*(\w+)', output)
-            poc_match = re.search(r'PoC:\s*(.*)', output, re.DOTALL)
-            if answer_match:
-                answer = answer_match.group(1).strip()
-            else:
-                print(f"Answer not found in output")
-                continue
-            poc = poc_match.group(1).strip() if poc_match else ""
-            
-            key = state.get_key()
-            self.bug_info[key] = {"Message":message, "Output": output, "Slices": slice_list, "Inlined Function": inline_code, "Is Bug": answer, "PoC": poc}
-            break
+            current_query_num = 0
+            while current_query_num < self.MAX_QUERY_NUM:
+                current_query_num += 1
+                output, input_token_cost, output_token_cost = solve_model.infer(message, True)
+                
+                answer_match = re.search(r'Answer:\s*(\w+)', output)
+                poc_match = re.search(r'PoC:\s*(.*)', output, re.DOTALL)
+                if answer_match:
+                    answer = answer_match.group(1).strip()
+                else:
+                    print(f"Answer not found in output")
+                    continue
+                poc = poc_match.group(1).strip() if poc_match else ""
+                
+                self.bug_info[key].append({"Slices": list(slices), "Inlined Function": inline_code, "Output": output, "Is Bug": answer, "PoC": poc})
+                break
+            if answer == "Yes":
+                break
         return answer, poc
     
 
-    def inline_with_LLM(self, slices:list[str]):
+    def inline_with_LLM(self, slices:set) -> str:
         """
         Inline the slices with LLM
         """
-        inline_prompt_file = "/data4/guo846/RepoAudit-Neumeric/src/prompt/BOF/inline_prompt.json"
-        with open(inline_prompt_file, "r") as f:
+        with open(self.inline_prompt_file, "r") as f:
             dump_config_dict = json.load(f)
         role = dump_config_dict["system_role"].replace("<LANGUAGE>", self.language)
         solve_model = LLM(self.model_name, self.temp, role)
@@ -183,3 +185,24 @@ class NeumericBugScanPipeline:
 
         return ""
             
+
+    def fetch_detection_prompt(self) -> str:
+        """
+        Fetch the detection prompt, leaving the placeholders <FUNCTION> and <SRC_NAME> to be filled
+        """
+        with open(self.detection_prompt_file, "r") as f:
+            dump_config_dict = json.load(f)
+        message = dump_config_dict["task"]
+        message += "\n" + "\n".join(dump_config_dict["analysis_rules"])
+        # message += "\n" + "\n".join(dump_config_dict["analysis_examples"])
+        message += "\n" + "".join(dump_config_dict["meta_prompts"])
+        message = message.replace("<ANSWER>", "\n".join(dump_config_dict["answer_format"]))
+        message = message.replace("<QUESTION>", dump_config_dict["question_template"])
+        return message
+    
+
+    def fetch_detection_system_role(self) -> str:
+        with open(self.detection_prompt_file, "r") as f:
+            dump_config_dict = json.load(f)
+        role = dump_config_dict["system_role"].replace("<LANGUAGE>", self.language)
+        return role

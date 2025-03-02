@@ -1,9 +1,8 @@
 import json
 import os
-from parser.response_parser import *
-from parser.program_parser import *
-from prompt.apiscan_prompt import *
-from utility.llm import *
+from parser.C_parser import *
+from parser.base_parser import *
+from LMAgent.utils import *
 from pathlib import Path
 
 class MetaScanPipeline:

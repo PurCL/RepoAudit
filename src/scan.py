@@ -1,8 +1,5 @@
-import os
 import argparse
-from pathlib import Path
 import glob
-from pipeline.apiscan import *
 from pipeline.metascan import *
 from pipeline.neumeric_scan import *
 
@@ -10,9 +7,6 @@ class BatchScan:
     def __init__(
         self,
         src_spec_file: str,
-        sink_spec_file: str,
-        analyze_prompt_file: str,
-        validate_prompt_file: str,
         project_path: str,
         language: str,
         inference_model_name: str,
@@ -20,20 +14,17 @@ class BatchScan:
         is_fscot: bool,
         scanners: list,
         bug_type: str,
-        sink_functions
+        boundary: int
     ):
         """
         Initialize BatchScan object with project details.
         """
         self.src_spec_file = src_spec_file
-        self.sink_spec_file = sink_spec_file
-        self.analyze_prompt_file = analyze_prompt_file
-        self.validate_prompt_file = validate_prompt_file
         self.project_path = project_path
         self.language = language
         self.scanners = scanners
         self.bug_type = bug_type
-        self.sink_functions = sink_functions
+        self.boundary = boundary
 
         self.all_files = {}
         self.inference_model_name = inference_model_name
@@ -54,8 +45,6 @@ class BatchScan:
         # Load all files with the specified suffix in the project path
         self.travese_files(project_path, suffixs)
 
-        print(len(self.all_files))
-
     def start_batch_scan(self) -> None:
         """
         Start the batch scan process.
@@ -75,16 +64,14 @@ class BatchScan:
         if "neumeric" in self.scanners:
             neumericScan_pipeline = NeumericBugScanPipeline(
                 self.src_spec_file,
-                self.sink_spec_file,
-                self.analyze_prompt_file,
-                self.validate_prompt_file,
                 project_name,
                 self.language,
                 self.all_files,
                 self.inference_model_name,
                 self.temperature,
                 self.is_fscot,
-                self.bug_type
+                self.bug_type,
+                self.boundary
             )
             neumericScan_pipeline.start_scan()
 
@@ -122,8 +109,6 @@ def run_dev_mode():
         choices=[
             "C",
             "C++",
-            "Java",
-            "Python"
         ],
         help="Specify the language",
     )
@@ -155,7 +140,7 @@ def run_dev_mode():
     parser.add_argument(
         "--scanners",
         nargs='+',
-        choices=["metascan", "dataflow", "neumeric"],
+        choices=["metascan", "neumeric"],
         help="Specify which scanners to invoke",
     )
     parser.add_argument(
@@ -164,24 +149,9 @@ def run_dev_mode():
         help="Specify the source spec file",
     )
     parser.add_argument(
-        "--sink-spec-file",
-        type=str,
-        help="Specify the sink spec file",
-    )
-    parser.add_argument(
-        "--analyze-prompt-file",
-        type=str,
-        help="Specify the prompt file",
-    )
-    parser.add_argument(
-        "--validate-prompt-file",
-        type=str,
-        help="Specify the prompt file",
-    )
-    parser.add_argument(
-        "--sink-functions",
-        nargs='*',
-        help="Specify the sink functions",
+        "--boundary",
+        type=int,
+        help="Specify the retrieval boundary",
     )
 
 
@@ -192,20 +162,15 @@ def run_dev_mode():
     global_temperature = float(args.global_temperature)
     scanners = args.scanners if args.scanners else []
     src_spec = args.src_spec_file
-    sink_spec = args.sink_spec_file
-    analyze_prompt_file = args.analyze_prompt_file
-    validate_prompt_file = args.validate_prompt_file
     is_fscot = args.is_fscot
     bug_type = args.bug_type
-    sink_functions = args.sink_functions
+    boundary = args.boundary
+
     
     print(src_spec)
 
     batch_scan = BatchScan(
         src_spec,
-        sink_spec,
-        analyze_prompt_file,
-        validate_prompt_file,
         project_path,
         language,
         inference_model,
@@ -213,7 +178,7 @@ def run_dev_mode():
         is_fscot,
         scanners,
         bug_type,
-        sink_functions
+        boundary
     )
     batch_scan.start_batch_scan()
 

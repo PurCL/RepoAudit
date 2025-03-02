@@ -23,4 +23,4 @@ def find_invocation_sites(source_code: str, root_node: tree_sitter.Node, src_fun
             line_number = source_code[: node.start_byte].count("\n") + 1
             name = source_code.split("\n")[line_number - 1]
             lines.append(LocalValue(name, line_number, ValueType.SRC, file=file))
-    return lines 
+    return lines

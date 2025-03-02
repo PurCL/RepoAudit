@@ -27,7 +27,7 @@ class LLM:
     def __init__(
         self, 
         online_model_name: str,
-        temperature: float, 
+        temperature: float = 0.0,
         system_role="You are a experienced programmer and good at understanding programs written in mainstream programming languages."
     ) -> None:
         self.online_model_name = online_model_name

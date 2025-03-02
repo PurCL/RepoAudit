@@ -1,9 +1,11 @@
 #!/bin/bash
 LANGUAGE=C
 BUG_TYPE=BOF
-# PROJECT_NAME=curl
-PROJECT_NAME=php-src
 SCANNER=neumeric
+
+# PROJECT_NAME=curl
+# PROJECT_NAME=php-src
+PROJECT_NAME=zstd
 
 python3 scan.py \
   --language $LANGUAGE \
@@ -13,7 +15,5 @@ python3 scan.py \
   --global-temperature 0.0 \
   --is-fscot \
   --scanners $SCANNER \
-  --src-spec-file ../result/$BUG_TYPE/${LANGUAGE}_${PROJECT_NAME}/src_result.json \
-  --sink-spec-file ../result/$BUG_TYPE/${LANGUAGE}_${PROJECT_NAME}/sink_result.json \
-  --analyze-prompt-file prompt/$BUG_TYPE/analysis_prompt.json \
-  --validate-prompt-file prompt/$BUG_TYPE/detection_prompt.json
+  --boundary 3 \
+  --src-spec-file ../result/$BUG_TYPE/${LANGUAGE}_${PROJECT_NAME}/src_result.json
