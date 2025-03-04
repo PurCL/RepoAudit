@@ -1,4 +1,4 @@
-from parser.program_parser import *
+from parser.base_parser import *
 import tree_sitter
 from utility.localvalue import *
 from typing import List
@@ -7,8 +7,8 @@ def find_invocation_sites(source_code: str, root_node: tree_sitter.Node, src_fun
     """
     Find the invocation sites of the source functions.
     """
-    nodes = TSAnalyzer.find_nodes_by_type(root_node, "call_expression")
-    nodes.extend(TSAnalyzer.find_nodes_by_type(root_node, "macro_type_specifier"))
+    nodes = find_nodes_by_type(root_node, "call_expression")
+    nodes.extend(find_nodes_by_type(root_node, "macro_type_specifier"))
 
     lines = []
     for node in nodes:

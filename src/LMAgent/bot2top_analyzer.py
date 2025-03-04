@@ -33,7 +33,7 @@ class Bot2TopAnalyzer(LLMAgent):
         self.src_type_prompt = {
             ValueType.BUF: "buffer size and index of",
             ValueType.RET: "return value",
-            ValueType.ARG: "argument",
+            ValueType.ARG: "arguments",
         }
         self.slice_pattern = r'Slicing:\s*(.*?)\s*External variables:'
         self.exeternal_pattern = r'External variables:\s*((?:-.*(?:\n|$))+)' 
@@ -61,6 +61,7 @@ class Bot2TopAnalyzer(LLMAgent):
                 return False
 
         state.slice = self.cache[key].slice
+        index_set = set()
         for external_variable in self.cache[key].external_variables:
             source = external_variable["source"]
             value = external_variable["value"]
@@ -73,23 +74,38 @@ class Bot2TopAnalyzer(LLMAgent):
                     if (self.analyze(callee_state, depth+1)):
                         state.callees.append(callee_state)
                         callee_state.callers.append(state)
-            # for callee functions, we don't need to retrieve their callers.
-            if source == "Parameter" and state.var.v_type != ValueType.RET:
-                index = value
-                caller_functions = self.ts_analyzer.get_caller_functions(state.function)
-                for caller_function in caller_functions:
-                    callee_name = state.function.function_name
-                    argments = self.ts_analyzer.get_argument_by_index(caller_function, callee_name, int(value)-1)
-                    for arg in argments:
-                        caller_state = State(arg, caller_function)
-                        if (self.analyze(caller_state, depth+1)):
-                            state.callers.append(caller_state)
-                            caller_state.callees.append(state)
+            if source == "Parameter":
+                index = int(value)
+                index_set.add(index)
             if source == "Global Variable":
                 global_variable_name = value
                 if global_variable_name in self.ts_analyzer.glb_var_map:
                     macro = f"{global_variable_name} = {self.ts_analyzer.glb_var_map[global_variable_name]}"
                     state.slice += "\n" + macro
+
+        # For callee functions, we don't need to retrieve their callers.
+        # When retrieving the caller functions, we analyze all arguments in one query.
+        if index_set and state.var.v_type != ValueType.RET:
+            caller_functions = self.ts_analyzer.get_caller_functions(state.function)
+            ## For DEBUG
+            if len(caller_functions) > 5:
+                print(f"Caller functions number: {len(caller_functions)}, {state.function.function_name}")
+            for caller_function in caller_functions:
+                callee_name = state.function.function_name
+                argments = self.ts_analyzer.find_args(caller_function, callee_name)
+                argments = [arg for arg in argments if arg[2] in index_set]
+                print(f"Find arguments: {argments}")
+                print("Index set: ", index_set)
+                arg_names = ",".join([arg[0] for arg in argments])
+                max_line_number = max([arg[1] for arg in argments])
+                argment = LocalValue(arg_names, max_line_number, ValueType.ARG, caller_function.file_name)
+                print(f"From function {callee_name} get argument with index {index_set}: {arg_names}")
+                caller_state = State(argment, caller_function)
+                if (self.analyze(caller_state, depth+1)):
+                    state.callers.append(caller_state)
+                    caller_state.callees.append(state)
+        ## For DEBUG
+        print(f"Finish analysis: {state.var.name} in {state.function.function_name}")
         return True
 
 

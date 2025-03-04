@@ -1,5 +1,6 @@
-from parser.program_parser import *
-from utility.ts_utils import *
+from parser.base_parser import *
+from parser.C_parser import *
+from .utils import *
 import tree_sitter
 import argparse
 import os
@@ -107,9 +108,9 @@ class NPD_Extractor:
         2. return NULL;
         3. (type)* ptr = NULL;
         """
-        nodes = TSAnalyzer.find_nodes_by_type(root_node, "init_declarator")
-        nodes.extend(TSAnalyzer.find_nodes_by_type(root_node, "assignment_expression"))
-        nodes.extend(TSAnalyzer.find_nodes_by_type(root_node, "return_statement"))
+        nodes = find_nodes_by_type(root_node, "init_declarator")
+        nodes.extend(find_nodes_by_type(root_node, "assignment_expression"))
+        nodes.extend(find_nodes_by_type(root_node, "return_statement"))
         #lack fuction parameter
 
         lines = []
@@ -133,9 +134,9 @@ class NPD_Extractor:
         2. ptr->field;
         3. ptr[];
         """
-        nodes = TSAnalyzer.find_nodes_by_type(root_node, "pointer_expression")
-        nodes.extend(TSAnalyzer.find_nodes_by_type(root_node, "field_expression"))
-        nodes.extend(TSAnalyzer.find_nodes_by_type(root_node, "subscript_expression"))
+        nodes = find_nodes_by_type(root_node, "pointer_expression")
+        nodes.extend(find_nodes_by_type(root_node, "field_expression"))
+        nodes.extend(find_nodes_by_type(root_node, "subscript_expression"))
 
         lines = []
         for node in nodes:

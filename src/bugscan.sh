@@ -5,7 +5,8 @@ SCANNER=neumeric
 
 # PROJECT_NAME=curl
 # PROJECT_NAME=php-src
-PROJECT_NAME=zstd
+# PROJECT_NAME=zstd
+PROJECT_NAME=cpv-3-repair
 
 python3 scan.py \
   --language $LANGUAGE \

@@ -43,7 +43,7 @@
       "8.     return src;",
       "9. }",
       "External variables:",
-      "- Source: Parameter. Index: 1",
+      "- Source: Parameter. Index: 0",
       "- Source: Return Value. Function Name: goo",
       "",
       
@@ -96,7 +96,7 @@
       "Slicing:",
       "{Sliced function with code statements that related to the value in path 1}",
       "External variables:",
-      "- Source: {The source of the external variable}. {Information related to the source type: name of caller function if it is a return value, index (start with 1) of the parameter if it is a parameter, name of the global variable if it is a global variable.}",
+      "- Source: {The source of the external variable}. {Information related to the source type: name of caller function if it is a return value, index (start with 0) of the parameter if it is a parameter, name of the global variable if it is a global variable.}",
       "Second:",
       "Explanation: {Your Explanation.}",
       "Answer:",
@@ -104,7 +104,7 @@
       "{Code statements that related to the value in path 1}",
       "External variables:",
       "- Source: Return Value. Function Name: Foo",
-      "- Source: Parameter. Index: 2",
+      "- Source: Parameter. Index: 0",
       "- Source: Global Variable. Variable Name: BAR"
     ],
       "answer_format_no_cot": [
@@ -129,7 +129,7 @@
       "{Expressions that defines the value in path 2}",
       "External variables:",
       "- Name: val1. Source: Return Value. Function Name: Foo",
-      "- Name: val2. Source: Parameter. Index: 2",
+      "- Name: val2. Source: Parameter. Index: 0",
       "- Name: val3. Source: Global Variable. Variable Name: BAR"
     ],
     "meta_prompts": [
