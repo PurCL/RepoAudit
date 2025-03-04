@@ -5,6 +5,7 @@ SCANNER=neumeric
 
 # PROJECT_NAME=curl
 # PROJECT_NAME=php-src
+# PROJECT_NAME=zstd
 PROJECT_NAME=zstd
 
 python3 scan.py \

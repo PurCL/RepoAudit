@@ -13,9 +13,7 @@ class BOF_Extractor:
         language_setting: str,
         sample_src: bool,
         src_functions,
-        sink_functions,
         src_path: str,
-        sink_path: str
     ):
         cwd = Path(__file__).resolve().parent.absolute()
         TSPATH = cwd / "../../lib/build/"
@@ -26,7 +24,6 @@ class BOF_Extractor:
         self.all_files = {}
         self.sample_src = sample_src
         self.src_functions = src_functions
-        self.sink_functions = sink_functions
 
         if language_setting == "C":
             self.language = tree_sitter.Language(str(language_path), "c")
@@ -41,7 +38,6 @@ class BOF_Extractor:
         self.parser.set_language(self.language)
         self.travese_files(project_path, self.suffix)
         self.src_path = src_path
-        self.sink_path = sink_path
 
 
     def run(self):
@@ -70,8 +66,6 @@ class BOF_Extractor:
                 
         with open(self.src_path, 'w') as f:
             json.dump([str(src_line) for src_line in src_lines], f, indent=4, sort_keys=True)
-        with open(self.sink_path, 'w') as f:
-            json.dump([str(sink_line) for sink_line in sink_lines], f, indent=4, sort_keys=True)
         return
 
 
@@ -100,6 +94,7 @@ class BOF_Extractor:
         """
         nodes= find_nodes_by_type(root_node, "subscript_expression")
         nodes.extend(find_nodes_by_type(root_node, "call_expression"))
+        nodes.extend(find_nodes_by_type(root_node, "pointer_expression"))
 
         mem_operations = ("memcpy", "memset", "memmove", "strndup")
         mem_allocations = ("malloc", "calloc", "realloc")
@@ -114,6 +109,8 @@ class BOF_Extractor:
                         name = source_code[child.start_byte : child.end_byte]
                         if name in mem_operations or name in mem_allocations:
                             is_src_node = True
+            if node.type == "pointer_expression" and node.children[0].type == "*":
+                is_src_node = True
 
             if is_src_node:
                 line_number = source_code[: node.start_byte].count("\n") + 1
@@ -143,11 +140,6 @@ def start_extract():
         help="Specify the source path",
     )
     parser.add_argument(
-        "--sink-path",
-        type=str,
-        help="Specify the sink path",
-    )
-    parser.add_argument(
         "--sample-src",
         action="store_true",
         help="sample the sources if set",
@@ -157,21 +149,14 @@ def start_extract():
         nargs='*',
         help="Specify the source functions",
     )
-    parser.add_argument(
-        "--sink-functions",
-        nargs='*',
-        help="Specify the sink functions",
-    )
     args = parser.parse_args()
     project_path = args.project_path
     language_setting = args.language
     sample_src = args.sample_src
     src_functions = args.src_functions
-    sink_functions = args.sink_functions
     src_path = args.src_path
-    sink_path = args.sink_path
     
-    bof_extractor = BOF_Extractor(project_path, language_setting, sample_src, src_functions, sink_functions, src_path, sink_path) 
+    bof_extractor = BOF_Extractor(project_path, language_setting, sample_src, src_functions, src_path) 
     bof_extractor.run()
 
 

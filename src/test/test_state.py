@@ -11,15 +11,11 @@ from utility.function import *
 class TestState(unittest.TestCase):
     def setUp(self):
         # Create LocalValue and Function instances
-        self.local_value = LocalValue(name="test_var", line_number=1, v_type=ValueType.SRC, file="test_file.py")
-        self.function = Function(function_id=0, function_name="test_function", function_code="", start_line_number=1, end_line_number=10, function_node=None, file_name="test_file.py")
-        
-        # Create State instances
-        self.state1 = State(var=self.local_value, function=self.function)
-        self.state2 = State(var=self.local_value, function=self.function)
-        self.state3 = State(var=self.local_value, function=self.function)
-        self.state4 = State(var=self.local_value, function=self.function)
-        
+        for i in range(1, 5):
+            function = Function(function_id=i, function_name=f"test_function{i}", function_code="", start_line_number=1, end_line_number=10, function_node=None, file_name="test_file.py")
+            local_value = LocalValue(name=f"test_var{i}", line_number=i, v_type=ValueType.SRC, file="test_file.py")
+            setattr(self, f"state{i}", State(local_value, function))
+
         # Set up callers and callees
         self.state2.callers.append(self.state1)
         self.state1.callees.append(self.state2)
@@ -63,6 +59,21 @@ class TestState(unittest.TestCase):
         slices = self.state3.get_slice_tree()
         self.assertEqual(len(slices), 1)
         self.assertEqual(slices, ["slice3"])
+
+    def test_get_call_tree(self):
+        expected_tree_state1 = (
+            "test_function1\n"
+            "    └── test_function2\n"
+            "        └── test_function3\n"
+        )
+        self.assertEqual(self.state1.get_call_tree(), expected_tree_state1)
+
+        expected_tree_state4 = (
+            "test_function4\n"
+            "    └── test_function2\n"
+            "        └── test_function3\n"
+        )
+        self.assertEqual(self.state4.get_call_tree(), expected_tree_state4)
 
 if __name__ == '__main__':
     unittest.main()

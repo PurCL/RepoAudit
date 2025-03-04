@@ -89,9 +89,37 @@ class BugScanPipeline:
             # if str(src) != "((malloc(length + 1), -1, 2670), ValueType.BUF, ../benchmark/C/php-src/Zend/zend_alloc.c)":
             #     continue
 
-            ## Project zstd
-            if str(src) != "((newTable->fileNames[newTableIdx], -1, 563), ValueType.BUF, ../benchmark/C/zstd/programs/util.c)":
+            # ## Project zstd
+            # if str(src) != "((newTable->fileNames[newTableIdx], -1, 563), ValueType.BUF, ../benchmark/C/zstd/programs/util.c)":
+            #     continue
+
+            # ## Project cpv-1
+            # if str(src) != "((*u, -1, 4091), ValueType.BUF, ../benchmark/C/cpv-1/src/http/ngx_http_request.c)":
+            #     continue
+
+            # ## Project cpv-3
+            # if str(src) != "((*b->last++, -1, 4092), ValueType.BUF, ../benchmark/C/cpv-3/src/http/ngx_http_request.c)":
+            #     continue
+
+            ## Project cpv-3-repair
+            if str(src) != "((*b->last++, -1, 4097), ValueType.BUF, ../benchmark/C/cpv-3-repair/src/http/ngx_http_request.c)":
                 continue
+
+            # ## Project cpv-8
+            # if str(src) != "((    ngx_memcpy(s->login.data, arg[0].data, s->login.len);, -1, 324), ValueType.SRC, ../benchmark/C/cpv-8/src/mail/ngx_mail_pop3_handler.c)":
+            #     continue
+            
+            # ## Project cpv-8-repair
+            # if str(src) != "((    ngx_memcpy(s->login.data, arg[0].data, s->login.len);, -1, 324), ValueType.SRC, ../benchmark/C/cpv-8-repair/src/mail/ngx_mail_pop3_handler.c)":
+            #     continue
+
+            # ## Project cpv-12
+            # if str(src) != "((rev[j], -1, 77), ValueType.BUF, ../benchmark/C/cpv-12/src/os/unix/ngx_linux_sendfile_chain.c)":
+            #     continue
+
+            # ## Project cpv-12-repair
+            # if str(src) != "((rev[j], -1, 77), ValueType.BUF, ../benchmark/C/cpv-12-repair/src/os/unix/ngx_linux_sendfile_chain.c)":
+            #     continue
 
             src_function = self.ts_analyzer.get_function_from_localvalue(src)
             if src_function == None:
@@ -104,7 +132,7 @@ class BugScanPipeline:
 
             key = src_state.get_key()
             self.run_info[key] = self.analyzer.result_list
-
+            
             answer, poc = self.detect_with_llm(src_state)
             
             # For DEBUG
@@ -124,14 +152,14 @@ class BugScanPipeline:
         """
         Detect the bug with LLM
         """
+        ## For DEBUG
+        print("Detecting with LLM...")
         solve_model = LLM(self.model_name, self.temp, self.detection_role)
         key = state.get_key()
         self.bug_info[key] = []
-        root_functions = state.find_root()
-        for root_function in root_functions:
-            slice_list = root_function.get_slice_tree()
-            slices = set(slice_list)
-            inline_code = self.inline_with_LLM(slices)
+        root_states = state.find_root()
+        for root_state in root_states:
+            inline_code = self.inline_with_LLM(root_state)
 
             message = self.fetch_detection_prompt()
             message = message.replace("<FUNCTION>", inline_code)
@@ -151,17 +179,18 @@ class BugScanPipeline:
                     continue
                 poc = poc_match.group(1).strip() if poc_match else ""
                 
-                self.bug_info[key].append({"Slices": list(slices), "Inlined Function": inline_code, "Output": output, "Is Bug": answer, "PoC": poc})
+                self.bug_info[key].append({"Call Tree": root_state.get_call_tree(), "Inlined Function": inline_code, "Output": output, "Is Bug": answer, "PoC": poc})
                 break
             if answer == "Yes":
                 break
         return answer, poc
     
 
-    def inline_with_LLM(self, slices:set) -> str:
+    def inline_with_LLM(self, state: State) -> str:
         """
         Inline the slices with LLM
         """
+        slices = set(state.get_slice_tree())
         with open(self.inline_prompt_file, "r") as f:
             dump_config_dict = json.load(f)
         role = dump_config_dict["system_role"].replace("<LANGUAGE>", self.language)
@@ -171,6 +200,12 @@ class BugScanPipeline:
         message = message.replace("<ANSWER>", "\n".join(dump_config_dict["answer_format"]))
         message = message.replace("<FUNCTION>", "\n".join(slices))
         
+        ## append call tree
+        call_tree_prompt = dump_config_dict["call_tree"]
+        call_tree_prompt = call_tree_prompt.replace("<FUNCTION_NAME>", state.function.function_name)
+        call_tree_prompt = call_tree_prompt.replace("<FUNCTION_CALL_TREE>", state.get_call_tree())
+        message += "\n" + call_tree_prompt
+
         current_query_num = 0
         while current_query_num < self.MAX_QUERY_NUM:
             current_query_num += 1
