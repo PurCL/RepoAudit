@@ -62,7 +62,7 @@ class BatchScan:
             metascan_pipeline.start_scan()
         
         if "neumeric" in self.scanners:
-            neumericScan_pipeline = NeumericBugScanPipeline(
+            neumericScan_pipeline = BugScanPipeline(
                 self.src_spec_file,
                 project_name,
                 self.language,

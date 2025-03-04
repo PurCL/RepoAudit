@@ -10,7 +10,7 @@ from utility.localvalue import *
 from LMAgent.LM_agent import *
 BASE_PATH = Path(__file__).resolve().parents[1]
 
-class Top2BotAnalyzer(LLMAgent):
+class ForwardSlicer(LLMAgent):
     """
     Neumeric analyzer
     """
@@ -23,7 +23,7 @@ class Top2BotAnalyzer(LLMAgent):
             is_fscot, 
             boundary,
             ) -> None:
-        self.prompt_file = f"{BASE_PATH}/prompt/slicing/top2bot_prompt.json"
+        self.prompt_file = f"{BASE_PATH}/prompt/slicing/forward_prompt.json"
         super().__init__(model_name, language, is_fscot)
         system_role = self.fetch_system_role()
         self.model = LLM(model_name, temp, system_role)
@@ -66,7 +66,7 @@ class Top2BotAnalyzer(LLMAgent):
             value = external_variable["value"]
             if source == "Return Value":
                 callee_name = value
-                callee_functions = self.ts_analyzer.get_callee_functions(state.function, callee_name)
+                callee_functions = self.ts_analyzer.get_all_callee_functions(state.function, callee_name)
                 for callee_function in callee_functions:
                     src = LocalValue("", 0, ValueType.RET, callee_function.file_name)
                     callee_state = State(src, callee_function)
@@ -76,7 +76,7 @@ class Top2BotAnalyzer(LLMAgent):
             # for callee functions, we don't need to retrieve their callers.
             if source == "Parameter" and state.var.v_type != ValueType.RET:
                 index = value
-                caller_functions = self.ts_analyzer.get_caller_functions(state.function)
+                caller_functions = self.ts_analyzer.get_all_caller_functions(state.function)
                 for caller_function in caller_functions:
                     callee_name = state.function.function_name
                     argments = self.ts_analyzer.get_argument_by_index(caller_function, callee_name, int(value)-1)

@@ -6,12 +6,12 @@ from LMAgent.utils import *
 from utility.state import State
 from utility.function import *
 from utility.localvalue import *
-from LMAgent.bot2top_analyzer import Bot2TopAnalyzer
+from src.LMAgent.backward_slicer import BackwardSlicer
 from pathlib import Path
 BASE_PATH = Path(__file__).resolve().parents[1]
 BOT2UP_BUG_TYPE = ("BOF")
 
-class NeumericBugScanPipeline:
+class BugScanPipeline:
     def __init__(self,
                  src_spec_file,
                  project_name,
@@ -44,7 +44,7 @@ class NeumericBugScanPipeline:
             exit(1)
         
         if self.bug_type in BOT2UP_BUG_TYPE:
-            self.analyzer = Bot2TopAnalyzer(
+            self.analyzer = BackwardSlicer(
                 self.model_name, 
                 self.temp, 
                 self.language, 

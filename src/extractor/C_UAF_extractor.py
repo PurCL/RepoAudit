@@ -1,6 +1,5 @@
 from parser.base_parser import *
 from parser.C_parser import *
-from parser.go_parser import *
 from extractor.util import *
 import tree_sitter
 import argparse
@@ -8,7 +7,7 @@ import os
 import json
 from tqdm import tqdm
 
-class NPD_Extractor:
+class UAF_Extractor:
     def __init__(
         self,
         project_path: str,
@@ -60,13 +59,9 @@ class NPD_Extractor:
                 continue
             tree = self.parser.parse(bytes(file_code, "utf8"))
             root = tree.root_node
-            if self.src_functions:
-                src_lines.extend(find_invocation_sites(file_code, root, set(self.src_functions), file=file_name))
-            else:
-                src_lines.extend(self.find_npd_src(file_code, root, file=file_name))
-            if self.sink_functions:
-                sink_lines.extend(find_invocation_sites(file_code, root, set(self.sink_functions), file=file_name))
-            sink_lines.extend(self.find_npd_sink(file_code, root, file=file_name))
+
+            src_lines.extend(self.find_uaf_src(file_code, root, file=file_name))
+            sink_lines.extend(self.find_uaf_sink(file_code, root, file=file_name))
 
             if self.sample_src:
                 dict_src = {}
@@ -75,7 +70,7 @@ class NPD_Extractor:
                     if key not in dict_src:
                         dict_src[key] = src_line
                 src_lines = list(dict_src.values())
-                
+
         with open(self.src_path, 'w') as f:
             json.dump([str(src_line) for src_line in src_lines], f, indent=4, sort_keys=True)
         with open(self.sink_path, 'w') as f:
@@ -91,69 +86,77 @@ class NPD_Extractor:
             for file in files:
                 if file.split(".")[-1] not in suffix:
                     continue
-                try:
-                    with open(os.path.join(root, file), "r") as c_file:
-                        c_file_content = c_file.read()
-                        self.all_files[os.path.join(root, file)] = c_file_content
-                except:
-                    print(f"Error reading file {os.path.join(root, file)}")
+                with open(os.path.join(root, file), "r") as c_file:
+                    c_file_content = c_file.read()
+                    self.all_files[os.path.join(root, file)] = c_file_content
             for dir in dirs:
-                self.travese_files(os.path.join(root, dir), suffix)
-
-
-    @staticmethod
-    def find_npd_src(source_code: str, root_node: tree_sitter.Node, file: str="") -> List[LocalValue]:
-        """
-        Extract the NPD source from the source code.
-        1. ptr = NULL;
-        2. return NULL;
-        3. (type)* ptr = NULL;
-        """
-        nodes = find_nodes_by_type(root_node, "init_declarator")
-        nodes.extend(find_nodes_by_type(root_node, "assignment_expression"))
-        nodes.extend(find_nodes_by_type(root_node, "return_statement"))
-        #lack fuction parameter
-
-        lines = []
-        for node in nodes:
-            is_src_node = False
-            for child in node.children:
-                if child.type == "null":
-                    is_src_node = True
-            if is_src_node:
-                line_number = source_code[: node.start_byte].count("\n") + 1
-                name = source_code.split("\n")[line_number - 1]
-                lines.append(LocalValue(name, line_number, ValueType.SRC, file=file))
-        return lines     
-    
+                self.travese_files(os.path.join(root, dir), suffix)  
 
     @staticmethod
-    def find_npd_sink(source_code: str, root_node: tree_sitter.Node, file: str="") -> List[LocalValue]:
+    def find_uaf_src(source_code: str, root_node: tree_sitter.Node, file: str="") -> List[LocalValue]:
         """
-        Extract the NPD sink from the source code.
-        1. *ptr;
-        2. ptr->field;
-        3. ptr[];
+        Extract the Memory Leak sink from the source code.
+        1. free
+        2. delete
         """
-        nodes = find_nodes_by_type(root_node, "pointer_expression")
-        nodes.extend(find_nodes_by_type(root_node, "field_expression"))
-        nodes.extend(find_nodes_by_type(root_node, "subscript_expression"))
+        function_set = {"free"}
+        nodes = find_nodes_by_type(root_node, "call_expression")
+        nodes.extend(find_nodes_by_type(root_node, "delete_expression"))
 
         lines = []
         for node in nodes:
             is_sink_node = False
-            if node.type == "field_expression" or node.type == "subscript_expression":
+            if node.type == "delete_expression":
+                is_sink_node = True
+            if node.type == "call_expression":
+                for child in node.children:
+                    if child.type == "identifier":
+                        name = source_code[child.start_byte : child.end_byte]
+                        if name in function_set:
+                            is_sink_node = True
+
+            if is_sink_node:
+                line_number = source_code[: node.start_byte].count("\n") + 1
+                name = source_code.split("\n")[line_number - 1]
+                lines.append(LocalValue(name, line_number, ValueType.SRC, file=file))
+        return lines    
+
+
+    @staticmethod
+    def find_uaf_sink(source_code: str, root_node: tree_sitter.Node, file: str="") -> List[LocalValue]:
+        """
+        Extract the NPD sink from the source code.
+        1. *ptr;
+        2. ptr->field;
+        3. free(ptr);
+        4. delete ptr;
+        """
+        nodes = find_nodes_by_type(root_node, "pointer_expression")
+        nodes.extend(find_nodes_by_type(root_node, "field_expression"))
+        nodes.extend(find_nodes_by_type(root_node, "call_expression"))
+        nodes.extend(find_nodes_by_type(root_node, "delete_expression"))
+        
+        lines = []
+        for node in nodes:
+            is_sink_node = False
+            if node.type == "field_expression" or node.type == "delete_expression":
                 is_sink_node = True
 
             if node.type == "pointer_expression" and node.children[0].type == "*":
                 is_sink_node = True
+            
+            if node.type == "call_expression":
+                for child in node.children:
+                    if child.type == "identifier":
+                        name = source_code[child.start_byte : child.end_byte]
+                        if name == "free":
+                            is_sink_node = True
 
             if is_sink_node:
                 line_number = source_code[: node.start_byte].count("\n") + 1
                 name = source_code.split("\n")[line_number - 1]
                 lines.append(LocalValue(name, line_number, ValueType.SINK, file=file))
         return lines
-
 
 def start_extract():
     parser = argparse.ArgumentParser()
@@ -204,8 +207,8 @@ def start_extract():
     src_path = args.src_path
     sink_path = args.sink_path
     
-    npd_extractor = NPD_Extractor(project_path, language_setting, sample_src, src_functions, sink_functions, src_path, sink_path) 
-    npd_extractor.run()
+    uaf_extractor = UAF_Extractor(project_path, language_setting, sample_src, src_functions, sink_functions, src_path, sink_path) 
+    uaf_extractor.run()
 
 
 if __name__ == "__main__":
