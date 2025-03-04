@@ -1,5 +1,7 @@
-from parser.program_parser import *
-from utility.ts_utils import *
+from parser.base_parser import *
+from parser.C_parser import *
+from parser.go_parser import *
+from extractor.util import *
 import tree_sitter
 import argparse
 import os
@@ -104,8 +106,8 @@ class UAF_Extractor:
         2. delete
         """
         function_set = {"free"}
-        nodes = TSAnalyzer.find_nodes_by_type(root_node, "call_expression")
-        nodes.extend(TSAnalyzer.find_nodes_by_type(root_node, "delete_expression"))
+        nodes = find_nodes_by_type(root_node, "call_expression")
+        nodes.extend(find_nodes_by_type(root_node, "delete_expression"))
 
         lines = []
         for node in nodes:
@@ -135,10 +137,10 @@ class UAF_Extractor:
         3. free(ptr);
         4. delete ptr;
         """
-        nodes = TSAnalyzer.find_nodes_by_type(root_node, "pointer_expression")
-        nodes.extend(TSAnalyzer.find_nodes_by_type(root_node, "field_expression"))
-        nodes.extend(TSAnalyzer.find_nodes_by_type(root_node, "call_expression"))
-        nodes.extend(TSAnalyzer.find_nodes_by_type(root_node, "delete_expression"))
+        nodes = find_nodes_by_type(root_node, "pointer_expression")
+        nodes.extend(find_nodes_by_type(root_node, "field_expression"))
+        nodes.extend(find_nodes_by_type(root_node, "call_expression"))
+        nodes.extend(find_nodes_by_type(root_node, "delete_expression"))
         
         lines = []
         for node in nodes:

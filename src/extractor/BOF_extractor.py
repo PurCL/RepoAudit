@@ -1,5 +1,7 @@
-from parser.program_parser import *
-from utility.ts_utils import *
+from parser.base_parser import *
+from parser.C_parser import *
+from parser.go_parser import *
+from extractor.util import *
 import tree_sitter
 import argparse
 import os
@@ -104,8 +106,8 @@ class BOF_Extractor:
         """
         Extract the potential BOF operations from the source code.
         """
-        nodes= TSAnalyzer.find_nodes_by_type(root_node, "subscript_expression")
-        nodes.extend(TSAnalyzer.find_nodes_by_type(root_node, "call_expression"))
+        nodes= find_nodes_by_type(root_node, "subscript_expression")
+        nodes.extend(find_nodes_by_type(root_node, "call_expression"))
 
         mem_operations = ("memcpy", "memset", "memmove", "strndup")
         mem_allocations = ("malloc", "calloc", "realloc")

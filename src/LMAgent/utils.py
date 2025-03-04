@@ -46,8 +46,10 @@ class LLM:
             self.local = True
         if "gemini" in self.online_model_name:
             output = self.infer_with_gemini(message)
-        elif "gpt" in self.online_model_name or "o3-mini" in self.online_model_name:
+        elif "gpt" in self.online_model_name:
             output = self.infer_with_openai_model(message)
+        elif "o3-mini" in self.online_model_name:
+            output = self.infer_with_o3_mini_model(message)
         elif "claude" in self.online_model_name:
             output = self.infer_with_claude(message)
         elif "deepseek" in self.online_model_name:
@@ -118,8 +120,6 @@ class LLM:
     def infer_with_openai_model(self, message):
         """Infer using the OpenAI model"""
         api_key = os.environ.get("OPENAI_API_KEY").split(":")[0]
-        if "o3-mini" in self.online_model_name:
-            api_key = os.environ.get("O3MINI_API_KEY")
         model_input = [
             {"role": "system", "content": self.systemRole},
             {"role": "user", "content": message},
@@ -131,6 +131,35 @@ class LLM:
                 model=self.online_model_name,
                 messages=model_input,
                 temperature=self.temperature,
+            )
+            return response.choices[0].message.content
+
+        tryCnt = 0
+        while tryCnt < 5:
+            tryCnt += 1
+            try:
+                output = self.run_with_timeout(call_api, timeout=100)
+                if output:
+                    return output
+            except Exception as e:
+                print(f"API error: {e}")
+            time.sleep(2)
+        
+        return ""
+    
+    def infer_with_o3_mini_model(self, message):
+        """Infer using the o3-mini model"""
+        api_key = os.environ.get("OPENAI_API_KEY").split(":")[0]
+        model_input = [
+            {"role": "system", "content": self.systemRole},
+            {"role": "user", "content": message},
+        ]
+        
+        def call_api():
+            client = OpenAI(api_key=api_key)
+            response = client.chat.completions.create(
+                model=self.online_model_name,
+                messages=model_input
             )
             return response.choices[0].message.content
 

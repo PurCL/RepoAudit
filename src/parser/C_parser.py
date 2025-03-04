@@ -131,18 +131,23 @@ class C_Analyzer(TSAnalyzer):
     def create_ts_parser(self):
         return C_Parser(self.code_in_projects, self.language)
     
-    def extract_call_graph(self, current_function: Function, file_content: str):
+    #################################################
+    ########## Call Graph Analysis ##################
+    #################################################
+    def extract_call_graph_edges(self, current_function: Function):
         """
-        Extract the call graph.
+        Extract the call graph edges.
         :param current_function: the function to be analyzed
-        :param file_content: the content of the file
         """
         # Over-approximate the caller-callee relationship via function names, achieved by find_callee
+        file_name = self.ts_parser.functionToFile[current_function.function_id]
+        file_content = self.ts_parser.fileContentDic[file_name]
+
         all_call_sites = find_nodes_by_type(current_function.parse_tree_root_node, "call_expression")
         white_call_sites = []
 
         for call_site_node in all_call_sites:
-            callee_ids = self.find_callee(file_content, call_site_node)
+            callee_ids = self.find_callee_at_callsite(call_site_node, file_content)
             if len(callee_ids) > 0:
                 # Update the call graph
                 for callee_id in callee_ids:
@@ -157,10 +162,6 @@ class C_Analyzer(TSAnalyzer):
 
         current_function.call_site_nodes = white_call_sites
         return
-
-    #################################################
-    ########## Call Graph Analysis ##################
-    #################################################
 
     def get_callee_name_at_call_site(self, node: tree_sitter.Node, source_code: str) -> str:
         """
@@ -185,7 +186,7 @@ class C_Analyzer(TSAnalyzer):
         function_name = sub_sub_node_types[max(index_of_last_dot, index_of_last_arrow) + 1]
         return function_name
 
-    def get_arguments_at_call_site(self, node: tree_sitter.Node, source_code: str) -> List[str]:
+    def get_arguments_at_callsite(self, node: tree_sitter.Node, source_code: str) -> List[str]:
         """
         Get arguments at the call site.
         :param node: the node of the call site
@@ -204,7 +205,7 @@ class C_Analyzer(TSAnalyzer):
     ########## AST Node Type Analysis ###############
     #################################################   
 
-    def find_paras(self, current_function: Function) -> Set[Tuple[str, int, int]]:
+    def find_paras_in_single_function(self, current_function: Function) -> Set[Tuple[str, int, int]]:
         """
         Find the parameters of the function.
         :param current_function: the function to be analyzed
@@ -222,7 +223,7 @@ class C_Analyzer(TSAnalyzer):
                 index += 1
         return paras
 
-    def find_args(self, current_function: Function, callee: str) -> Set[Tuple[str, int, int]]:
+    def find_args_by_callee_name(self, current_function: Function, callee: str) -> Set[Tuple[str, int, int]]:
         """
         Find the arguments of the callee function.
         :param current_function: the function to be analyzed
@@ -255,7 +256,7 @@ class C_Analyzer(TSAnalyzer):
                             index += 1
         return args
 
-    def find_retstmts(self, current_function: Function) -> List[Tuple[str, int]]:
+    def find_retstmts_in_single_function(self, current_function: Function) -> List[Tuple[str, int]]:
         """
         Find the return statements in the function.
         :param current_function: the function to be analyzed
@@ -273,9 +274,12 @@ class C_Analyzer(TSAnalyzer):
     ########## Control Flow Analysis ################
     #################################################
 
-    def find_if_statements(self, source_code, root_node) -> Dict[Tuple, Tuple]:
+    def find_if_statements(self, root_node: tree_sitter.Node, source_code: str) -> Dict[Tuple, Tuple]:
         """
-        Extract meta data of if statements in C/C++
+        Find the if statements in the C/C++ function.
+        :param root_node: the root node of the syntax tree
+        :param source_code: the content of the file
+        :return: a dictionary containing the if statement info and the line number: `(start_line, end_line): info`
         """
         if_statement_nodes = find_nodes_by_type(root_node, "if_statement")
         if_statements = {}
@@ -328,9 +332,13 @@ class C_Analyzer(TSAnalyzer):
             if_statements[line_scope] = info
         return if_statements
 
-    def find_loop_statements(self, source_code, root_node) -> Dict[Tuple, Tuple]:
+
+    def find_loop_statements(self, root_node: tree_sitter.Node, source_code: str) -> Dict[Tuple, Tuple]:
         """
-        Extract meta data of loop statements in C/C++
+        Find the loop statements in the C/C++ function.
+        :param root_node: the root node of the syntax tree
+        :param source_code: the content of the file
+        :return: a dictionary containing the if statement info and the line number: `(start_line, end_line): info`
         """
         loop_statements = {}
         for_statement_nodes = find_nodes_by_type(root_node, "for_statement")

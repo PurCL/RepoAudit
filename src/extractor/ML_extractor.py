@@ -1,5 +1,7 @@
-from parser.program_parser import *
-from utility.ts_utils import *
+from parser.base_parser import *
+from parser.C_parser import *
+from parser.go_parser import *
+from extractor.util import *
 import tree_sitter
 import argparse
 import os
@@ -106,8 +108,8 @@ class ML_Extractor:
         4. new
         5. getline
         """
-        nodes = TSAnalyzer.find_nodes_by_type(root_node, "call_expression")
-        nodes.extend(TSAnalyzer.find_nodes_by_type(root_node, "new_expression"))
+        nodes = find_nodes_by_type(root_node, "call_expression")
+        nodes.extend(find_nodes_by_type(root_node, "new_expression"))
 
         lines = []
         for node in nodes:
@@ -135,8 +137,8 @@ class ML_Extractor:
         1. free
         2. delete
         """
-        nodes = TSAnalyzer.find_nodes_by_type(root_node, "call_expression")
-        nodes.extend(TSAnalyzer.find_nodes_by_type(root_node, "delete_expression"))
+        nodes = find_nodes_by_type(root_node, "call_expression")
+        nodes.extend(find_nodes_by_type(root_node, "delete_expression"))
 
         lines = []
         for node in nodes:

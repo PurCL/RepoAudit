@@ -9,7 +9,7 @@ PROJECT_NAME=zstd
 
 python3 scan.py \
   --language $LANGUAGE \
-  --inference-model claude-3.7 \
+  --inference-model o3-mini \
   --project-path ../benchmark/$LANGUAGE/$PROJECT_NAME \
   --bug-type $BUG_TYPE \
   --global-temperature 0.0 \

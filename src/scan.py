@@ -1,7 +1,7 @@
 import argparse
 import glob
 from pipeline.metascan import *
-from pipeline.neumeric_scan import *
+from src.pipeline.bugscan import *
 
 class BatchScan:
     def __init__(
