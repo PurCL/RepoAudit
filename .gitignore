@@ -9,6 +9,9 @@ __pycache__/
 
 *.pyc
 benchmark/
+!benchmark/**/toy/
+!benchmark/**/toy/**
+
 log/
 # **/run_info.json
 **.log
