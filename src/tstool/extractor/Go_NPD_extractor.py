@@ -1,5 +1,5 @@
 from tstool.analyzer.TS_analyzer import *
-from tstool.analyzer.C_TS_analyzer import *
+from tstool.analyzer.Go_TS_analyzer import *
 from .extractor import *
 import tree_sitter
 import argparse
@@ -7,31 +7,29 @@ import os
 import json
 from tqdm import tqdm
 
-class C_NPD_Extractor(Extractor):
+
+class Go_NPD_Extractor(Extractor):
     def find_seed(self, source_code: str, root_node: tree_sitter.Node, file: str) -> List[LocalValue]:
         """
-        Extract the potential null values as seeds from the source code.
-        1. ptr = NULL;
-        2. return NULL;
-        3. (type)* ptr = NULL;
+        Extract the possible forms of nil values for Nil Panic detection from the source code.
         """
-        nodes = find_nodes_by_type(root_node, "init_declarator")
-        nodes.extend(find_nodes_by_type(root_node, "assignment_expression"))
-        nodes.extend(find_nodes_by_type(root_node, "return_statement"))
-        #lack fuction parameter
+        #TODO: Handle the nil values caused by void return statements
+        var_declaration_nodes = find_nodes_by_type(root_node, "var_declaration")
+        literal_nil_nodes = find_nodes_by_type(root_node, "nil")
 
         lines = []
-        for node in nodes:
-            is_src_node = False
-            for child in node.children:
-                if child.type == "null":
-                    is_src_node = True
-            if is_src_node:
+        for node in var_declaration_nodes:
+            if len(find_nodes_by_type(node, "=")) == 0:
                 line_number = source_code[: node.start_byte].count("\n") + 1
-                name = source_code.split("\n")[line_number - 1]
+                name = source_code[node.start_byte: node.end_byte]
                 lines.append(LocalValue(name, line_number, ValueType.SRC, file=file))
-        return lines
 
+        for node in literal_nil_nodes:
+            line_number = source_code[: node.start_byte].count("\n") + 1
+            name = source_code[node.start_byte: node.end_byte]
+            lines.append(LocalValue(name, line_number, ValueType.SRC, file=file))
+        return lines
+    
 
 def start_extract():
     parser = argparse.ArgumentParser()
@@ -43,8 +41,7 @@ def start_extract():
     parser.add_argument(
         "--language",
         choices=[
-            "C",
-            "C++",
+            "Go"
         ],
         help="Specify the language",
     )
@@ -58,8 +55,8 @@ def start_extract():
     language_setting = args.language
     seed_path = args.seed_path
     
-    npd_extractor = C_NPD_Extractor(project_path, language_setting, seed_path) 
-    npd_extractor.run() 
+    bof_extractor = Go_NPD_Extractor(project_path, language_setting, seed_path) 
+    bof_extractor.run()
 
 
 if __name__ == "__main__":

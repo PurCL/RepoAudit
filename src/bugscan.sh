@@ -1,12 +1,8 @@
 #!/bin/bash
-LANGUAGE=C
+LANGUAGE=Go
 BUG_TYPE=BOF
 SCANNER=bugscan
-
-# PROJECT_NAME=curl
-# PROJECT_NAME=php-src
-# PROJECT_NAME=zstd
-PROJECT_NAME=zstd
+PROJECT_NAME=sally
 
 python3 repoaudit.py \
   --language $LANGUAGE \
@@ -16,4 +12,4 @@ python3 repoaudit.py \
   --global-temperature 0.0 \
   --scanners $SCANNER \
   --boundary 3 \
-  --src-spec-file ../result/extract/$BUG_TYPE/${LANGUAGE}_${PROJECT_NAME}/src_result.json
+  --src-spec-file ../result/extract/$BUG_TYPE/${LANGUAGE}_${PROJECT_NAME}/seed_result.json

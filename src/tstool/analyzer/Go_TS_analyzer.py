@@ -61,7 +61,7 @@ class Go_TSParser(TSParser):
         :param source_code: The content of the source file.
         :param tree: The parse tree of the source file.
         """
-        # TODO. Implement the function to parse global macro information
+        # TODO. Implement the function to parse macro information and other global info
         return
 
 

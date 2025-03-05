@@ -6,7 +6,7 @@ from agent.bugscan import *
 class RepoAudit:
     def __init__(
         self,
-        src_spec_file: str,
+        seed_spec_file: str,
         project_path: str,
         language: str,
         inference_model_name: str,
@@ -18,7 +18,7 @@ class RepoAudit:
         """
         Initialize BatchScan object with project details.
         """
-        self.src_spec_file = src_spec_file
+        self.seed_spec_file = seed_spec_file
         self.project_path = project_path
         self.language = language
         self.scanners = scanners
@@ -63,7 +63,7 @@ class RepoAudit:
         
         if "bugscan" in self.scanners:
             bugscan_agent = BugScanAgent(
-                self.src_spec_file,
+                self.seed_spec_file,
                 project_name,
                 self.language,
                 self.all_files,
@@ -133,20 +133,15 @@ def run_dev_mode():
         help="Specify the temperature",
     )
     parser.add_argument(
-        "--is-fscot",
-        action="store_true",
-        help="Specify if FSCOT is enabled",
-    )
-    parser.add_argument(
         "--scanners",
         nargs='+',
         choices=["metascan", "bugscan"],
         help="Specify which scanners to invoke",
     )
     parser.add_argument(
-        "--src-spec-file",
+        "--seed-spec-file",
         type=str,
-        help="Specify the source spec file",
+        help="Specify the seed spec file",
     )
     parser.add_argument(
         "--boundary",
@@ -161,15 +156,15 @@ def run_dev_mode():
     inference_model = args.inference_model
     global_temperature = float(args.global_temperature)
     scanners = args.scanners if args.scanners else []
-    src_spec = args.src_spec_file
+    seed_spec = args.seed_spec_file
     bug_type = args.bug_type
     boundary = args.boundary
 
     
-    print(src_spec)
+    print(seed_spec)
 
     batch_scan = RepoAudit(
-        src_spec,
+        seed_spec,
         project_path,
         language,
         inference_model,

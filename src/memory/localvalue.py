@@ -2,6 +2,8 @@ import re
 from enum import Enum
 
 class ValueType(Enum):
+    # TODO: The Enum values to be refined.
+    # SRC and SINK may be redundant
     SRC = 1
     SINK = 2
     PARA = 3
