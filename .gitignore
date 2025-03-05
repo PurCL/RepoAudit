@@ -9,11 +9,8 @@ __pycache__/
 
 *.pyc
 
-# Benchmark: ignore all files/directories under benchmark except any directory named "toy"
+# Ignore all content in benchmark directory...
 benchmark/*
-!benchmark/
-!benchmark/**/toy/
-!benchmark/**/toy/**
 
 log/
 # **/run_info.json
