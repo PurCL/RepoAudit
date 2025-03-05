@@ -172,20 +172,12 @@ class Go_TSAnalyzer(TSAnalyzer):
         :param callee: the callee function name
         :return: (arg_name, line_number, index) of the arguments
         """
-        # TODO: Error-prone
         args = set([])
         file_content = self.code_in_projects[current_function.file_name]
         call_site_nodes = find_nodes_by_type(current_function.parse_tree_root_node, "call_expression")
         for call_site in call_site_nodes:
-            # check name of the callee
-            is_callee = False
-            for child in call_site.children:
-                if child.type == "identifier":
-                    name = file_content[child.start_byte:child.end_byte]
-                    if name == callee:
-                        is_callee = True
-                    break
-            if not is_callee:
+            actual_callee = self.get_callee_name_at_call_site(call_site, file_content)
+            if actual_callee != callee:
                 continue
             for child in call_site.children:
                 if child.type == "argument_list":
@@ -205,7 +197,6 @@ class Go_TSAnalyzer(TSAnalyzer):
         :param current_function: the function to be analyzed
         :return: (ret_stmt, line_number) of the return statements
         """
-        # TODO: Error-prone
         retstmts = []
         file_content = self.code_in_projects[current_function.file_name]
         retnodes = find_nodes_by_type(current_function.parse_tree_root_node, "return_statement")

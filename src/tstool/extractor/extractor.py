@@ -61,10 +61,18 @@ class Extractor(ABC):
         pbar = tqdm(total=len(self.all_files), desc="Parsing files")
         for file_name, file_code in self.all_files.items():
             pbar.update(1)
-            if 'test' in file_name or 'example' in file_name or 'bof' in file_name:
+            if 'test' in file_name or 'example' in file_name:
                 continue
             tree = self.parser.parse(bytes(file_code, "utf8"))
             root = tree.root_node
+
+            nodes = find_nodes_by_type(root, "return_statement")
+            for node in nodes:
+                for sub_node in node.children:
+                    print(sub_node.type)
+                    print(file_code[sub_node.start_byte:sub_node.end_byte])
+                    print("=====================================")
+
             seed_lines.extend(self.find_seed(file_code, root, file=file_name))
     
         with open(self.seed_path, 'w') as f:
