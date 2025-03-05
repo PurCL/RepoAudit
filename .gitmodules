@@ -4,3 +4,6 @@
 [submodule "benchmark/C/memcached"]
 	path = benchmark/C/memcached
 	url = https://github.com/memcached/memcached.git
+[submodule "benchmark/C/zstd"]
+	path = benchmark/C/zstd
+	url = https://github.com/facebook/zstd.git
