@@ -3,7 +3,7 @@ import glob
 from agent.metascan import *
 from agent.bugscan import *
 
-class BatchScan:
+class RepoAudit:
     def __init__(
         self,
         src_spec_file: str,
@@ -168,7 +168,7 @@ def run_dev_mode():
     
     print(src_spec)
 
-    batch_scan = BatchScan(
+    batch_scan = RepoAudit(
         src_spec,
         project_path,
         language,
