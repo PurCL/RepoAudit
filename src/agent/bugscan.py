@@ -90,8 +90,12 @@ class BugScanAgent:
             # if str(src) != "((malloc(length + 1), -1, 2670), ValueType.BUF, ../benchmark/C/php-src/Zend/zend_alloc.c)":
             #     continue
 
-            ## Project zstd
-            if str(src) != "((newTable->fileNames[newTableIdx], -1, 563), ValueType.BUF, ../benchmark/C/zstd/programs/util.c)":
+            # ## Project zstd
+            # if str(src) != "((newTable->fileNames[newTableIdx], -1, 563), ValueType.BUF, ../benchmark/C/zstd/programs/util.c)":
+            #     continue
+
+            ## Project go/toy
+            if "bof_case07" not in str(src):
                 continue
 
             # ## Project cpv-1

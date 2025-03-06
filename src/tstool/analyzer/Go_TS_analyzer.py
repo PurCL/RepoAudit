@@ -80,16 +80,16 @@ class Go_TSAnalyzer(TSAnalyzer):
         Extract the call graph edges.
         :param current_function: the function to be analyzed
         """
-        # Over-approximate the caller-callee relationship via function names, achieved by find_callee
+        # Over-approximate the caller-callee relationship via function names, achieved by find_callee_at_callsite
         file_name = self.ts_parser.functionToFile[current_function.function_id]
         file_content = self.ts_parser.fileContentDic[file_name]
 
         function_call_node_type = "call_expression"
-        all_call_sites = self.find_nodes_by_type(current_function.parse_tree_root_node, function_call_node_type)
+        all_call_sites = find_nodes_by_type(current_function.parse_tree_root_node, function_call_node_type)
         white_call_sites = []
 
         for call_site_node in all_call_sites:
-            callee_ids = self.find_callee(file_content, call_site_node)
+            callee_ids = self.find_callee_at_callsite(call_site_node, file_content)
             if len(callee_ids) > 0:
                 # Update the call graph
                 for callee_id in callee_ids:
@@ -216,7 +216,7 @@ class Go_TSAnalyzer(TSAnalyzer):
         :param source_code: the content of the file
         :return: a dictionary containing the if statement info and the line number: `(start_line, end_line): info`
         """
-        if_statement_nodes = self.find_nodes_by_type(root_node, "if_statement")
+        if_statement_nodes = find_nodes_by_type(root_node, "if_statement")
         if_statements = {}
 
         for if_statement_node in if_statement_nodes:
@@ -268,7 +268,7 @@ class Go_TSAnalyzer(TSAnalyzer):
         :return: a dictionary containing the if statement info and the line number: `(start_line, end_line): info`
         """
         loop_statements = {}
-        for_statement_nodes = self.find_nodes_by_type(root_node, "for_statement")
+        for_statement_nodes = find_nodes_by_type(root_node, "for_statement")
 
         for loop_node in for_statement_nodes:
             loop_start_line = source_code[: loop_node.start_byte].count("\n") + 1

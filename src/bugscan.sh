@@ -2,7 +2,7 @@
 LANGUAGE=Go
 BUG_TYPE=BOF
 SCANNER=bugscan
-PROJECT_NAME=sally
+PROJECT_NAME=toy
 
 python3 repoaudit.py \
   --language $LANGUAGE \
@@ -12,4 +12,4 @@ python3 repoaudit.py \
   --global-temperature 0.0 \
   --scanners $SCANNER \
   --boundary 3 \
-  --src-spec-file ../result/extract/$BUG_TYPE/${LANGUAGE}_${PROJECT_NAME}/seed_result.json
+  --seed-spec-file ../result/extract/$BUG_TYPE/${LANGUAGE}_${PROJECT_NAME}/seed_result.json
