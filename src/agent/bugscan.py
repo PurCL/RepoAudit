@@ -110,7 +110,7 @@ class BugScanAgent:
 
             ## Reproduce mode
             if self.project_name in target_seeds:
-                if str(src) != str(target_seeds[self.project_name]):
+                if str(src).strip() != str(target_seeds[self.project_name]).strip():
                     continue
             
             src_function = self.ts_analyzer.get_function_from_localvalue(src)
@@ -133,11 +133,11 @@ class BugScanAgent:
             print("PoC: ", poc)
             print("===============================================")
 
-        with open(self.result_dir_path + "/slicing_info.json", 'w') as run_info_file:
-            json.dump(self.run_info, run_info_file, indent=4)
+            with open(self.result_dir_path + "/slicing_info.json", 'w') as run_info_file:
+                json.dump(self.run_info, run_info_file, indent=4)
 
-        with open(self.result_dir_path + "/detect_info.json", 'w') as bug_info_file:
-            json.dump(self.bug_info, bug_info_file, indent=4)
+            with open(self.result_dir_path + "/detect_info.json", 'w') as bug_info_file:
+                json.dump(self.bug_info, bug_info_file, indent=4)
 
     
     def detect_with_llm(self, state:State) -> Tuple[str, str]:

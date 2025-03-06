@@ -9,3 +9,5 @@ google-generativeai
 tqdm
 networkx
 streamlit
+botocore
+boto3
