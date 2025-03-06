@@ -21,7 +21,11 @@ import boto3
 
 class LLM:
     """
-    An online inference model using different LLMs, including gemini, gpt-3.5, and gpt-4
+    An online inference model using different LLMs:
+    - Gemini
+    - OpenAI: GPT-3.5, GPT-4, o3-mini
+    - DeepSeek: V3, R1
+    - Claude: 3.5 and 3.7
     """
 
     def __init__(
@@ -36,14 +40,12 @@ class LLM:
         self.systemRole = system_role
         return
 
+
     def infer(
         self, message: str, is_measure_cost: bool = False
     ) -> Tuple[str, int, int]:
         print(self.online_model_name, "is running")
         output = ""
-        self.local = False
-        if "local" in self.online_model_name:
-            self.local = True
         if "gemini" in self.online_model_name:
             output = self.infer_with_gemini(message)
         elif "gpt" in self.online_model_name:
@@ -56,6 +58,7 @@ class LLM:
             output = self.infer_with_deepseek_model(message)
         else:
             raise ValueError("Unsupported model name")
+            
         input_token_cost = (
             0
             if not is_measure_cost
@@ -66,6 +69,7 @@ class LLM:
             0 if not is_measure_cost else len(self.encoding.encode(output))
         )
         return output, input_token_cost, output_token_cost
+
 
     def run_with_timeout(self, func, timeout):
         """Run a function with timeout that works in multiple threads"""
@@ -80,6 +84,7 @@ class LLM:
                 print(f"Operation failed: {e}")
                 return ""
 
+
     def infer_with_gemini(self, message: str) -> str:
         """Infer using the Gemini model from Google Generative AI"""
         gemini_model = genai.GenerativeModel("gemini-pro")
@@ -93,7 +98,6 @@ class LLM:
                 },
                 # ...existing safety settings...
             ]
-            
             response = gemini_model.generate_content(
                 message_with_role,
                 safety_settings=safety_settings,
@@ -116,6 +120,7 @@ class LLM:
             time.sleep(2)
         
         return ""
+
 
     def infer_with_openai_model(self, message):
         """Infer using the OpenAI model"""
@@ -147,6 +152,7 @@ class LLM:
         
         return ""
     
+
     def infer_with_o3_mini_model(self, message):
         """Infer using the o3-mini model"""
         api_key = os.environ.get("OPENAI_API_KEY").split(":")[0]
@@ -176,6 +182,7 @@ class LLM:
         
         return ""
     
+
     def infer_with_deepseek_model(self, message):
         """
         Infer using the DeepSeek model
@@ -210,6 +217,7 @@ class LLM:
             time.sleep(2)
         
         return ""
+
 
     def infer_with_claude(self, message):
         """Infer using the Claude model via AWS Bedrock"""

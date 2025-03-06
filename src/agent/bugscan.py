@@ -103,9 +103,9 @@ class BugScanAgent:
             # if str(src) != "((malloc(length + 1), -1, 2670), ValueType.BUF, ../benchmark/C/php-src/Zend/zend_alloc.c)":
             #     continue
 
-            ## Project zstd
-            if str(src) != "((newTable->fileNames[newTableIdx], -1, 563), ValueType.BUF, ../benchmark/C/zstd/programs/util.c)":
-                continue
+            # ## Project zstd
+            # if str(src) != "((newTable->fileNames[newTableIdx], -1, 563), ValueType.BUF, ../benchmark/C/zstd/programs/util.c)":
+            #     continue
 
             # ## Project cpv-1
             # if str(src) != "((*u, -1, 4091), ValueType.BUF, ../benchmark/C/cpv-1/src/http/ngx_http_request.c)":
@@ -136,8 +136,8 @@ class BugScanAgent:
             #     continue
 
             # ## memcached
-            # if str(src) != "((char *list = strdup(settings.inter);, -1, 4629), ValueType.SRC, ../benchmark/C/memcached/memcached.c)":
-            #     continue
+            if str(src) != "((char *list = strdup(settings.inter);, -1, 4629), ValueType.SRC, ../benchmark/C/memcached/memcached.c)":
+                continue
 
             src_function = self.ts_analyzer.get_function_from_localvalue(src)
             if src_function == None:
