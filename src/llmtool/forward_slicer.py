@@ -13,7 +13,7 @@ BASE_PATH = Path(__file__).resolve().parents[1]
 
 class ForwardSlicer(LLMTool):
     """
-    Neumeric analyzer
+    Forward slicer class
     """
     def __init__(
             self, 
@@ -23,7 +23,7 @@ class ForwardSlicer(LLMTool):
             ts_analyzer,
             boundary,
             ) -> None:
-        self.prompt_file = f"{BASE_PATH}/prompt/llmtool/forward_prompt.json"
+        self.prompt_file = f"{BASE_PATH}/prompt/llmtool/{language}/{language}_forward_prompt.json"
         super().__init__(model_name, language)
         system_role = self.fetch_system_role()
         self.model = LLM(model_name, temp, system_role)

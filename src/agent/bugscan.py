@@ -48,8 +48,8 @@ class BugScanAgent:
         self.temp = temperature
         self.bug_type = bug_type
         self.boundary = boundary
-        self.detection_prompt_file = f"{BASE_PATH}/src/prompt/detection/{self.bug_type}_prompt.json"
-        self.inline_prompt_file = f"{BASE_PATH}/src/prompt/llmtool/inline_prompt.json"
+        self.detection_prompt_file = f"{BASE_PATH}/src/prompt/detection/{language}/{language}_{self.bug_type}_prompt.json"
+        self.inline_prompt_file = f"{BASE_PATH}/src/prompt/llmtool/{language}/{language}_inline_prompt.json"
         self.MAX_QUERY_NUM = 5
         self.detection_role = self.fetch_detection_system_role()
         
@@ -109,8 +109,9 @@ class BugScanAgent:
         for src in src_list:
 
             ## Reproduce mode
-            if str(src) != str(target_seeds[self.project_name]):
-                continue
+            if self.project_name in target_seeds:
+                if str(src) != str(target_seeds[self.project_name]):
+                    continue
             
             src_function = self.ts_analyzer.get_function_from_localvalue(src)
             if src_function == None:
