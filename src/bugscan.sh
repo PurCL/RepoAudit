@@ -2,6 +2,11 @@
 LANGUAGE=Go
 BUG_TYPE=BOF
 SCANNER=bugscan
+
+# PROJECT_NAME=curl
+# PROJECT_NAME=php-src
+# PROJECT_NAME=zstd
+# PROJECT_NAME=cpv-3
 PROJECT_NAME=toy
 
 python3 repoaudit.py \

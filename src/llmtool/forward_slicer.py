@@ -31,19 +31,20 @@ class ForwardSlicer(LLMTool):
         self.boundary = boundary
 
         self.src_type_prompt = {
-            ValueType.BUF: "buffer size and index of",
-            ValueType.RET: "return value",
-            ValueType.ARG: "arguments",
+            ValueType.SRC: "variable",                 # start point
+            ValueType.PARA: "parameters",              # goto callee
+            ValueType.OUT: "return value of",          # goto caller
+            ValueType.ARG: "arguments",                # goto caller
         }
-        self.slice_pattern = r'Slicing:\s*(.*?)\s*External variables:'
-        self.exeternal_pattern = r'External variables:\s*((?:-.*(?:\n|$))+)' 
-        self.var_pattern = (
-            r'^\s*(?:-\s*)?Source:\s*(?P<source>[^.]+)\.' 
-            r'(?:\s*Function Name:\s*(?P<function>[^\n.]+))?'  # optional function name
-            r'(?:\s*Index:\s*(?P<index>\d+))?'                # optional index
-            r'(?:\s*Variable Name:\s*(?P<variable>[^\n.]+))?'   # optional variable name
-        )
 
+        self.slice_pattern = r'Slicing:\s*(.*?)\s*External Propagation:'
+        self.exeternal_pattern = r'External Propagation:\s*((?:-.*(?:\n|$))+)' 
+        self.var_pattern = (
+            r'^\s*-\s*Type:\s*(?P<type>[^.]+)\.'
+            r'(?:\s*Callee:\s*(?P<callee_name>[^.]+)\.)?'  # optional callee name for arguments
+            r'(?:\s*Index:\s*(?P<index>\d+))?'        # optional index for parameters/arguments
+            r'(?:\s*Name:\s*(?P<variable_name>[^\n.]+))?'      # optional name for global variables
+        )
 
     def analyze(self, state: State, depth: int) -> bool:
         """
@@ -61,49 +62,74 @@ class ForwardSlicer(LLMTool):
                 return False
 
         state.slice = self.cache[key].slice
-        index_set = set()
+        arg_set = set()           # store the index of parameters
+        para_dict = {}            # store the callee name and indexes of arguments
         for external_variable in self.cache[key].external_variables:
-            source = external_variable["source"]
-            value = external_variable["value"]
-            if source == "Return Value":
-                callee_name = value
-                callee_functions = self.ts_analyzer.get_all_callee_functions(state.function, callee_name)
-                for callee_function in callee_functions:
-                    src = LocalValue("", 0, ValueType.RET, callee_function.file_name)
-                    callee_state = State(src, callee_function)
-                    if (self.analyze(callee_state, depth+1)):
-                        state.callees.append(callee_state)
-                        callee_state.callers.append(state)
-            if source == "Parameter":
-                index = int(value)
-                index_set.add(index)
-            if source == "Global Variable":
-                global_variable_name = value
-                if global_variable_name in self.ts_analyzer.glb_var_map:
-                    macro = f"{global_variable_name} = {self.ts_analyzer.glb_var_map[global_variable_name]}"
-                    state.slice += "\n" + macro
+            source_type = external_variable["type"]
 
-        # For callee functions, we don't need to retrieve their callers.
-        # When retrieving the caller functions, we analyze all arguments in one query.
-        if index_set and state.var.v_type != ValueType.RET:
+            # For callee functions, the source variable is parameter, we don't need to retrieve their callers.
+            if source_type == "Return Value" and state.var.v_type != ValueType.PARA:
+                caller_functions = self.ts_analyzer.get_all_caller_functions(state.function)
+                # ## For DEBUG
+                # if len(caller_functions) > 5:
+                #     print(f"Caller functions number: {len(caller_functions)}, {state.function.function_name}")
+                for caller_function in caller_functions:
+                    call_sites = self.ts_analyzer.get_return_value_from_callsite(caller_function, state.function.function_name)
+                    # ## For DEBUG
+                    # if len(call_sites) > 1:
+                    #     print(f"Call site number: {len(call_sites)}, {state.function.function_name}")
+                    for return_value in call_sites:
+                        caller_state = State(return_value, caller_function)
+                        if (self.analyze(caller_state, depth+1)):
+                            state.callers.append(caller_state)
+                            caller_state.callees.append(state)
+            if source_type == "Parameter":
+                index = int(external_variable["index"])
+                arg_set.add(index)
+            if source_type == "Argument":
+                callee_name = external_variable["callee_name"]
+                index = int(external_variable["index"])
+                if callee_name not in para_dict:
+                    para_dict[callee_name] = set()
+                para_dict[callee_name].add(index)
+            if source_type == "Global Variable":
+                # TODO: add global variable support
+                pass
+
+        # For callee functions, the source variable is parameter, we don't need to retrieve their callers.
+        # When retrieving caller functions, we analyze all arguments in one query.
+        if arg_set and state.var.v_type != ValueType.PARA:
             caller_functions = self.ts_analyzer.get_all_caller_functions(state.function)
-            ## For DEBUG
-            if len(caller_functions) > 5:
-                print(f"Caller functions number: {len(caller_functions)}, {state.function.function_name}")
+            # ## For DEBUG
+            # if len(caller_functions) > 5:
+            #     print(f"Caller functions number: {len(caller_functions)}, {state.function.function_name}")
             for caller_function in caller_functions:
                 callee_name = state.function.function_name
                 argments = self.ts_analyzer.find_args_by_callee_name(caller_function, callee_name)
-                argments = [arg for arg in argments if arg[2] in index_set]
-                print(f"Find arguments: {argments}")
-                print("Index set: ", index_set)
+                argments = [arg for arg in argments if arg[2] in arg_set]
                 arg_names = ",".join([arg[0] for arg in argments])
                 max_line_number = max([arg[1] for arg in argments])
                 argment = LocalValue(arg_names, max_line_number, ValueType.ARG, caller_function.file_name)
-                print(f"From function {callee_name} get argument with index {index_set}: {arg_names}")
                 caller_state = State(argment, caller_function)
                 if (self.analyze(caller_state, depth+1)):
                     state.callers.append(caller_state)
                     caller_state.callees.append(state)
+
+        # When retrieving callee functions, we analyze all parameters in one query.    
+        for callee_name, index_set in para_dict.items():
+            callee_functions = self.ts_analyzer.get_all_callee_functions(state.function, callee_name)
+            for callee_function in callee_functions:
+                parameter_list = []
+                for index in index_set:
+                    parameter_list.append(self.ts_analyzer.get_parameter_by_index(callee_function, index))
+                parameter_names = ", ".join([parameter.name for parameter in parameter_list])
+                parameter_line_number = min([parameter.line_number for parameter in parameter_list])
+                parameters = LocalValue(parameter_names, parameter_line_number, ValueType.PARA, callee_function.file_name)
+                callee_state = State(parameters, callee_function)
+                if (self.analyze(callee_state, depth+1)):
+                    state.callees.append(callee_state)
+                    callee_state.callers.append(state)
+
         ## For DEBUG
         print(f"Finish analysis: {state.var.name} in {state.function.function_name}")
         return True
@@ -130,7 +156,7 @@ class ForwardSlicer(LLMTool):
         message = message.replace("<FUNCTION>", state.function.lined_code)
         question = (
             dump_config_dict["question_template"].replace("<SRC_NAME>", src_name)
-            .replace("<SRC_LINE>", f"at line {src_line_number}" if state.var.v_type != ValueType.RET else "")
+            .replace("<SRC_LINE>", f"at line {src_line_number}")
             .replace("<SRC_TYPE>", src_type)
         )
         message = message.replace("<QUESTION>", question)
@@ -166,6 +192,7 @@ class ForwardSlicer(LLMTool):
             query_result["query_time"] = time.time() - start_time
             query_result["input_token_cost"] = input_token_cost
             query_result["output_token_cost"] = output_token_cost
+            print(f"Query time: {time.time() - start_time}")
 
             self.result_list.append(query_result)
             self.query_num += 1
@@ -174,7 +201,7 @@ class ForwardSlicer(LLMTool):
             lines =  output.split("\n")
             idx = 0
             for line in lines:
-                if line.startswith("Answer:"):
+                if "Answer:" in line:
                     break
                 idx += 1
             answer = "\n".join(lines[idx+1:])
@@ -186,24 +213,14 @@ class ForwardSlicer(LLMTool):
                 format_error = "Slice not found"
                 print(f"Format error: {format_error}")
                 continue
-
             var_match = re.search(self.exeternal_pattern, answer, re.DOTALL)
             if var_match:
                 var_lines = var_match.group(1).splitlines()
                 for line in var_lines:
-                    m = re.match(self.var_pattern, line)
-                    if not m:
+                    match = re.match(self.var_pattern, line)
+                    if not match:
                         continue
-                    source = m.group("source")
-                    if source == "Parameter":
-                        index = m.group("index")
-                        self.cache[key].add_external_variable("Parameter", index)
-                    if source == "Global Variable":
-                        global_variable_name = m.group("variable")
-                        self.cache[key].add_external_variable("Global Variable", global_variable_name)
-                    if source == "Return Value":
-                        callee_name = m.group("function")
-                        self.cache[key].add_external_variable("Return Value", callee_name)
+                    self.cache[key].add_external_variable(match.groupdict())
     
         if format_error != "":
             print(f"Format error in {self.MAX_QUERY_NUM} queries")

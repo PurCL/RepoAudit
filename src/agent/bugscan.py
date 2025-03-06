@@ -8,9 +8,26 @@ from memory.state import State
 from memory.function import *
 from memory.localvalue import *
 from llmtool.backward_slicer import BackwardSlicer
+from llmtool.forward_slicer import ForwardSlicer
 from pathlib import Path
-BASE_PATH = Path(__file__).resolve().parents[1]
-BOT2UP_BUG_TYPE = ("BOF")
+BASE_PATH = Path(__file__).resolve().parents[2]
+BACKWARD_BUG_TYPE = ("BOF")
+FORWARD_BUG_TYPE = ("NPD", "UAF", "MLK")
+
+
+target_seeds = {
+    "C_curl": "((buffer[len++], -1, 253), ValueType.SINK, ../benchmark/C/curl/lib/sendf.c)",
+    "C_php-src": "((malloc(length + 1), -1, 2670), ValueType.BUF, ../benchmark/C/php-src/Zend/zend_alloc.c)",
+    "C_zstd": "((newTable->fileNames[newTableIdx], -1, 563), ValueType.BUF, ../benchmark/C/zstd/programs/util.c)",
+    "C_cpv-1": "((*u, -1, 4091), ValueType.BUF, ../benchmark/C/cpv-1/src/http/ngx_http_request.c)",
+    "C_cpv-3": "((*b->last++, -1, 4092), ValueType.BUF, ../benchmark/C/cpv-3/src/http/ngx_http_request.c)",
+    "C_cpv-3-repair": "((*b->last++, -1, 4097), ValueType.BUF, ../benchmark/C/cpv-3-repair/src/http/ngx_http_request.c)",
+    "C_cpv-8": "((    ngx_memcpy(s->login.data, arg[0].data, s->login.len);, -1, 324), ValueType.SRC, ../benchmark/C/cpv-8/src/mail/ngx_mail_pop3_handler.c)",
+    "C_cpv-8-repair": "((    ngx_memcpy(s->login.data, arg[0].data, s->login.len);, -1, 324), ValueType.SRC, ../benchmark/C/cpv-8-repair/src/mail/ngx_mail_pop3_handler.c)",
+    "C_cpv-12": "((rev[j], -1, 77), ValueType.BUF, ../benchmark/C/cpv-12/src/os/unix/ngx_linux_sendfile_chain.c)",
+    "C_cpv-12-repair": "((rev[j], -1, 77), ValueType.BUF, ../benchmark/C/cpv-12-repair/src/os/unix/ngx_linux_sendfile_chain.c)",
+    "C_memcached": "((char *list = strdup(settings.inter);, -1, 4629), ValueType.SRC, ../benchmark/C/memcached/memcached.c)"
+}
 
 class BugScanAgent:
     def __init__(self,
@@ -31,8 +48,8 @@ class BugScanAgent:
         self.temp = temperature
         self.bug_type = bug_type
         self.boundary = boundary
-        self.detection_prompt_file = f"{BASE_PATH}/prompt/detection/{self.bug_type}_prompt.json"
-        self.inline_prompt_file = f"{BASE_PATH}/prompt/llmtool/inline_prompt.json"
+        self.detection_prompt_file = f"{BASE_PATH}/src/prompt/detection/{self.bug_type}_prompt.json"
+        self.inline_prompt_file = f"{BASE_PATH}/src/prompt/llmtool/inline_prompt.json"
         self.MAX_QUERY_NUM = 5
         self.detection_role = self.fetch_detection_system_role()
         
@@ -45,7 +62,7 @@ class BugScanAgent:
             print("Unsupported language")
             exit(1)
         
-        if self.bug_type in BOT2UP_BUG_TYPE:
+        if self.bug_type in BACKWARD_BUG_TYPE:
             self.analyzer = BackwardSlicer(
                 self.model_name, 
                 self.temp, 
@@ -53,8 +70,23 @@ class BugScanAgent:
                 self.ts_analyzer,
                 self.boundary
             )
+        elif self.bug_type in FORWARD_BUG_TYPE:
+            self.analyzer = ForwardSlicer(
+                self.model_name, 
+                self.temp, 
+                self.language, 
+                self.ts_analyzer,
+                self.boundary
+            )
+        else:
+            print("Unsupported bug type")
+            exit(1)
         self.run_info = {}
         self.bug_info = {}
+
+        self.result_dir_path = f"{BASE_PATH}/result/detect-{self.model_name}/{self.bug_type}/{self.project_name}/{time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())}"
+        if not os.path.exists(self.result_dir_path):
+            os.makedirs(self.result_dir_path)
     
 
     def start_scan(self):
@@ -64,11 +96,6 @@ class BugScanAgent:
         if not os.path.exists(log_dir_path):
             os.makedirs(log_dir_path)
 
-        result_dir_path = str(
-            Path(__file__).resolve().parent.parent.parent / (f"result/detect-{self.model_name}/{self.bug_type}/{self.project_name}")
-        )
-        if not os.path.exists(result_dir_path):
-            os.makedirs(result_dir_path)
         print("Start bug scanning...")
 
         src_list = []
@@ -80,52 +107,11 @@ class BugScanAgent:
                 src_list.append(src_value)
         
         for src in src_list:
-            # Get source function body
-            
-            # ## Project curl
-            # if str(src) != "((buffer[len++], -1, 253), ValueType.SINK, ../benchmark/C/curl/lib/sendf.c)":
-            #     continue
 
-            # ## Project php-src
-            # if str(src) != "((malloc(length + 1), -1, 2670), ValueType.BUF, ../benchmark/C/php-src/Zend/zend_alloc.c)":
-            #     continue
-
-            # ## Project zstd
-            # if str(src) != "((newTable->fileNames[newTableIdx], -1, 563), ValueType.BUF, ../benchmark/C/zstd/programs/util.c)":
-            #     continue
-
-            ## Project go/toy
-            if "bof_case07" not in str(src):
+            ## Reproduce mode
+            if str(src) != str(target_seeds[self.project_name]):
                 continue
-
-            # ## Project cpv-1
-            # if str(src) != "((*u, -1, 4091), ValueType.BUF, ../benchmark/C/cpv-1/src/http/ngx_http_request.c)":
-            #     continue
-
-            # ## Project cpv-3
-            # if str(src) != "((*b->last++, -1, 4092), ValueType.BUF, ../benchmark/C/cpv-3/src/http/ngx_http_request.c)":
-            #     continue
-
-            ## Project cpv-3-repair
-            # if str(src) != "((*b->last++, -1, 4097), ValueType.BUF, ../benchmark/C/cpv-3-repair/src/http/ngx_http_request.c)":
-            #     continue
-
-            # ## Project cpv-8
-            # if str(src) != "((    ngx_memcpy(s->login.data, arg[0].data, s->login.len);, -1, 324), ValueType.SRC, ../benchmark/C/cpv-8/src/mail/ngx_mail_pop3_handler.c)":
-            #     continue
             
-            # ## Project cpv-8-repair
-            # if str(src) != "((    ngx_memcpy(s->login.data, arg[0].data, s->login.len);, -1, 324), ValueType.SRC, ../benchmark/C/cpv-8-repair/src/mail/ngx_mail_pop3_handler.c)":
-            #     continue
-
-            # ## Project cpv-12
-            # if str(src) != "((rev[j], -1, 77), ValueType.BUF, ../benchmark/C/cpv-12/src/os/unix/ngx_linux_sendfile_chain.c)":
-            #     continue
-
-            # ## Project cpv-12-repair
-            # if str(src) != "((rev[j], -1, 77), ValueType.BUF, ../benchmark/C/cpv-12-repair/src/os/unix/ngx_linux_sendfile_chain.c)":
-            #     continue
-
             src_function = self.ts_analyzer.get_function_from_localvalue(src)
             if src_function == None:
                 continue
@@ -146,10 +132,10 @@ class BugScanAgent:
             print("PoC: ", poc)
             print("===============================================")
 
-        with open(result_dir_path + "/slicing_info.json", 'w') as run_info_file:
+        with open(self.result_dir_path + "/slicing_info.json", 'w') as run_info_file:
             json.dump(self.run_info, run_info_file, indent=4)
 
-        with open(result_dir_path + "/detect_info.json", 'w') as bug_info_file:
+        with open(self.result_dir_path + "/detect_info.json", 'w') as bug_info_file:
             json.dump(self.bug_info, bug_info_file, indent=4)
 
     

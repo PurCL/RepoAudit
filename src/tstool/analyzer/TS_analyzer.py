@@ -215,6 +215,16 @@ class TSAnalyzer(ABC):
         pass
     
     @abstractmethod
+    def find_callsite_by_callee_name(self, current_function: Function, callee_name: str) -> List[tree_sitter.Node]:
+        """
+        Find the call site by callee name.
+        :param current_function: the function to be analyzed
+        :param callee_name: the name of the callee function
+        :return: a list of call site nodes
+        """
+        pass
+
+    @abstractmethod
     def get_arguments_at_callsite(self, node: tree_sitter.Node, source_code: str) -> List[str]:
         """
         Get arguments at the call site.
@@ -487,6 +497,19 @@ class TSAnalyzer(ABC):
             return ""
         return file_lines[line_number - 1]
     
+    def get_return_value_from_callsite(self, function: Function, callee_name: str) -> List[LocalValue]:
+        """
+        Get the return value from the call site.
+        :param function: the function to be analyzed
+        :param callee_name: the name of the callee function
+        """
+        results = []
+        file_code = self.code_in_projects[function.file_name]
+        for call_site_node in self.find_callsite_by_callee_name(function, callee_name):
+            name = file_code[call_site_node.start_byte : call_site_node.end_byte]
+            line_number = file_code[: call_site_node.start_byte].count("\n") + 1
+            results.append(LocalValue(name, line_number, ValueType.OUT, function.file_name))
+        return results
 
 #################################################
 ############# Helper functions ##################

@@ -112,13 +112,48 @@ class Go_TSAnalyzer(TSAnalyzer):
         :param source_code: the content of the file
         :param language: the language of the source code
         """
+        #TODO: error-prone
         assert node.type == "call_expression"
         for sub_node in node.children:
             if sub_node.type == "selector_expression":
-                for sub_node in sub_node.children:
-                    if sub_node.type == "field_identifier":
+                for sub_sub_node in sub_node.children:
+                    if sub_sub_node.type == "field_identifier":
+                        return source_code[sub_sub_node.start_byte:sub_sub_node.end_byte]
+            sub_node_types = [sub_node.type for sub_node in node.children]
+            if "selector_expression" not in sub_node_types:
+                for sub_node in node.children:
+                    if sub_node.type == "identifier":
                         return source_code[sub_node.start_byte:sub_node.end_byte]
         return ""
+    
+
+    def find_callsite_by_callee_name(self, current_function: Function, callee_name: str) -> List[tree_sitter.Node]:
+        """
+        Find the call sites by the callee function name.
+        :param current_function: the function to be analyzed
+        :param callee_name: the callee function name
+        """
+        #TODO: error-prone
+        results = []
+        file_content = self.code_in_projects[current_function.file_name]
+        call_site_nodes = find_nodes_by_type(current_function.parse_tree_root_node, "call_expression")
+        for call_site in call_site_nodes:
+            # check name of the callee
+            for sub_node in call_site.children:
+                if sub_node.type == "selector_expression":
+                    for sub_sub_node in sub_node.children:
+                        if sub_sub_node.type == "field_identifier":
+                            if file_content[sub_sub_node.start_byte:sub_sub_node.end_byte] == callee_name:
+                                results.append(call_site)
+                                break
+                sub_node_types = [sub_node.type for sub_node in call_site.children]
+                if "selector_expression" not in sub_node_types:
+                    for sub_node in call_site.children:
+                        if sub_node.type == "identifier":
+                            if file_content[sub_node.start_byte:sub_node.end_byte] == callee_name:
+                                results.append(call_site)
+        return results
+
 
     def get_arguments_at_callsite(self, node: tree_sitter.Node, source_code: str) -> List[str]:
         """

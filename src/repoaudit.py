@@ -100,7 +100,7 @@ def run_dev_mode():
     )
     parser.add_argument(
         "--bug-type",
-        choices=["NPD", "ML", "UAF", "BOF"],
+        choices=["NPD", "MLK", "UAF", "BOF"],
         help="Specify the bug type",
     )
     parser.add_argument(

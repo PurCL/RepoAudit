@@ -186,6 +186,25 @@ class C_TSAnalyzer(TSAnalyzer):
         function_name = sub_sub_node_types[max(index_of_last_dot, index_of_last_arrow) + 1]
         return function_name
 
+    def find_callsite_by_callee_name(self, current_function: Function, callee_name: str) -> List[tree_sitter.Node]:
+        """
+        Find the call sites by the callee function name.
+        :param current_function: the function to be analyzed
+        :param callee_name: the callee function name
+        """
+        results = []
+        file_content = self.code_in_projects[current_function.file_name]
+        call_site_nodes = find_nodes_by_type(current_function.parse_tree_root_node, "call_expression")
+        for call_site in call_site_nodes:
+            # check name of the callee
+            for child in call_site.children:
+                if child.type == "identifier":
+                    name = file_content[child.start_byte:child.end_byte]
+                    if name == callee_name:
+                        results.append(call_site)
+                break
+        return results
+
     def get_arguments_at_callsite(self, node: tree_sitter.Node, source_code: str) -> List[str]:
         """
         Get arguments at the call site.
@@ -232,18 +251,8 @@ class C_TSAnalyzer(TSAnalyzer):
         """
         args = set([])
         file_content = self.code_in_projects[current_function.file_name]
-        call_site_nodes = find_nodes_by_type(current_function.parse_tree_root_node, "call_expression")
+        call_site_nodes = self.find_callsite_by_callee_name(current_function, callee)
         for call_site in call_site_nodes:
-            # check name of the callee
-            is_callee = False
-            for child in call_site.children:
-                if child.type == "identifier":
-                    name = file_content[child.start_byte:child.end_byte]
-                    if name == callee:
-                        is_callee = True
-                    break
-            if not is_callee:
-                continue
             for child in call_site.children:
                 if child.type == "argument_list":
                     arg_list = child.children[1:-1]
@@ -254,6 +263,7 @@ class C_TSAnalyzer(TSAnalyzer):
                             arg_name = file_content[element.start_byte:element.end_byte]
                             args.add((arg_name, line_number, index))
                             index += 1
+                    break
         return args
 
     def find_retstmts_in_single_function(self, current_function: Function) -> List[Tuple[str, int]]:

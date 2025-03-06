@@ -11,7 +11,7 @@ if [ ! -d ../result/$BUG_TYPE/${LANGUAGE}_${PROJECT_NAME} ]; then
 fi
 
 
-python -m tstool.extractor.${LANGUAGE}_${BUG_TYPE}_extractor \
+python -m tstool.extractor.${LANGUAGE}.${LANGUAGE}_${BUG_TYPE}_extractor \
   --language $LANGUAGE \
   --project-path ../benchmark/$LANGUAGE/$PROJECT_NAME \
   --seed-path ../result/extract/$BUG_TYPE/${LANGUAGE}_${PROJECT_NAME}/seed_result.json

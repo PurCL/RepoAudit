@@ -1,6 +1,6 @@
 from tstool.analyzer.TS_analyzer import *
 from tstool.analyzer.C_TS_analyzer import *
-from .extractor import *
+from ..extractor import *
 import tree_sitter
 import argparse
 import os
@@ -34,7 +34,7 @@ class C_ML_Extractor(Extractor):
 
             if is_src_node:
                 line_number = source_code[: node.start_byte].count("\n") + 1
-                name = source_code.split("\n")[line_number - 1]
+                name = source_code.split("\n")[line_number - 1].strip()
                 lines.append(LocalValue(name, line_number, ValueType.SRC, file=file))
         return lines     
     

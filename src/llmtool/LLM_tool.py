@@ -3,12 +3,20 @@ from abc import ABC, abstractmethod
 
 
 class Cache:
-    def __init__(self, slice: str, external_variables: list = []) -> None:
+    def __init__(self, slice: str, external_variables: list[dict] = None) -> None:
         self.slice = slice
-        self.external_variables = external_variables
+        self.__variable_format = {
+            "type": "",
+            "callee_name": "",
+            "index": "",
+            "variable_name": ""
+        }
+        self.external_variables = external_variables if external_variables is not None else []
 
-    def add_external_variable(self, source: str, value: str) -> None:
-        self.external_variables.append({"source": source, "value": value})
+    def add_external_variable(self, value_dict: dict) -> None:
+        if value_dict.keys() == self.__variable_format.keys():
+            self.external_variables.append(value_dict)
+               
 
 
 class LLMTool(ABC):
