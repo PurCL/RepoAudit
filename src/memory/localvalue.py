@@ -3,7 +3,6 @@ from enum import Enum
 
 class ValueType(Enum):
     SRC = 1
-    SINK = 2
     PARA = 3
     RET = 4
     ARG = 5

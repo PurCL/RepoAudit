@@ -54,7 +54,7 @@ class UAF_Extractor:
         pbar = tqdm(total=len(self.all_files), desc="Parsing files")
         for file_name, file_code in self.all_files.items():
             pbar.update(1)
-            if 'test' in file_name or 'example' in file_name:
+            if 'test' in file_name or 'example' in file_name.lower():
                 continue
             tree = self.parser.parse(bytes(file_code, "utf8"))
             root = tree.root_node

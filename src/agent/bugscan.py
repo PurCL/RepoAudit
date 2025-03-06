@@ -8,9 +8,12 @@ from memory.state import State
 from memory.function import *
 from memory.localvalue import *
 from llmtool.backward_slicer import BackwardSlicer
+from llmtool.forward_slicer import ForwardSlicer
 from pathlib import Path
-BASE_PATH = Path(__file__).resolve().parents[1]
-BOT2UP_BUG_TYPE = ("BOF")
+BASE_PATH = Path(__file__).resolve().parents[2]
+BACKWARD_BUG_TYPE = ("BOF")
+FORWARD_BUG_TYPE = ("NPD", "UAF", "MLK")
+
 
 class BugScanAgent:
     def __init__(self,
@@ -31,8 +34,8 @@ class BugScanAgent:
         self.temp = temperature
         self.bug_type = bug_type
         self.boundary = boundary
-        self.detection_prompt_file = f"{BASE_PATH}/prompt/detection/{self.bug_type}_prompt.json"
-        self.inline_prompt_file = f"{BASE_PATH}/prompt/llmtool/inline_prompt.json"
+        self.detection_prompt_file = f"{BASE_PATH}/src/prompt/detection/{self.bug_type}_prompt.json"
+        self.inline_prompt_file = f"{BASE_PATH}/src/prompt/llmtool/inline_prompt.json"
         self.MAX_QUERY_NUM = 5
         self.detection_role = self.fetch_detection_system_role()
         
@@ -45,7 +48,7 @@ class BugScanAgent:
             print("Unsupported language")
             exit(1)
         
-        if self.bug_type in BOT2UP_BUG_TYPE:
+        if self.bug_type in BACKWARD_BUG_TYPE:
             self.analyzer = BackwardSlicer(
                 self.model_name, 
                 self.temp, 
@@ -53,8 +56,23 @@ class BugScanAgent:
                 self.ts_analyzer,
                 self.boundary
             )
+        elif self.bug_type in FORWARD_BUG_TYPE:
+            self.analyzer = ForwardSlicer(
+                self.model_name, 
+                self.temp, 
+                self.language, 
+                self.ts_analyzer,
+                self.boundary
+            )
+        else:
+            print("Unsupported bug type")
+            exit(1)
         self.run_info = {}
         self.bug_info = {}
+
+        self.result_dir_path = f"{BASE_PATH}/result/detect-{self.model_name}/{self.bug_type}/{self.project_name}/{time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())}"
+        if not os.path.exists(self.result_dir_path):
+            os.makedirs(self.result_dir_path)
     
 
     def start_scan(self):
@@ -64,11 +82,6 @@ class BugScanAgent:
         if not os.path.exists(log_dir_path):
             os.makedirs(log_dir_path)
 
-        result_dir_path = str(
-            Path(__file__).resolve().parent.parent.parent / (f"result/detect-{self.model_name}/{self.bug_type}/{self.project_name}")
-        )
-        if not os.path.exists(result_dir_path):
-            os.makedirs(result_dir_path)
         print("Start bug scanning...")
 
         src_list = []
@@ -122,6 +135,10 @@ class BugScanAgent:
             # if str(src) != "((rev[j], -1, 77), ValueType.BUF, ../benchmark/C/cpv-12-repair/src/os/unix/ngx_linux_sendfile_chain.c)":
             #     continue
 
+            # ## memcached
+            # if str(src) != "((char *list = strdup(settings.inter);, -1, 4629), ValueType.SRC, ../benchmark/C/memcached/memcached.c)":
+            #     continue
+
             src_function = self.ts_analyzer.get_function_from_localvalue(src)
             if src_function == None:
                 continue
@@ -142,10 +159,10 @@ class BugScanAgent:
             print("PoC: ", poc)
             print("===============================================")
 
-        with open(result_dir_path + "/slicing_info.json", 'w') as run_info_file:
+        with open(self.result_dir_path + "/slicing_info.json", 'w') as run_info_file:
             json.dump(self.run_info, run_info_file, indent=4)
 
-        with open(result_dir_path + "/detect_info.json", 'w') as bug_info_file:
+        with open(self.result_dir_path + "/detect_info.json", 'w') as bug_info_file:
             json.dump(self.bug_info, bug_info_file, indent=4)
 
     
