@@ -3,9 +3,6 @@ from tstool.analyzer.C_TS_analyzer import *
 from .extractor import *
 import tree_sitter
 import argparse
-import os
-import json
-from tqdm import tqdm
 
 class C_NPD_Extractor(Extractor):
     def find_seed(self, source_code: str, root_node: tree_sitter.Node, file: str) -> List[LocalValue]:
@@ -18,17 +15,25 @@ class C_NPD_Extractor(Extractor):
         nodes = find_nodes_by_type(root_node, "init_declarator")
         nodes.extend(find_nodes_by_type(root_node, "assignment_expression"))
         nodes.extend(find_nodes_by_type(root_node, "return_statement"))
-        #lack fuction parameter
+        nodes.extend(find_nodes_by_type(root_node, "call_expression"))
 
+        spec_apis = {}        # specific user-defined APIs that can return NULL
         lines = []
         for node in nodes:
             is_src_node = False
-            for child in node.children:
-                if child.type == "null":
-                    is_src_node = True
+            if node.type == "call_expression":
+                for child in node.children:
+                    if child.type == "identifier":
+                        name = source_code[child.start_byte : child.end_byte]
+                        if name in spec_apis:
+                            is_src_node = True
+            else:
+                for child in node.children:
+                    if child.type == "null":
+                        is_src_node = True
             if is_src_node:
                 line_number = source_code[: node.start_byte].count("\n") + 1
-                name = source_code.split("\n")[line_number - 1]
+                name = source_code.split("\n")[line_number - 1].strip()
                 lines.append(LocalValue(name, line_number, ValueType.SRC, file=file))
         return lines
 

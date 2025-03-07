@@ -3,9 +3,6 @@ from tstool.analyzer.C_TS_analyzer import *
 from .extractor import *
 import tree_sitter
 import argparse
-import os
-import json
-from tqdm import tqdm
 
 class C_ML_Extractor(Extractor):
     def find_seed(self, source_code: str, root_node: tree_sitter.Node, file: str) -> List[LocalValue]:
@@ -20,6 +17,8 @@ class C_ML_Extractor(Extractor):
         nodes = find_nodes_by_type(root_node, "call_expression")
         nodes.extend(find_nodes_by_type(root_node, "new_expression"))
 
+        mem_allocations = {"malloc", "calloc", "realloc", "strdup", "strndup", "asprintf", "vasprintf", "getline"}
+        spec_apis = {}          # specific user-defined APIs that allocate memory
         lines = []
         for node in nodes:
             is_src_node = False
@@ -29,7 +28,7 @@ class C_ML_Extractor(Extractor):
                 for child in node.children:
                     if child.type == "identifier":
                         name = source_code[child.start_byte : child.end_byte]
-                        if name in ("malloc", "calloc", "realloc", "strdup", "strndup", "asprintf", "vasprintf", "getline"):
+                        if name in mem_allocations or name in spec_apis:
                             is_src_node = True
 
             if is_src_node:

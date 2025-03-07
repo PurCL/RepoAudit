@@ -3,9 +3,6 @@ from tstool.analyzer.C_TS_analyzer import *
 from .extractor import *
 import tree_sitter
 import argparse
-import os
-import json
-from tqdm import tqdm
 
 
 class C_BOF_Extractor(Extractor):
@@ -17,8 +14,9 @@ class C_BOF_Extractor(Extractor):
         nodes.extend(find_nodes_by_type(root_node, "call_expression"))
         nodes.extend(find_nodes_by_type(root_node, "pointer_expression"))
 
-        mem_operations = ("memcpy", "memset", "memmove", "strndup")
-        mem_allocations = ("malloc", "calloc", "realloc")
+        mem_operations = {"memcpy", "memset", "memmove", "strndup"}
+        mem_allocations = {"malloc", "calloc", "realloc"}
+        spec_apis = {"ngx_memcpy"}          # specific user-defined APIs
         lines = []
         for node in nodes:
             is_src_node = False
@@ -28,7 +26,7 @@ class C_BOF_Extractor(Extractor):
                 for child in node.children:
                     if child.type == "identifier":
                         name = source_code[child.start_byte : child.end_byte]
-                        if name in mem_operations or name in mem_allocations:
+                        if name in mem_operations or name in mem_allocations or name in spec_apis:
                             is_src_node = True
             if node.type == "pointer_expression" and node.children[0].type == "*":
                 is_src_node = True

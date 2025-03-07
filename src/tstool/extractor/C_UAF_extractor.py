@@ -3,9 +3,6 @@ from tstool.analyzer.C_TS_analyzer import *
 from .extractor import *
 import tree_sitter
 import argparse
-import os
-import json
-from tqdm import tqdm
 
 class C_UAF_Extractor(Extractor):
     def find_seed(self, source_code: str, root_node: tree_sitter.Node, file: str) -> List[LocalValue]:
@@ -14,10 +11,11 @@ class C_UAF_Extractor(Extractor):
         1. free
         2. delete
         """
-        function_set = {"free"}
         nodes = find_nodes_by_type(root_node, "call_expression")
         nodes.extend(find_nodes_by_type(root_node, "delete_expression"))
-
+        
+        free_functions = {"free"}
+        spec_apis = {}         # specific user-defined APIs 
         lines = []
         for node in nodes:
             is_sink_node = False
@@ -27,12 +25,12 @@ class C_UAF_Extractor(Extractor):
                 for child in node.children:
                     if child.type == "identifier":
                         name = source_code[child.start_byte : child.end_byte]
-                        if name in function_set:
+                        if name in free_functions or name in spec_apis:
                             is_sink_node = True
 
             if is_sink_node:
                 line_number = source_code[: node.start_byte].count("\n") + 1
-                name = source_code.split("\n")[line_number - 1]
+                name = source_code.split("\n")[line_number - 1].strip()
                 lines.append(LocalValue(name, line_number, ValueType.SRC, file=file))
         return lines    
 
