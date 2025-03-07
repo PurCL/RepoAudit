@@ -36,7 +36,7 @@ class BackwardSlicer(LLMTool):
             ValueType.ARG: "arguments",
         }
         self.slice_pattern = r'Slicing:\s*(.*?)\s*External Variables:'
-        self.exeternal_pattern = r'External variables:\s*((?:-.*(?:\n|$))+)' 
+        self.exeternal_pattern = r'External Variable:\s*((?:-.*(?:\n|$))+)' 
         self.var_pattern = (
             r'^\s*-\s*Type:\s*(?P<type>[^.]+)\.'
             r'(?:\s*Callee:\s*(?P<callee_name>[^.]+)\.)?'      # optional callee name for arguments

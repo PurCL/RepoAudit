@@ -41,7 +41,7 @@ class ForwardSlicer(LLMTool):
         self.exeternal_pattern = r'External Propagation:\s*((?:-.*(?:\n|$))+)' 
         self.var_pattern = (
             r'^\s*-\s*Type:\s*(?P<type>[^.]+)\.'
-            r'(?:\s*Callee:\s*(?P<callee_name>[^.]+)\.)?'  # optional callee name for arguments
+            r'(?:\s*Callee:\s*(?:(?:[^.]+\.)*(?P<callee_name>[^.]+))\.)?'  # optional callee name for arguments
             r'(?:\s*Index:\s*(?P<index>\d+))?'        # optional index for parameters/arguments
             r'(?:\s*Name:\s*(?P<variable_name>[^\n.]+))?'      # optional name for global variables
         )
@@ -70,14 +70,8 @@ class ForwardSlicer(LLMTool):
             # For callee functions, the source variable is parameter, we don't need to retrieve their callers.
             if source_type == "Return Value" and state.var.v_type != ValueType.PARA:
                 caller_functions = self.ts_analyzer.get_all_caller_functions(state.function)
-                # ## For DEBUG
-                # if len(caller_functions) > 5:
-                #     print(f"Caller functions number: {len(caller_functions)}, {state.function.function_name}")
                 for caller_function in caller_functions:
                     call_sites = self.ts_analyzer.get_return_value_from_callsite(caller_function, state.function.function_name)
-                    # ## For DEBUG
-                    # if len(call_sites) > 1:
-                    #     print(f"Call site number: {len(call_sites)}, {state.function.function_name}")
                     for return_value in call_sites:
                         caller_state = State(return_value, caller_function)
                         if (self.analyze(caller_state, depth+1)):
@@ -220,6 +214,20 @@ class ForwardSlicer(LLMTool):
                     match = re.match(self.var_pattern, line)
                     if not match:
                         continue
+                    print(match.groupdict())
+                    # Format Check
+                    if match["type"] not in ["Return Value", "Parameter", "Argument", "Global Variable"]:
+                        continue
+                    if match["type"] == "Parameter" and match["index"] is None:
+                        continue
+                    if match["type"] == "Argument" and (match["callee_name"] is None or match["index"] is None):
+                        continue
+                    if match["type"] == "Global Variable" and match["variable_name"] is None:
+                        continue
+                    if match["index"] is not None:
+                        if not match["index"].isdigit():
+                            continue
+                    print(match.groupdict())
                     self.cache[key].add_external_variable(match.groupdict())
     
         if format_error != "":

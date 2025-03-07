@@ -100,6 +100,7 @@
     "      - Function parameters ('Index: <index>').",
     "      - Callee function arguments ('Function Name: <name>, Index: <index>').",
     "      - Global variables ('Variable Name: <name>').",
+
     "(4) In the second section, describe any external variables that the value depends on.",
     "- If the value depends on the return value of a caller function, provide the name of that function.",
     "- If the value is obtained from a parameter of the current function, specify the index of the parameter.",

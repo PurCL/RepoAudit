@@ -2,7 +2,7 @@
 LANGUAGE=Go
 BUG_TYPE=NPD
 SCANNER=bugscan
-PROJECT_NAME=sally
+PROJECT_NAME=toy
 
 python3 repoaudit.py \
   --language $LANGUAGE \

@@ -93,6 +93,7 @@
     "meta_prompts": [
       "Now I will give you a target function: \n```\n<FUNCTION>\n``` \n\n",
       "Please answer the following question:\n<QUESTION>\n",
-      "Your answer should strictly follow the following format: \n<ANSWER>\n"
+      "Your answer should strictly follow the following format: \n<ANSWER>\n",
+      "When you output the External Propagation, do not give any additional explanation. Please strictly follow the format provided."
     ]
   }
