@@ -1,6 +1,6 @@
 from tstool.analyzer.TS_analyzer import *
 from tstool.analyzer.C_TS_analyzer import *
-from .extractor import *
+from ..extractor import *
 import tree_sitter
 import argparse
 

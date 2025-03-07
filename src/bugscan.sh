@@ -1,15 +1,8 @@
 #!/bin/bash
-# LANGUAGE=Go
-LANGUAGE=C
-# BUG_TYPE=BOF
-BUG_TYPE=MLK
+LANGUAGE=Go
+BUG_TYPE=NPD
 SCANNER=bugscan
-
-# PROJECT_NAME=curl
-# PROJECT_NAME=php-src
-# PROJECT_NAME=zstd
-# PROJECT_NAME=cpv-3
-PROJECT_NAME=memcached
+PROJECT_NAME=sally
 
 python3 repoaudit.py \
   --language $LANGUAGE \

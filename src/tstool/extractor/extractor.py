@@ -65,7 +65,6 @@ class Extractor(ABC):
                 continue
             tree = self.parser.parse(bytes(file_code, "utf8"))
             root = tree.root_node
-
             seed_lines.extend(self.find_seed(file_code, root, file=file_name))
     
         with open(self.seed_path, 'w') as f:

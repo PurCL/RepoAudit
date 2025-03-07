@@ -1,6 +1,6 @@
 {
-    "model_role_name": "Static Slicer",
-    "system_role": "You are a <LANGUAGE> programmer and very good at analyzing <LANGUAGE> code.",
+    "model_role_name": "C/C++ Static Forward Slicer",
+    "system_role": "You are a C/C++ programmer and very good at analyzing C/C++ code.",
     "task": "Given a function and a specific source variable or memory object denoted as 'src', perform static slicing to extract the code statements that use 'src' or its aliases or where the function terminates.",
     "analysis_rules": [
       "1. Identify all function exit points, including 'return' statements, 'exit' calls, and exception handling, as they are crucial for slicing.",

@@ -1,6 +1,6 @@
 {
-    "model_role_name": "Static Slicer",
-    "system_role": "You are a <LANGUAGE> programmer and very good at analyzing <LANGUAGE> code.",
+    "model_role_name": "C/C++ Static Backward Slicer",
+    "system_role": "You are a C/C++ programmer and very good at analyzing C/C++ code.",
     "task": "Given a function and a variable denoted as 'src', perform static slicing to extract code statements that influence the value of 'src'.",
     "analysis_rules": [
       "1. Analyze the function and identify statements that impact the value of 'src'.",

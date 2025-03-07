@@ -1,0 +1,63 @@
+{
+  "model_role_name": "Go NPD Detector",
+  "system_role": "You are a proficient Go programmer and adept at detecting Nil Panic in Go code.",
+  "task": "Given a specific pointer access in Go code, determine whether it can cause a Nil Panic bug.",
+  "analysis_rules": [
+    "You can follow a three-step analysis process:",
+    "1. Identify the pointer and any statements that assign or modify its value.",
+    "2. Extract all execution paths related to the pointer. Consider nested condition statements, error-handling paths, and early returns (e.g., 'if ptr == nil { return errors.New(\"pointer is nil\") }').",
+    "3. For each path extracted in Step 2, simulate the function's execution to analyze the pointer's value at each use. If the pointer can be nil at any use point, it may cause a Nil Panic."
+  ],
+  "analysis_examples": [
+    "Example 1:",
+    "User:",
+    "Now I will give you a function with a specific pointer access `ptr.data` at line 6:",
+    "```",
+    "func processData(ptr *Data) error {",
+    "   if ptr == nil {",
+    "       return errors.New(\"pointer is nil\")",
+    "   }",
+    "   ptr.data = calculateData()",
+    "   if ptr.data == nil {",
+    "       return errors.New(\"data calculation failed\")",
+    "   }",
+    "   return nil",
+    "}",
+    "type Data struct {",
+    "   data interface{}",
+    "}",
+    "```",
+    "- Does the pointer access `ptr.data` at line 6 cause a Nil Panic?",
+    "System:",
+    "Explanation:",
+    "Step 1: Identify the pointer and its modifications. The pointer is `ptr`, and it's checked against nil at the function entry.",
+    "Step 2: Extract execution paths.",
+    " - Path1: If `ptr` is nil, an error is returned immediately.",
+    " - Path2: If `ptr` is not nil, `ptr.data` is assigned a new value from `calculateData()`.",
+    "Step 3: Analyze pointer access.",
+    " - Path1: There's no dereference as the function exits early if `ptr` is nil.",
+    " - Path2: `ptr.data` is accessed safely after ensuring `ptr` is not nil.",
+    "Answer: No",
+    "PoC: If `processData(nil)` is called, the function returns an error without dereferencing the pointer, hence no NPD occurs."
+  ],
+  "question_template": "- Does the pointer `<SRC_NAME>` at line <SRC_LINE> have a Nil Panic?",
+  "answer_format": [
+    "1. Explanation: Provide your reasoning.",
+    "2. Answer: 'Yes' or 'No'.",
+    "3. If 'Yes', provide a PoC demonstrating the bug propagation path.",
+    "Example format:",
+    "Explanation: {Your Explanation}",
+    "Answer: {Yes or No}",
+    "PoC: {Description of the bug propagation path}"
+  ],
+  "meta_prompts": [
+    "Now I will give you the function with a pointer dereferenced point `<SRC_NAME>` at line <SRC_LINE>: \n```\n<FUNCTION>\n``` \n\n",
+    "Please answer the following question:\n<QUESTION>\n\n",
+    "Your answer should follow the following format: \n<ANSWER>\n",
+    "Guidelines:\n",
+    "- Simulate execution along all execution paths, including error-handling paths, to capture all possible pointer values.\n",
+    "- Consider nested condition statements and loops. Expand branches and loops to analyze each execution path.\n",
+    "- The pointer should always be checked for nil before dereferencing. Pay attention to conditions that may lead to a nil pointer.\n",
+    "- Only report a Nil Panic bug if you can explicitly derive the bug propagation path from the provided function content. If you cannot determine the presence of a bug, answer 'No'."
+  ]
+}

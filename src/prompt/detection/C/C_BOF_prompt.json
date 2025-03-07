@@ -1,6 +1,6 @@
 {
-    "model_role_name": "BOF Detector",
-    "system_role": "You are a good <LANGUAGE> programmer and very good at detecting Buffer Overrun bugs in <LANGUAGE> code.",
+    "model_role_name": "C/C++ BOF Detector",
+    "system_role": "You are a good C/C++ programmer and very good at detecting Buffer Overrun bugs in C/C++ code.",
     "task": "Given a specific buffer access point denoted as `src` and related functions, determine whether the buffer access point can cause a Buffer Overrun bug.",
     "analysis_rules": [
       "You can follow a three-step analysis process: ",

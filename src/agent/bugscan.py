@@ -15,6 +15,20 @@ BACKWARD_BUG_TYPE = ("BOF")
 FORWARD_BUG_TYPE = ("NPD", "UAF", "MLK")
 
 
+target_seeds = {
+    "C_curl": "((buffer[len++], -1, 253), ValueType.SINK, ../benchmark/C/curl/lib/sendf.c)",
+    "C_php-src": "((malloc(length + 1), -1, 2670), ValueType.BUF, ../benchmark/C/php-src/Zend/zend_alloc.c)",
+    "C_zstd": "((newTable->fileNames[newTableIdx], -1, 563), ValueType.BUF, ../benchmark/C/zstd/programs/util.c)",
+    "C_cpv-1": "((*u, -1, 4091), ValueType.BUF, ../benchmark/C/cpv-1/src/http/ngx_http_request.c)",
+    "C_cpv-3": "((*b->last++, -1, 4092), ValueType.BUF, ../benchmark/C/cpv-3/src/http/ngx_http_request.c)",
+    "C_cpv-3-repair": "((*b->last++, -1, 4097), ValueType.BUF, ../benchmark/C/cpv-3-repair/src/http/ngx_http_request.c)",
+    "C_cpv-8": "((    ngx_memcpy(s->login.data, arg[0].data, s->login.len);, -1, 324), ValueType.SRC, ../benchmark/C/cpv-8/src/mail/ngx_mail_pop3_handler.c)",
+    "C_cpv-8-repair": "((    ngx_memcpy(s->login.data, arg[0].data, s->login.len);, -1, 324), ValueType.SRC, ../benchmark/C/cpv-8-repair/src/mail/ngx_mail_pop3_handler.c)",
+    "C_cpv-12": "((rev[j], -1, 77), ValueType.BUF, ../benchmark/C/cpv-12/src/os/unix/ngx_linux_sendfile_chain.c)",
+    "C_cpv-12-repair": "((rev[j], -1, 77), ValueType.BUF, ../benchmark/C/cpv-12-repair/src/os/unix/ngx_linux_sendfile_chain.c)",
+    "C_memcached": "((char *list = strdup(settings.inter);, -1, 4629), ValueType.SRC, ../benchmark/C/memcached/memcached.c)"
+}
+
 class BugScanAgent:
     def __init__(self,
                  src_spec_file,
@@ -34,8 +48,8 @@ class BugScanAgent:
         self.temp = temperature
         self.bug_type = bug_type
         self.boundary = boundary
-        self.detection_prompt_file = f"{BASE_PATH}/src/prompt/detection/{self.bug_type}_prompt.json"
-        self.inline_prompt_file = f"{BASE_PATH}/src/prompt/llmtool/inline_prompt.json"
+        self.detection_prompt_file = f"{BASE_PATH}/src/prompt/detection/{language}/{language}_{self.bug_type}_prompt.json"
+        self.inline_prompt_file = f"{BASE_PATH}/src/prompt/llmtool/{language}/{language}_inline_prompt.json"
         self.MAX_QUERY_NUM = 5
         self.detection_role = self.fetch_detection_system_role()
         
@@ -93,52 +107,12 @@ class BugScanAgent:
                 src_list.append(src_value)
         
         for src in src_list:
-            # Get source function body
+
+            ## Reproduce mode
+            if self.project_name in target_seeds:
+                if str(src).strip() != str(target_seeds[self.project_name]).strip():
+                    continue
             
-            # ## Project curl
-            # if str(src) != "((buffer[len++], -1, 253), ValueType.SINK, ../benchmark/C/curl/lib/sendf.c)":
-            #     continue
-
-            # ## Project php-src
-            # if str(src) != "((malloc(length + 1), -1, 2670), ValueType.BUF, ../benchmark/C/php-src/Zend/zend_alloc.c)":
-            #     continue
-
-            # ## Project zstd
-            # if str(src) != "((newTable->fileNames[newTableIdx], -1, 563), ValueType.BUF, ../benchmark/C/zstd/programs/util.c)":
-            #     continue
-
-            # ## Project cpv-1
-            # if str(src) != "((*u, -1, 4091), ValueType.BUF, ../benchmark/C/cpv-1/src/http/ngx_http_request.c)":
-            #     continue
-
-            # ## Project cpv-3
-            # if str(src) != "((*b->last++, -1, 4092), ValueType.BUF, ../benchmark/C/cpv-3/src/http/ngx_http_request.c)":
-            #     continue
-
-            ## Project cpv-3-repair
-            # if str(src) != "((*b->last++, -1, 4097), ValueType.BUF, ../benchmark/C/cpv-3-repair/src/http/ngx_http_request.c)":
-            #     continue
-
-            # ## Project cpv-8
-            # if str(src) != "((    ngx_memcpy(s->login.data, arg[0].data, s->login.len);, -1, 324), ValueType.SRC, ../benchmark/C/cpv-8/src/mail/ngx_mail_pop3_handler.c)":
-            #     continue
-            
-            # ## Project cpv-8-repair
-            # if str(src) != "((    ngx_memcpy(s->login.data, arg[0].data, s->login.len);, -1, 324), ValueType.SRC, ../benchmark/C/cpv-8-repair/src/mail/ngx_mail_pop3_handler.c)":
-            #     continue
-
-            # ## Project cpv-12
-            # if str(src) != "((rev[j], -1, 77), ValueType.BUF, ../benchmark/C/cpv-12/src/os/unix/ngx_linux_sendfile_chain.c)":
-            #     continue
-
-            # ## Project cpv-12-repair
-            # if str(src) != "((rev[j], -1, 77), ValueType.BUF, ../benchmark/C/cpv-12-repair/src/os/unix/ngx_linux_sendfile_chain.c)":
-            #     continue
-
-            # ## memcached
-            if str(src) != "((char *list = strdup(settings.inter);, -1, 4629), ValueType.SRC, ../benchmark/C/memcached/memcached.c)":
-                continue
-
             src_function = self.ts_analyzer.get_function_from_localvalue(src)
             if src_function == None:
                 continue
@@ -159,11 +133,11 @@ class BugScanAgent:
             print("PoC: ", poc)
             print("===============================================")
 
-        with open(self.result_dir_path + "/slicing_info.json", 'w') as run_info_file:
-            json.dump(self.run_info, run_info_file, indent=4)
+            with open(self.result_dir_path + "/slicing_info.json", 'w') as run_info_file:
+                json.dump(self.run_info, run_info_file, indent=4)
 
-        with open(self.result_dir_path + "/detect_info.json", 'w') as bug_info_file:
-            json.dump(self.bug_info, bug_info_file, indent=4)
+            with open(self.result_dir_path + "/detect_info.json", 'w') as bug_info_file:
+                json.dump(self.bug_info, bug_info_file, indent=4)
 
     
     def detect_with_llm(self, state:State) -> Tuple[str, str]:
