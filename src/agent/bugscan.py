@@ -20,10 +20,11 @@ target_seeds = {
     "C_php-src": "((malloc(length + 1), -1, 2670), ValueType.BUF, ../benchmark/C/php-src/Zend/zend_alloc.c)",
     "C_zstd": "((newTable->fileNames[newTableIdx], -1, 563), ValueType.BUF, ../benchmark/C/zstd/programs/util.c)",
     "C_cpv-1": "((*u, -1, 4091), ValueType.BUF, ../benchmark/C/cpv-1/src/http/ngx_http_request.c)",
+    "C_cpv-2": "((*d++, -1, 1281), ValueType.BUF, ../benchmark/C/cpv-2/src/core/ngx_string.c)",
     "C_cpv-3": "((*b->last++, -1, 4092), ValueType.BUF, ../benchmark/C/cpv-3/src/http/ngx_http_request.c)",
     "C_cpv-3-repair": "((*b->last++, -1, 4097), ValueType.BUF, ../benchmark/C/cpv-3-repair/src/http/ngx_http_request.c)",
-    "C_cpv-8": "((    ngx_memcpy(s->login.data, arg[0].data, s->login.len);, -1, 324), ValueType.SRC, ../benchmark/C/cpv-8/src/mail/ngx_mail_pop3_handler.c)",
-    "C_cpv-8-repair": "((    ngx_memcpy(s->login.data, arg[0].data, s->login.len);, -1, 324), ValueType.SRC, ../benchmark/C/cpv-8-repair/src/mail/ngx_mail_pop3_handler.c)",
+    "C_cpv-8": "((ngx_memcpy(s->login.data, arg[0].data, s->login.len);, -1, 324), ValueType.SRC, ../benchmark/C/cpv-8/src/mail/ngx_mail_pop3_handler.c)",
+    "C_cpv-8-repair": "((ngx_memcpy(s->login.data, arg[0].data, s->login.len);, -1, 324), ValueType.SRC, ../benchmark/C/cpv-8-repair/src/mail/ngx_mail_pop3_handler.c)",
     "C_cpv-12": "((rev[j], -1, 77), ValueType.BUF, ../benchmark/C/cpv-12/src/os/unix/ngx_linux_sendfile_chain.c)",
     "C_cpv-12-repair": "((rev[j], -1, 77), ValueType.BUF, ../benchmark/C/cpv-12-repair/src/os/unix/ngx_linux_sendfile_chain.c)",
     "C_memcached": "((char *list = strdup(settings.inter);, -1, 4629), ValueType.SRC, ../benchmark/C/memcached/memcached.c)"

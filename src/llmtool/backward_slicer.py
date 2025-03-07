@@ -36,7 +36,7 @@ class BackwardSlicer(LLMTool):
             ValueType.ARG: "arguments",
         }
         self.slice_pattern = r'Slicing:\s*(.*?)\s*External Variables:'
-        self.exeternal_pattern = r'External variables:\s*((?:-.*(?:\n|$))+)' 
+        self.external_pattern = r'External Variables:\s*((?:-.*(?:\n|$))+)' 
         self.var_pattern = (
             r'^\s*-\s*Type:\s*(?P<type>[^.]+)\.'
             r'(?:\s*Callee:\s*(?P<callee_name>[^.]+)\.)?'      # optional callee name for arguments
@@ -65,6 +65,7 @@ class BackwardSlicer(LLMTool):
         para_dict = {}            # store the callee name and indexes of arguments
         for external_variable in self.cache[key].external_variables:
             source_type = external_variable["type"]
+
             if source_type == "Return Value":
                 callee_name = external_variable["callee_name"]
                 callee_functions = self.ts_analyzer.get_all_callee_functions(state.function, callee_name)
@@ -208,7 +209,7 @@ class BackwardSlicer(LLMTool):
                 print(f"Format error: {format_error}")
                 continue
 
-            var_match = re.search(self.exeternal_pattern, answer, re.DOTALL)
+            var_match = re.search(self.external_pattern, answer, re.DOTALL)
             if var_match:
                 var_lines = var_match.group(1).splitlines()
                 for line in var_lines:

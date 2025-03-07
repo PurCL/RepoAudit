@@ -16,7 +16,7 @@ class C_BOF_Extractor(Extractor):
 
         mem_operations = {"memcpy", "memset", "memmove", "strndup"}
         mem_allocations = {"malloc", "calloc", "realloc"}
-        spec_apis = {"ngx_memcpy"}          # specific user-defined APIs
+        spec_apis = {"ngx_memcpy", "ngx_sprintf"}          # specific user-defined APIs
         lines = []
         for node in nodes:
             is_src_node = False
