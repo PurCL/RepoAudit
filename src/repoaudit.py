@@ -13,7 +13,8 @@ class RepoAudit:
         temperature: float,
         scanners: list,
         bug_type: str,
-        boundary: int
+        boundary: int,
+        max_workers: int
     ):
         """
         Initialize BatchScan object with project details.
@@ -24,6 +25,7 @@ class RepoAudit:
         self.scanners = scanners
         self.bug_type = bug_type
         self.boundary = boundary
+        self.max_workers = max_workers
 
         self.all_files = {}
         self.inference_model_name = inference_model_name
@@ -70,7 +72,8 @@ class RepoAudit:
                 self.inference_model_name,
                 self.temperature,
                 self.bug_type,
-                self.boundary
+                self.boundary,
+                self.max_workers
             )
             bugscan_agent.start_scan()
 
@@ -148,7 +151,12 @@ def run_dev_mode():
         type=int,
         help="Specify the retrieval boundary",
     )
-
+    parser.add_argument(
+        "--max-workers",
+        type=int,
+        default=1,
+        help="Specify the number of workers",
+    )
 
     args = parser.parse_args()
     project_path = args.project_path
@@ -159,8 +167,8 @@ def run_dev_mode():
     seed_spec = args.seed_spec_file
     bug_type = args.bug_type
     boundary = args.boundary
+    max_workers = args.max_workers
 
-    
     print(seed_spec)
 
     batch_scan = RepoAudit(
@@ -171,7 +179,8 @@ def run_dev_mode():
         global_temperature,
         scanners,
         bug_type,
-        boundary
+        boundary,
+        max_workers
     )
     batch_scan.start_batch_scan()
 

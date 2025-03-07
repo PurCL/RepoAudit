@@ -1,5 +1,7 @@
 import json
 import os
+import threading
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from tstool.analyzer.TS_analyzer import *
 from tstool.analyzer.C_TS_analyzer import *
 from tstool.analyzer.Go_TS_analyzer import *
@@ -39,7 +41,8 @@ class BugScanAgent:
                  inference_model_name,
                  temperature,
                  bug_type,
-                 boundary
+                 boundary,
+                 max_workers=1
                  ) -> None:
         self.src_spec_file = src_spec_file
         self.project_name = project_name
@@ -49,6 +52,8 @@ class BugScanAgent:
         self.temp = temperature
         self.bug_type = bug_type
         self.boundary = boundary
+        self.max_workers = max_workers
+
         self.detection_prompt_file = f"{BASE_PATH}/src/prompt/detection/{language}/{language}_{self.bug_type}_prompt.json"
         self.inline_prompt_file = f"{BASE_PATH}/src/prompt/llmtool/{language}/{language}_inline_prompt.json"
         self.MAX_QUERY_NUM = 5
@@ -106,41 +111,83 @@ class BugScanAgent:
             src_value = LocalValue.from_string(src)
             if src_value:
                 src_list.append(src_value)
-        
-        for src in src_list:
 
-            ## Reproduce mode
-            if self.project_name in target_seeds:
-                if str(src).strip() != str(target_seeds[self.project_name]).strip():
+        def sequential():
+            for src in src_list:
+                src_function = self.ts_analyzer.get_function_from_localvalue(src)
+                if src_function == None:
                     continue
-            
-            src_function = self.ts_analyzer.get_function_from_localvalue(src)
-            if src_function == None:
-                continue
-            
-            src_state = State(src, src_function)
-            result = self.analyzer.analyze(src_state, 0)
-            if not result:
-                continue
+                
+                src_state = State(src, src_function)
+                result = self.analyzer.analyze(src_state, 0)
+                if not result:
+                    continue
 
-            key = src_state.get_key()
-            self.run_info[key] = self.analyzer.result_list
+                key = src_state.get_key()
+                self.run_info[key] = self.analyzer.result_list
+                
+                answer, poc = self.detect_with_llm(src_state)
+                
+                # For DEBUG
+                print("====================================")
+                print("Is Bug: ", answer)
+                print("PoC: ", poc)
+                print("===============================================")
+
+                with open(self.result_dir_path + "/slicing_info.json", 'w') as run_info_file:
+                    json.dump(self.run_info, run_info_file, indent=4)
+
+                with open(self.result_dir_path + "/detect_info.json", 'w') as bug_info_file:
+                    json.dump(self.bug_info, bug_info_file, indent=4)
+        
+
+        def parallel(n):
+            lock = threading.Lock()
             
-            answer, poc = self.detect_with_llm(src_state)
-            
-            # For DEBUG
-            print("====================================")
-            print("Is Bug: ", answer)
-            print("PoC: ", poc)
-            print("===============================================")
+            def worker(src):
+                src_function = self.ts_analyzer.get_function_from_localvalue(src)
+                if src_function is None:
+                    return
 
-            with open(self.result_dir_path + "/slicing_info.json", 'w') as run_info_file:
-                json.dump(self.run_info, run_info_file, indent=4)
+                src_state = State(src, src_function)
+                result = self.analyzer.analyze(src_state, 0)
+                if not result:
+                    return
 
-            with open(self.result_dir_path + "/detect_info.json", 'w') as bug_info_file:
-                json.dump(self.bug_info, bug_info_file, indent=4)
+                key = src_state.get_key()
+                self.run_info[key] = self.analyzer.result_list
 
-    
+                answer, poc = self.detect_with_llm(src_state)
+
+                # For DEBUG
+                print("====================================")
+                print("Is Bug: ", answer)
+                print("PoC: ", poc)
+                print("===============================================")
+
+                # Use lock to protect file writes
+                with lock:
+                    with open(self.result_dir_path + "/slicing_info.json", 'w') as run_info_file:
+                        json.dump(self.run_info, run_info_file, indent=4)
+                    with open(self.result_dir_path + "/detect_info.json", 'w') as bug_info_file:
+                        json.dump(self.bug_info, bug_info_file, indent=4)
+
+            # Process at most n src concurrently
+            with ThreadPoolExecutor(max_workers=n) as executor:
+                futures = [executor.submit(worker, src) for src in src_list]
+                for future in as_completed(futures):
+                    # Could log exceptions here if needed
+                    try:
+                        future.result()
+                    except Exception as e:
+                        print(f"Error processing src: {e}")
+        
+        if self.max_workers == 1:
+            sequential()
+        else:
+            parallel(self.max_workers)
+        
+
     def detect_with_llm(self, state:State) -> Tuple[str, str]:
         """
         Detect the bug with LLM
