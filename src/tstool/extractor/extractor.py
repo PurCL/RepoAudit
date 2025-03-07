@@ -5,12 +5,9 @@ from pathlib import Path
 from tstool.analyzer.TS_analyzer import *
 from memory.function import *
 from memory.localvalue import *
-from typing import List, Tuple, Dict, Set
 import tree_sitter
 import json
-from tree_sitter import Language
 from tqdm import tqdm
-import networkx as nx
 from abc import ABC, abstractmethod
 
 sys.path.append(path.dirname(path.dirname(path.dirname(path.abspath(__file__)))))

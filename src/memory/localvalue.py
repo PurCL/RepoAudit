@@ -17,7 +17,9 @@ class LocalValue:
     def __init__(
         self, name: str, line_number: int, v_type: ValueType, file: str="", index: int = -1
     ) -> None:
-        self.name = name  # name can be a variable/parameter name or the expression tokenized string
+        self.name = ""      # name can be a variable/parameter name or the expression tokenized string
+        for line in name.split("\n"):
+            self.name += line.strip()   
         self.line_number = line_number
         self.index = index
         self.v_type = v_type
