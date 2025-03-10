@@ -4,7 +4,6 @@
         "Path": "<Lines: 9-16, Source: `\tarea = nfp_cpp_area_alloc(cpp, NFP_CPP_ID(7, NFP_CPP_ACTION_RW, 0),`,  Function: `nfp_cpp_area_cache_add`, Status: Bug. File: ../benchmark/C/net_4cd8371/ethernet/netronome/nfp/nfpcore/nfp_cppcore.c>",
         "Explanation": "The pointer `area` at line 9 is not freed and not propagated to any function before the function returns at line 16. Thus there is a memory leak bug.",
         "Model": "Claude-3.5, Deepseek-R1",
-        "Is Reproduce": "Yes",
         "Functions": [
             {
                 "Function": "nfp_cpp_area_cache_add",

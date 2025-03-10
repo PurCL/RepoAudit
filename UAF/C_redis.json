@@ -4,7 +4,6 @@
         "Path": "<Lines: 42, 44-53, Source: `    if (c) redisFree(c);`,  Function: `getRedisConfig`, Status: Bug. File: ../benchmark/C/redis/src/redis-benchmark.c>",
         "Explanation": "The pointer c is freed at line 46 and dereferenced at line 49 to access its connection_type field.",
         "Model": "Claude-3.5, Deepseek-R1",
-        "Is Reproduce": "Yes",
         "Functions": [
             {
                 "Function": "getRedisConfig",

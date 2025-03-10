@@ -4,8 +4,6 @@ Project Repo: https://github.com/baidu/sofa-pbrpc/tree/d5ba564a2e62da1fd71bf763e
 
 ## Case 1
 
-Is Reproduce: Yes
-
 Program locations:
 
 * https://github.com/baidu/sofa-pbrpc/tree/d5ba564a2e62da1fd71bf763e0cfd6ba5b45245b/src/sofa/pbrpc/pbjson.cc#L242

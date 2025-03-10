@@ -4,8 +4,6 @@ Project Repo: https://github.com/sass/libsass/tree/4da7c4bd13b8e9e5cd034f358dced
 
 ## Case 1
 
-Is Reproduce: Yes
-
 Program locations:
 
 * https://github.com/sass/libsass/tree/4da7c4bd13b8e9e5cd034f358dceda0bbba917d2/src/permutate.hpp#L27

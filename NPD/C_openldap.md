@@ -4,8 +4,6 @@ Project Repo: https://github.com/openldap/openldap/tree/519e0c94c9f3804813f691de
 
 ## Case 1
 
-Is Reproduce: Yes
-
 Program locations:
 
 * https://github.com/openldap/openldap/tree/519e0c94c9f3804813f691de487283ad7586f510/libraries/liblber/memory.c#L653
@@ -26,8 +24,6 @@ Explanation:
 
 
 ## Case 2
-
-Is Reproduce: No
 
 Program locations:
 

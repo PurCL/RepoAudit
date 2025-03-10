@@ -4,8 +4,6 @@ Project Repo: https://github.com/torvalds/linux/tree/1c4f29ec878bbf1cc0a1eb54ae7
 
 ## Case 1
 
-Is Reproduce: Yes
-
 Program locations:
 
 * https://github.com/torvalds/linux/tree/1c4f29ec878bbf1cc0a1eb54ae7da5ff98e19641/sound/soc/qcom/qdsp6/q6apm.c#L66

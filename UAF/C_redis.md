@@ -4,8 +4,6 @@ Project Repo: https://github.com/redis/redis/tree/8fadebfcca0d514fd6949eaa72599a
 
 ## Case 1
 
-Is Reproduce: Yes
-
 Program locations:
 
 * https://github.com/redis/redis/tree/8fadebfcca0d514fd6949eaa72599ab5e163bd4c/src/redis-benchmark.c#L284

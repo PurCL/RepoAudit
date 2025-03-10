@@ -4,7 +4,6 @@
         "Path": "<Lines: 9-10, 15-17, 21-28, Source: `        char *list = strdup(settings.inter);`,  Function: `server_sockets`, Status: Bug. File: ../benchmark/C/memcached/memcached.c>",
         "Explanation": "The pointer `list` at line 9 is not freed before the function returns at line 27 when encountering invalid IPv6 address.",
         "Model": "Claude-3.5, Deepseek-R1",
-        "Is Reproduce": "Yes",
         "Functions": [
             {
                 "Function": "server_sockets",

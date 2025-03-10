@@ -4,8 +4,6 @@ Project Repo: https://github.com/torvalds/linux/tree/73b73bac90d97400e29e585c678
 
 ## Case 1
 
-Is Reproduce: Yes
-
 Program locations:
 
 * https://github.com/torvalds/linux/tree/73b73bac90d97400e29e585c678c4d0ebfd2680d/mm/damon/reclaim.c#L434

@@ -4,7 +4,6 @@
         "Path": "<Lines: 3-4, 47, Source: `\tch_info *ret = NULL;`,  Function: `ch_map_get`, Status: Unknown. File: ../benchmark/C/coturn_server/ns_turn_allocation.c> --> <Lines: 9-19, Source: `ch_map_get(&(a->chns), chnum, 1)`,  Function: `allocation_get_new_ch_info`, Status: Bug. File: ../benchmark/C/coturn_server/ns_turn_allocation.c>",
         "Explanation": "The NULL value of pointer `ret` at line 3 is returned to the caller at line 47 when `map` is NULL.\nThe NULL value returned from ch_map_get at line 9 is dereferenced at line 11 without any NULL check.",
         "Model": "Claude-3.5",
-        "Is Reproduce": "No",
         "Functions": [
             {
                 "Function": "ch_map_get",
@@ -25,7 +24,6 @@
         "Path": "<Lines: 10-42, Source: `\tts_ur_super_session *ss=NULL;`,  Function: `tcp_client_input_handler_rfc6062data`, Status: Bug. File: ../benchmark/C/coturn_server/ns_turn_server.c>",
         "Explanation": "NULL value from line 10 can reach here without NULL check when `a` is NULL.",
         "Model": "Claude-3.5, Deepseek-R1",
-        "Is Reproduce": "Yes",
         "Functions": [
             {
                 "Function": "tcp_client_input_handler_rfc6062data",

@@ -4,8 +4,6 @@ Project Repo: https://github.com/OpenKinect/libfreenect/tree/d913755a25d09fbe286
 
 ## Case 1
 
-Is Reproduce: Yes
-
 Program locations:
 
 * https://github.com/OpenKinect/libfreenect/tree/d913755a25d09fbe2869a0d2acea78f589bfe6bf/wrappers/c_sync/libfreenect_sync.c#L220

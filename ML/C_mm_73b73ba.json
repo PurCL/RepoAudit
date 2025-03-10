@@ -4,7 +4,6 @@
         "Path": "<Lines: 3-8, Source: `\tctx = damon_new_ctx();`,  Function: `damon_reclaim_init`, Status: Bug. File: ../benchmark/C/mm_73b73ba/damon/reclaim.c>",
         "Explanation": "The pointer ctx at line 3 is not freed before the function returns at line 8. Thus there is a memory leak bug.",
         "Model": "Claude-3.5, Deepseek-R1",
-        "Is Reproduce": "Yes",
         "Functions": [
             {
                 "Function": "damon_reclaim_init",

@@ -4,7 +4,6 @@
         "Path": "<Lines: 1-4, Source: `    uprv_free(entry);`,  Function: `deleteOlsonToMetaMappingEntry`, Status: Unknown. File: ../benchmark/C++/i18n/zonemeta.cpp> --> <Lines: 55-71, Source: `entry`,  Function: `createMetazoneMappings`, Status: Bug. File: ../benchmark/C++/i18n/zonemeta.cpp>",
         "Explanation": "The src object propagates to the caller function through the void pointer parameter `obj`, which points to the same memory object as the freed pointer `entry`.\nThe entry object is freed at line 68 by deleteOlsonToMetaMappingEntry and then freed again at line 69 by uprv_free.",
         "Model": "Claude-3.5",
-        "Is Reproduce": "Yes",
         "Functions": [
             {
                 "Function": "deleteOlsonToMetaMappingEntry",
@@ -25,7 +24,6 @@
         "Path": "<Lines: 55-71, Source: `                        uprv_free(entry);`,  Function: `createMetazoneMappings`, Status: Bug. File: ../benchmark/C++/i18n/zonemeta.cpp>",
         "Explanation": "The pointer entry is freed twice - first by deleteOlsonToMetaMappingEntry at line 68, then by uprv_free at line 69, causing a double-free vulnerability.",
         "Model": "Claude-3.5, Deepseek-R1",
-        "Is Reproduce": "No",
         "Functions": [
             {
                 "Function": "createMetazoneMappings",
@@ -41,7 +39,6 @@
         "Path": "<Lines: 77-88, Source: `                uprv_free(p);`,  Function: `createInstance`, Status: Bug. File: ../benchmark/C++/i18n/tznames_impl.cpp>",
         "Explanation": "The alias `regions` (same memory block as `p`) is freed again after being partially freed at line 84, causing a double-free UAF.",
         "Model": "Deepseek-R1",
-        "Is Reproduce": "No",
         "Functions": [
             {
                 "Function": "createInstance",

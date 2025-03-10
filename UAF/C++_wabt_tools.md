@@ -4,8 +4,6 @@ Project Repo: https://github.com/WebAssembly/wabt/tree/b2194657c4b9b90599ae02b36
 
 ## Case 1
 
-Is Reproduce: Yes
-
 Program locations:
 
 * https://github.com/WebAssembly/wabt/tree/b2194657c4b9b90599ae02b36a02a10dbedc32c4/src/tools/wasm-opcodecnt.cc#L227

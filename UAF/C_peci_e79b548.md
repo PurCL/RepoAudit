@@ -4,8 +4,6 @@ Project Repo: https://github.com/torvalds/linux/tree/e79b548b7202bb3accdfe64f113
 
 ## Case 1
 
-Is Reproduce: Yes
-
 Program locations:
 
 * https://github.com/torvalds/linux/tree/e79b548b7202bb3accdfe64f113129a4340bc2f9/drivers/peci/cpu.c#L191

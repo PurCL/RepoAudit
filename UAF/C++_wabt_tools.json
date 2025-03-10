@@ -4,7 +4,6 @@
         "Path": "<Lines: 11, 13-19, 47-48, Source: `    delete[] data;`,  Function: `ProgramMain`, Status: Bug. File: ../benchmark/C++/wabt_tools/wasm-opcodecnt.cc>",
         "Explanation": "The freed pointer data is freed again at line 47.",
         "Model": "Claude-3.5, Deepseek-R1",
-        "Is Reproduce": "Yes",
         "Functions": [
             {
                 "Function": "ProgramMain",

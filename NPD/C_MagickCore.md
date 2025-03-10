@@ -4,8 +4,6 @@ Project Repo: https://github.com/ImageMagick/ImageMagick/tree/6e167ed083e252cb31
 
 ## Case 1
 
-Is Reproduce: Yes
-
 Program locations:
 
 * https://github.com/ImageMagick/ImageMagick/tree/6e167ed083e252cb318b4db3316854be80de1693/MagickCore/threshold.c#L2075
@@ -20,8 +18,6 @@ Explanation:
 
 
 ## Case 2
-
-Is Reproduce: Yes
 
 Program locations:
 
@@ -41,8 +37,6 @@ Explanation:
 
 ## Case 3
 
-Is Reproduce: Yes
-
 Program locations:
 
 * https://github.com/ImageMagick/ImageMagick/tree/6e167ed083e252cb318b4db3316854be80de1693/MagickCore/morphology.c#L2424
@@ -60,8 +54,6 @@ Explanation:
 
 
 ## Case 4
-
-Is Reproduce: Yes
 
 Program locations:
 
@@ -81,8 +73,6 @@ Explanation:
 
 ## Case 5
 
-Is Reproduce: Yes
-
 Program locations:
 
 * https://github.com/ImageMagick/ImageMagick/tree/6e167ed083e252cb318b4db3316854be80de1693/MagickCore/statistic.c#L506
@@ -98,8 +88,6 @@ Explanation:
 
 ## Case 6
 
-Is Reproduce: Yes
-
 Program locations:
 
 * https://github.com/ImageMagick/ImageMagick/tree/6e167ed083e252cb318b4db3316854be80de1693/MagickCore/effect.c#L3800
@@ -114,8 +102,6 @@ Explanation:
 
 
 ## Case 7
-
-Is Reproduce: Yes
 
 Program locations:
 
@@ -134,8 +120,6 @@ Explanation:
 
 ## Case 8
 
-Is Reproduce: Yes
-
 Program locations:
 
 * https://github.com/ImageMagick/ImageMagick/tree/6e167ed083e252cb318b4db3316854be80de1693/MagickCore/fx.c#L322
@@ -150,8 +134,6 @@ Explanation:
 
 
 ## Case 9
-
-Is Reproduce: Yes
 
 Program locations:
 

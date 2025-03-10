@@ -4,7 +4,6 @@
         "Path": "<Lines: 3-5, Source: `        return NULL;`,  Function: `parse_msg`, Status: Unknown. File: ../benchmark/C++/sofa-pbrpc/src/sofa/pbrpc/pbjson.cc> --> <Lines: 4-6, Source: `parse_msg(msg, allocator)`,  Function: `pb2json`, Status: Unknown. File: ../benchmark/C++/sofa-pbrpc/src/sofa/pbrpc/pbjson.cc> --> <Lines: 1-6, Source: `json`,  Function: `json2string`, Status: Bug. File: ../benchmark/C++/sofa-pbrpc/src/sofa/pbrpc/pbjson.cc>",
         "Explanation": "The NULL value is directly returned to the caller of parse_msg function at line 5.\nThe return value from parse_msg at line 4 propagates to pointer `json` which is passed as the first argument to json2string at line 5.\nThe pointer `json` from line 1 is deferenced without NULL check.",
         "Model": "Claude-3.5, Deepseek-R1",
-        "Is Reproduce": "Yes",
         "Functions": [
             {
                 "Function": "parse_msg",

@@ -4,8 +4,6 @@ Project Repo: https://github.com/memcached/memcached/tree/e15e1d6b967eed53ddcfd6
 
 ## Case 1
 
-Is Reproduce: Yes
-
 Program locations:
 
 * https://github.com/memcached/memcached/tree/e15e1d6b967eed53ddcfd61c0c90c38d0b017996/memcached.c#L4629

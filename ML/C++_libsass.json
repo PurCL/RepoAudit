@@ -4,7 +4,6 @@
         "Path": "<Lines: 7-11, 12, Source: `    size_t* state = new size_t[L + 1];`,  Function: `permutate`, Status: Bug. File: ../benchmark/C++/libsass/src/permutate.hpp>",
         "Explanation": "The pointer `state` allocated at line 7 is not freed when the function returns early at line 12, causing a memory leak.",
         "Model": "Claude-3.5, Deepseek-R1",
-        "Is Reproduce": "Yes",
         "Functions": [
             {
                 "Function": "permutate",

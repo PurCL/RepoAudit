@@ -4,7 +4,6 @@
         "Path": "<Lines: 29-30, 37-44, Source: `\tgraph->graph = audioreach_alloc_graph_pkt(apm, &info->sg_list, graph_id);`,  Function: `q6apm_get_audioreach_graph`, Status: Bug. File: ../benchmark/C/sound_1c4f29e/soc/qcom/qdsp6/q6apm.c>",
         "Explanation": "graph->graph is allocated successfully but not freed when idr_alloc fails at line 38, causing a memory leak.",
         "Model": "Claude-3.5, Deepseek-R1",
-        "Is Reproduce": "Yes",
         "Functions": [
             {
                 "Function": "q6apm_get_audioreach_graph",

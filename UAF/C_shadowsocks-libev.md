@@ -4,8 +4,6 @@ Project Repo: https://github.com/shadowsocks/shadowsocks-libev/tree/8e52029d311d
 
 ## Case 1
 
-Is Reproduce: Yes
-
 Program locations:
 
 * https://github.com/shadowsocks/shadowsocks-libev/tree/8e52029d311df3880ffb1c5bea922f6e0e3cecdd/src/local.c#L857

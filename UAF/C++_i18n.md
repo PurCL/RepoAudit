@@ -4,8 +4,6 @@ Project Repo: https://github.com/unicode-org/icu/tree/maint/maint-54/icu4c/sourc
 
 ## Case 1
 
-Is Reproduce: Yes
-
 Program locations:
 
 * https://github.com/unicode-org/icu/tree/maint/maint-54/icu4c/source/i18n/zonemeta.cpp#L111
@@ -24,8 +22,6 @@ Explanation:
 
 ## Case 2
 
-Is Reproduce: No
-
 Program locations:
 
 * https://github.com/unicode-org/icu/tree/maint/maint-54/icu4c/source/i18n/zonemeta.cpp#L685
@@ -40,8 +36,6 @@ Explanation:
 
 
 ## Case 3
-
-Is Reproduce: No
 
 Program locations:
 

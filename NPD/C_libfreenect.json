@@ -4,7 +4,6 @@
         "Path": "<Lines: 3-9, Source: `\\tfreenect_init(&ctx, 0);`,  Function: `init_thread`, Status: Unknown. File: ../benchmark/C/libfreenect/wrappers/c_sync/libfreenect_sync.c> --> <Lines: 1-4, Source: `ctx`,  Function: `freenect_select_subdevices`, Status: Bug. File: ../benchmark/C/libfreenect/src/core.c>",
         "Explanation": "The NULL value of pointer `ctx` at line 4 is passed as the first argument to the function freenect_select_subdevices at line 8.\nThe NULL value of pointer `ctx` at line 1 is deferenced at line 3.",
         "Model": "Claude-3.5, Deepseek-R1",
-        "Is Reproduce": "Yes",
         "Functions": [
             {
                 "Function": "init_thread",

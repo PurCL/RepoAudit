@@ -1,4 +1,4 @@
-# Bugs Reproduced By *RepoAudit*
+# Bugs Detected By *RepoAudit*
 
 ## Memory Leak
 

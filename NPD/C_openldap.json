@@ -4,7 +4,6 @@
         "Path": "<Lines: 2-4, Source: `\treturn ber_strdup_x( s, NULL );`,  Function: `ber_strdup`, Status: Unknown. File: ../benchmark/C/openldap/libraries/liblber/memory.c> --> <Lines: 7-32, 35-46, 53, Source: `ber_strdup( urlstr )`,  Function: `ldif_open_url`, Status: Unknown. File: ../benchmark/C/openldap/libraries/libldap/fetch.c> --> <Lines: 2-11, Source: `s`,  Function: `ldap_pvt_hex_unescape`, Status: Bug. File: ../benchmark/C/openldap/libraries/libldap/url.c>",
         "Explanation": "The return value of ber_strdup_x containing NULL value is returned to the caller of function ber_strdup at line 4.\nThe NULL value of pointer `p` from line 32 is passed as argument.\nThe NULL value of parameter `s` at line 2 is dereferenced in the loop condition at line 11 without any NULL check.",
         "Model": "Claude-3.5, Deepseek-R1",
-        "Is Reproduce": "Yes",
         "Functions": [
             {
                 "Function": "ber_strdup",
@@ -30,7 +29,6 @@
         "Path": "<Lines: 4, Source: `\\treturn ber_strdup_x( s, NULL );`,  Function: `ber_strdup`, Status: Unknown. File: ../benchmark/C/openldap/libraries/liblber/memory.c> --> <Lines: 7-31, 32-40, 41-45, 54, Source: `ber_strdup( urlstr )`,  Function: `ldif_open_url`, Status: Bug. File: ../benchmark/C/openldap/libraries/libldap/fetch.c>",
         "Explanation": "The return value of ber_strdup_x is returned to the caller of function ber_strdup.\\nThe NULL value from ber_strdup at line 32 propagates to pointer `p`, then to pointer `s` through strchr at line 37, and is dereferenced at line 38 without NULL check.",
         "Model": "Claude-3.5, Deepseek-R1",
-        "Is Reproduce": "No",
         "Functions": [
             {
                 "Function": "ber_strdup",

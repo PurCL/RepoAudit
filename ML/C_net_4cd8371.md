@@ -4,8 +4,6 @@ Project Repo: https://github.com/torvalds/linux/tree/4cd8371a234d051f9c9557fcbb1
 
 ## Case 1
 
-Is Reproduce: Yes
-
 Program locations:
 
 * https://github.com/torvalds/linux/tree/4cd8371a234d051f9c9557fcbb1f8c523b1c0d10/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_cppcore.c#L800

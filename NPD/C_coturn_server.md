@@ -4,8 +4,6 @@ Project Repo: https://github.com/coturn/coturn/tree/47008229cefaff6bfc4b231642d3
 
 ## Case 1
 
-Is Reproduce: No
-
 Program locations:
 
 * https://github.com/coturn/coturn/tree/47008229cefaff6bfc4b231642d342f99712a5ad/src/server/ns_turn_allocation.c#L453
@@ -23,8 +21,6 @@ Explanation:
 
 
 ## Case 2
-
-Is Reproduce: Yes
 
 Program locations:
 
