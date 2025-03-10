@@ -32,45 +32,6 @@ Is Reproduce: No
 Program locations:
 
 * https://github.com/openldap/openldap/tree/519e0c94c9f3804813f691de487283ad7586f510/libraries/liblber/memory.c#L653
-* https://github.com/openldap/openldap/tree/519e0c94c9f3804813f691de487283ad7586f510/clients/tools/common.c#L1476
-
-Bug traces:
-
-* <	return ber_strdup_x( s, NULL );, ber_strdup>
-* <ber_strdup( pw ), tool_bind>
-
-Explanation:
-
-* The return value of ber_strdup_x containing NULL value is returned to the caller of function ber_strdup at line 4.
-* The NULL value from ber_strdup(pw) at line 81 is dereferenced without check.
-
-
-## Case 3
-
-Is Reproduce: No
-
-Program locations:
-
-* https://github.com/openldap/openldap/tree/519e0c94c9f3804813f691de487283ad7586f510/libraries/liblber/memory.c#L653
-* https://github.com/openldap/openldap/tree/519e0c94c9f3804813f691de487283ad7586f510/clients/tools/common.c#L982
-
-Bug traces:
-
-* <\treturn ber_strdup_x( s, NULL );, ber_strdup>
-* <ber_strdup( optarg ), tool_args>
-
-Explanation:
-
-* The return value of ber_strdup_x is returned to the caller of function ber_strdup.\nThe NULL value get from function ber_strdup at line 569 propagates to pointer `passwd.bv_val` at line 569, then the pointer `passwd.bv_val` is deferenced at line 577 with strlen operation without any NULL check.
-
-
-## Case 4
-
-Is Reproduce: No
-
-Program locations:
-
-* https://github.com/openldap/openldap/tree/519e0c94c9f3804813f691de487283ad7586f510/libraries/liblber/memory.c#L653
 * https://github.com/openldap/openldap/tree/519e0c94c9f3804813f691de487283ad7586f510/libraries/libldap/fetch.c#L71
 
 Bug traces:

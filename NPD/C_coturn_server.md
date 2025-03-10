@@ -39,20 +39,3 @@ Explanation:
 * NULL value from line 10 can reach here without NULL check when `a` is NULL.
 
 
-## Case 3
-
-Is Reproduce: No
-
-Program locations:
-
-* https://github.com/coturn/coturn/tree/47008229cefaff6bfc4b231642d342f99712a5ad/src/server/ns_turn_maps.c#L623
-
-Bug traces:
-
-* <slh->extra_list = (addr_elem*)realloc(slh->extra_list, old_sz_mem + sizeof(addr_elem));, addr_list_add>
-
-Explanation:
-
-* `realloc` failure causes `slh->extra_list` to be NULL, leading to NPD during array access.
-
-

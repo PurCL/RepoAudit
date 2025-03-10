@@ -35,21 +35,5 @@
         "Links": [
             "https://github.com/coturn/coturn/tree/47008229cefaff6bfc4b231642d342f99712a5ad/src/server/ns_turn_server.c#L1957"
         ]
-    },
-    {
-        "Function Path": "<slh->extra_list = (addr_elem*)realloc(slh->extra_list, old_sz_mem + sizeof(addr_elem));, addr_list_add>",
-        "Path": "<Lines: 5,8-13,15-21,24-28, Source: `slh->extra_list = (addr_elem*)realloc(slh->extra_list, old_sz_mem + sizeof(addr_elem));`,  Function: `addr_list_add`, Status: Bug. File: ../benchmark/C/coturn_server/ns_turn_maps.c>",
-        "Explanation": "`realloc` failure causes `slh->extra_list` to be NULL, leading to NPD during array access.",
-        "Model": "Deepseek-R1",
-        "Is Reproduce": "No",
-        "Functions": [
-            {
-                "Function": "addr_list_add",
-                "Function Body": "static void addr_list_add(addr_list_header* slh, const ioa_addr* key,  ur_addr_map_value_type value) {\n\n  if(!key || !value) return;\n\n  addr_elem *elem = NULL;\n  size_t i;\n\n  for(i=0;i<ADDR_ARRAY_SIZE;++i) {\n\t  if(!(slh->main_list[i].value)) {\n\t\t  elem = &(slh->main_list[i]);\n\t\t  break;\n\t  }\n  }\n\n  if(!elem && slh->extra_list) {\n\t  for(i=0;i<slh->extra_sz;++i) {\n\t\t  if(!(slh->extra_list[i].value)) {\n\t\t\t  elem = &(slh->extra_list[i]);\n\t\t\t  break;\n\t\t  }\n\t  }\n  }\n\n  if(!elem) {\n\t  size_t old_sz = slh->extra_sz;\n\t  size_t old_sz_mem = old_sz * sizeof(addr_elem);\n\t  slh->extra_list = (addr_elem*)realloc(slh->extra_list, old_sz_mem + sizeof(addr_elem));\n\t  elem = &(slh->extra_list[old_sz]);\n\t  slh->extra_sz += 1;\n  }\n\n  addr_cpy(&(elem->key),key);\n  elem->value=value;\n}"
-            }
-        ],
-        "Links": [
-            "https://github.com/coturn/coturn/tree/47008229cefaff6bfc4b231642d342f99712a5ad/src/server/ns_turn_maps.c#L623"
-        ]
     }
 ]
