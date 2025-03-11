@@ -7,7 +7,7 @@ from tstool.analyzer.C_TS_analyzer import *
 from tstool.analyzer.Go_TS_analyzer import *
 from tstool.analyzer.Java_TS_analyzer import *
 from llmtool.LLM_utils import *
-from memory.semantic.state import BugScanState
+from memory.semantic.bugscan_state import BugScanState
 from memory.syntactic.function import *
 from memory.syntactic.value import *
 from llmtool.backward_slicer import BackwardSlicer

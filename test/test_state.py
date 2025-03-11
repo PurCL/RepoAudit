@@ -4,9 +4,9 @@ from os import path
 
 sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
 
-from memory.semantic.state import BugScanState
-from memory.value import *
-from src.memory.function import *
+from memory.semantic.bugscan_state import BugScanState
+from memory.syntactic.value import *
+from memory.syntactic.function import *
 
 class TestState(unittest.TestCase):
     def setUp(self):
