@@ -70,8 +70,9 @@ class MetaScanAgent:
             for call_site in function.call_site_nodes:
                 call_site_info = {}
                 file_content = self.ts_analyzer.ts_parser.fileContentDic[function.file_name]
-                call_site_info["callee_name"] = self.ts_analyzer.get_callee_at_callsite(call_site, file_content)
+                call_site_info["callee_id"] = self.ts_analyzer.get_callee_at_callsite(call_site, file_content)
                 call_site_info["args"] = list(self.ts_analyzer.get_arguments_at_callsite(call_site, file_content))
+                call_site_info["call_site_start_line"] = file_content[:call_site.start_byte].count("\n") + 1
                 function_meta_data["call_sites"].append(call_site_info)
 
             # function call
