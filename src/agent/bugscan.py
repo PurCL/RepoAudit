@@ -3,7 +3,7 @@ import os
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from tstool.analyzer.TS_analyzer import *
-from tstool.analyzer.C_TS_analyzer import *
+from tstool.analyzer.Cpp_TS_analyzer import *
 from tstool.analyzer.Go_TS_analyzer import *
 from tstool.analyzer.Java_TS_analyzer import *
 from tstool.analyzer.Python_TS_analyzer import *
@@ -31,7 +31,7 @@ class BugScanAgent:
                  ) -> None:
         self.seed_spec_file = seed_spec_file
         self.project_name = project_name
-        self.language = language
+        self.language = language if language not in {"C", "Cpp"} else "Cpp"
         self.all_files = all_files
         self.model_name = inference_model_name
         self.temperature = temperature
@@ -45,8 +45,8 @@ class BugScanAgent:
         self.detection_role = self.fetch_detection_system_role()
         
         self.detection_result = []
-        if self.language == "C" or self.language == "C++":
-            self.ts_analyzer = C_TSAnalyzer(self.all_files, self.language)
+        if self.language == "Cpp":
+            self.ts_analyzer = Cpp_TSAnalyzer(self.all_files, self.language)
         elif self.language == "Go":
             self.ts_analyzer = Go_TSAnalyzer(self.all_files, self.language)
         elif self.language == "Java":
@@ -93,12 +93,18 @@ class BugScanAgent:
         with open (self.seed_spec_file, "r") as f:
             seed_spec = json.load(f)
         for seed_str in seed_spec:
-            if seed_str.strip("\n").endswith(" 1"):
-                is_forward = True
-                seed_value = Value.from_str_to_value(seed_str.strip("\n").strip(" 1"))
-            elif seed_str.strip("\n").endswith(" 0"):
-                is_forward = False
-                seed_value = Value.from_str_to_value(seed_str.strip("\n").strip(" 0"))
+            try:
+                if seed_str.strip("\n").endswith(" 1"):
+                    is_forward = True
+                    print(seed_str)
+                    seed_value = Value.from_str_to_value(seed_str.replace("\n", "").strip(" 1"))
+                elif seed_str.strip("\n").endswith(" 0"):
+                    is_forward = False
+                    seed_value = Value.from_str_to_value(seed_str.replace("\n", "").strip(" 0"))
+            except:
+                print(f"Error parsing seed: {seed_str}")
+                print("Skip this seed")
+                continue
             seeds.append((seed_value, is_forward))
             
         def sequential():

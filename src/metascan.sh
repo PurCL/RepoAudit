@@ -1,5 +1,5 @@
 #!/bin/bash
-LANGUAGE=C++
+LANGUAGE=Cpp
 BUG_TYPE=NPD
 SCANNER=metascan
 PROJECT_NAME=sofa-pbrpc

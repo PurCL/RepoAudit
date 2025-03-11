@@ -2,7 +2,7 @@ from os import path
 import json
 import time
 from tstool.analyzer.TS_analyzer import *
-from tstool.analyzer.C_TS_analyzer import *
+from tstool.analyzer.Cpp_TS_analyzer import *
 from tstool.analyzer.Go_TS_analyzer import *
 from .LLM_utils import *
 from memory.semantic.bugscan_state import BugScanState

@@ -1,7 +1,7 @@
 import json
 import os
 from tstool.analyzer.TS_analyzer import *
-from tstool.analyzer.C_TS_analyzer import *
+from tstool.analyzer.Cpp_TS_analyzer import *
 from tstool.analyzer.Go_TS_analyzer import *
 from tstool.analyzer.Java_TS_analyzer import *
 from tstool.analyzer.Python_TS_analyzer import *
@@ -28,8 +28,8 @@ class MetaScanAgent:
 
         self.detection_result = []
         self.buggy_traces = []
-        if self.language == "C" or self.language == "C++":
-            self.ts_analyzer = C_TSAnalyzer(self.all_files, self.language)
+        if self.language == "C" or self.language == "Cpp":
+            self.ts_analyzer = Cpp_TSAnalyzer(self.all_files, self.language)
         elif self.language == "Go":
             self.ts_analyzer = Go_TSAnalyzer(self.all_files, self.language)
         elif self.language == "Java":

@@ -35,7 +35,7 @@ class RepoAudit:
         suffixs = []
         if self.language == "C":
             suffixs = ["c", "h"]
-        elif self.language == "C++":
+        elif self.language == "Cpp":
             suffixs = ["cpp", "cc", "hpp", "c", "h"]
         elif self.language == "Go":
             suffixs = ["go"]
@@ -112,7 +112,7 @@ def run_dev_mode():
         "--language",
         choices=[
             "C",
-            "C++",
+            "Cpp",
             "Java",
             "Go",
             "Python"

@@ -1,5 +1,5 @@
 #!/bin/bash
-LANGUAGE=Python
+LANGUAGE=Cpp
 BUG_TYPE=NPD
 PROJECT_NAME=toy
 

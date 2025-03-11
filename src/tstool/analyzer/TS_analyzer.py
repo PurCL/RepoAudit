@@ -44,7 +44,7 @@ class TSParser(ABC):
         # initilize the language according to language_setting
         if language_setting == "C":
             self.language = Language(str(language_path), "c")
-        elif language_setting == "C++":
+        elif language_setting == "Cpp":
             self.language = Language(str(language_path), "cpp")
         elif language_setting == "Java":
             self.language = Language(str(language_path), "java")

@@ -35,7 +35,7 @@ class Extractor(ABC):
         if language_setting == "C":
             self.language = tree_sitter.Language(str(language_path), "c")
             self.suffix = {"c", "h"}
-        elif language_setting == "C++":
+        elif language_setting == "Cpp":
             self.language = tree_sitter.Language(str(language_path), "cpp")
             self.suffix = {"cpp", "cc", "hpp", "h", "c"}
         elif language_setting == "Go":

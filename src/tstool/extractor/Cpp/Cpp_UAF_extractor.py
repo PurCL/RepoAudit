@@ -1,13 +1,13 @@
 from tstool.analyzer.TS_analyzer import *
-from tstool.analyzer.C_TS_analyzer import *
+from tstool.analyzer.Cpp_TS_analyzer import *
 from ..extractor import *
 import tree_sitter
 import argparse
 
-class C_UAF_Extractor(Extractor):
+class Cpp_UAF_Extractor(Extractor):
     def find_seeds(self, source_code: str, root_node: tree_sitter.Node, file_name: str) -> List[Tuple[Value, bool]]:
         """
-        Extract the seeds that can cause the use-after-free bugs from the C programs.
+        Extract the seeds that can cause the use-after-free bugs from the C/C++ programs.
         :param source_code: Content of the source file.
         :param root_node: A node in the parsed syntax tree.
         :param file_path: Path of the source file.
@@ -48,7 +48,7 @@ def start_extract():
         "--language",
         choices=[
             "C",
-            "C++",
+            "Cpp",
         ],
         help="Specify the language",
     )
@@ -62,7 +62,7 @@ def start_extract():
     language_setting = args.language
     seed_path = args.seed_path
     
-    bof_extractor = C_UAF_Extractor(project_path, language_setting, seed_path) 
+    bof_extractor = Cpp_UAF_Extractor(project_path, language_setting, seed_path) 
     bof_extractor.run()
 
 
