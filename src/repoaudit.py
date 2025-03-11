@@ -37,12 +37,14 @@ class RepoAudit:
             suffixs = ["c", "h"]
         elif self.language == "C++":
             suffixs = ["cpp", "cc", "hpp", "c", "h"]
+        elif self.language == "Go":
+            suffixs = ["go"]
         elif self.language == "Java":
             suffixs = ["java"]
         elif self.language == "Python":
             suffixs = ["py"]
-        elif self.language == "Go":
-            suffixs = ["go"]
+        else:
+            raise ValueError("Invalid language setting")
         
         # Load all files with the specified suffix in the project path
         self.travese_files(project_path, suffixs)
@@ -113,6 +115,7 @@ def run_dev_mode():
             "C++",
             "Java",
             "Go",
+            "Python"
         ],
         help="Specify the language",
     )

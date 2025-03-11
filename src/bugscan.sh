@@ -1,5 +1,5 @@
 #!/bin/bash
-LANGUAGE=Java
+LANGUAGE=Python
 BUG_TYPE=NPD
 SCANNER=bugscan
 PROJECT_NAME=toy

@@ -44,6 +44,9 @@ class Extractor(ABC):
         elif language_setting == "Java":
             self.language = tree_sitter.Language(str(language_path), "java")
             self.suffix = {"java"}
+        elif language_setting == "Python":
+            self.language = tree_sitter.Language(str(language_path), "python")
+            self.suffix = {"py"}
         else:
             raise ValueError("Invalid language setting")
         

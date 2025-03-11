@@ -4,6 +4,7 @@ from tstool.analyzer.TS_analyzer import *
 from tstool.analyzer.C_TS_analyzer import *
 from tstool.analyzer.Go_TS_analyzer import *
 from tstool.analyzer.Java_TS_analyzer import *
+from tstool.analyzer.Python_TS_analyzer import *
 from llmtool.LLM_utils import *
 from llmtool.LLM_utils import *
 from pathlib import Path
@@ -33,6 +34,8 @@ class MetaScanAgent:
             self.ts_analyzer = Go_TSAnalyzer(self.all_files, self.language)
         elif self.language == "Java":
             self.ts_analyzer = Java_TSAnalyzer(self.all_files, self.language)
+        elif self.language == "Python":
+            self.ts_analyzer = Python_TSAnalyzer(self.all_files, self.language)
         else:
             print("Unsupported language")
             exit(1)

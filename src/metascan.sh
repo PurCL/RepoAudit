@@ -1,8 +1,8 @@
 #!/bin/bash
-LANGUAGE=C
+LANGUAGE=Python
 BUG_TYPE=NPD
 SCANNER=metascan
-PROJECT_NAME=zstd
+PROJECT_NAME=toy
 
 python3 repoaudit.py \
   --language $LANGUAGE \
