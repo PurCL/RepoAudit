@@ -5,36 +5,20 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from tstool.analyzer.TS_analyzer import *
 from tstool.analyzer.C_TS_analyzer import *
 from tstool.analyzer.Go_TS_analyzer import *
+from tstool.analyzer.Java_TS_analyzer import *
 from llmtool.LLM_utils import *
-from memory.state import State
-from memory.function import *
-from memory.localvalue import *
+from memory.semantic.state import BugScanState
+from memory.syntactic.function import *
+from memory.syntactic.value import *
 from llmtool.backward_slicer import BackwardSlicer
 from llmtool.forward_slicer import ForwardSlicer
 from pathlib import Path
 BASE_PATH = Path(__file__).resolve().parents[2]
-BACKWARD_BUG_TYPE = ("BOF")
-FORWARD_BUG_TYPE = ("NPD", "UAF", "MLK")
 
-
-target_seeds = {
-    "C_curl": "((buffer[len++], -1, 253), ValueType.SINK, ../benchmark/C/curl/lib/sendf.c)",
-    "C_php-src": "((malloc(length + 1), -1, 2670), ValueType.BUF, ../benchmark/C/php-src/Zend/zend_alloc.c)",
-    "C_zstd": "((newTable->fileNames[newTableIdx], -1, 563), ValueType.BUF, ../benchmark/C/zstd/programs/util.c)",
-    "C_cpv-1": "((*u, -1, 4091), ValueType.BUF, ../benchmark/C/cpv-1/src/http/ngx_http_request.c)",
-    "C_cpv-2": "((*d++, -1, 1281), ValueType.BUF, ../benchmark/C/cpv-2/src/core/ngx_string.c)",
-    "C_cpv-3": "((*b->last++, -1, 4092), ValueType.BUF, ../benchmark/C/cpv-3/src/http/ngx_http_request.c)",
-    "C_cpv-3-repair": "((*b->last++, -1, 4097), ValueType.BUF, ../benchmark/C/cpv-3-repair/src/http/ngx_http_request.c)",
-    "C_cpv-8": "((ngx_memcpy(s->login.data, arg[0].data, s->login.len);, -1, 324), ValueType.SRC, ../benchmark/C/cpv-8/src/mail/ngx_mail_pop3_handler.c)",
-    "C_cpv-8-repair": "((ngx_memcpy(s->login.data, arg[0].data, s->login.len);, -1, 324), ValueType.SRC, ../benchmark/C/cpv-8-repair/src/mail/ngx_mail_pop3_handler.c)",
-    "C_cpv-12": "((rev[j], -1, 77), ValueType.BUF, ../benchmark/C/cpv-12/src/os/unix/ngx_linux_sendfile_chain.c)",
-    "C_cpv-12-repair": "((rev[j], -1, 77), ValueType.BUF, ../benchmark/C/cpv-12-repair/src/os/unix/ngx_linux_sendfile_chain.c)",
-    "C_memcached": "((char *list = strdup(settings.inter);, -1, 4629), ValueType.SRC, ../benchmark/C/memcached/memcached.c)"
-}
 
 class BugScanAgent:
     def __init__(self,
-                 src_spec_file,
+                 seed_spec_file,
                  project_name,
                  language,
                  all_files,
@@ -44,12 +28,12 @@ class BugScanAgent:
                  boundary,
                  max_workers=1
                  ) -> None:
-        self.src_spec_file = src_spec_file
+        self.seed_spec_file = seed_spec_file
         self.project_name = project_name
         self.language = language
         self.all_files = all_files
         self.model_name = inference_model_name
-        self.temp = temperature
+        self.temperature = temperature
         self.bug_type = bug_type
         self.boundary = boundary
         self.max_workers = max_workers
@@ -64,33 +48,31 @@ class BugScanAgent:
             self.ts_analyzer = C_TSAnalyzer(self.all_files, self.language)
         elif self.language == "Go":
             self.ts_analyzer = Go_TSAnalyzer(self.all_files, self.language)
+        elif self.language == "Java":
+            self.ts_analyzer = Java_TSAnalyzer(self.all_files, self.language)
         else:
             print("Unsupported language")
             exit(1)
         
-        if self.bug_type in BACKWARD_BUG_TYPE:
-            self.analyzer = BackwardSlicer(
-                self.model_name, 
-                self.temp, 
-                self.language, 
-                self.ts_analyzer,
-                self.boundary
-            )
-        elif self.bug_type in FORWARD_BUG_TYPE:
-            self.analyzer = ForwardSlicer(
-                self.model_name, 
-                self.temp, 
-                self.language, 
-                self.ts_analyzer,
-                self.boundary
-            )
-        else:
-            print("Unsupported bug type")
-            exit(1)
+        self.backward_slicing_analyzer = BackwardSlicer(
+            self.model_name, 
+            self.temperature, 
+            self.language, 
+            self.ts_analyzer,
+            self.boundary
+        )
+        self.forward_slicing_analyzer = ForwardSlicer(
+            self.model_name, 
+            self.temperature, 
+            self.language, 
+            self.ts_analyzer,
+            self.boundary
+        )
+
         self.run_info = {}
         self.bug_info = {}
 
-        self.result_dir_path = f"{BASE_PATH}/result/detect-{self.model_name}/{self.bug_type}/{self.project_name}/{time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())}"
+        self.result_dir_path = f"{BASE_PATH}/result/bugscan-{self.model_name}/{self.bug_type}/{self.project_name}/{time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())}"
         if not os.path.exists(self.result_dir_path):
             os.makedirs(self.result_dir_path)
     
@@ -104,29 +86,44 @@ class BugScanAgent:
 
         print("Start bug scanning...")
 
-        src_list = []
-        with open (self.src_spec_file, "r") as f:
-            src_spec = json.load(f)
-        for src in src_spec:
-            src_value = LocalValue.from_string(src)
-            if src_value:
-                src_list.append(src_value)
-
+        seeds = []
+        with open (self.seed_spec_file, "r") as f:
+            seed_spec = json.load(f)
+        for seed_str in seed_spec:
+            if seed_str.strip("\n").endswith(" 1"):
+                is_forward = True
+                seed_value = Value.from_str_to_value(seed_str.strip("\n").strip(" 1"))
+            elif seed_str.strip("\n").endswith(" 0"):
+                is_forward = False
+                seed_value = Value.from_str_to_value(seed_str.strip("\n").strip(" 0"))
+            seeds.append((seed_value, is_forward))
+            
         def sequential():
-            for src in src_list:
-                src_function = self.ts_analyzer.get_function_from_localvalue(src)
-                if src_function == None:
+            # Start to analyze each seed
+            for (seed_value, is_forward) in seeds:
+                seed_function = self.ts_analyzer.get_function_from_localvalue(seed_value)
+                if seed_function == None:
                     continue
                 
-                src_state = State(src, src_function)
-                result = self.analyzer.analyze(src_state, 0)
-                if not result:
+                # Construct an analysis state and retrieve callers/callees during forward/backward slicing
+                seed_state = BugScanState(seed_value, seed_function)
+                if is_forward:
+                    flag = self.forward_slicing_analyzer.analyze(seed_state, 0)
+                else:
+                    flag = self.backward_slicing_analyzer.analyze(seed_state, 0)
+
+                # flag: whether the LLM format is valid or not.
+                # Slices are generated if flag is True.
+                if not flag:
                     continue
 
-                key = src_state.get_key()
-                self.run_info[key] = self.analyzer.result_list
-                
-                answer, poc = self.detect_with_llm(src_state)
+                # Detect the bugs upon slices using LLM (inlining enabled)
+                key = seed_state.get_key()
+                if is_forward:
+                    self.run_info[key] = self.forward_slicing_analyzer.result_list
+                else:
+                    self.run_info[key] = self.backward_slicing_analyzer.result_list
+                answer, poc = self.detect_with_llm(seed_state)
                 
                 # For DEBUG
                 print("====================================")
@@ -134,6 +131,7 @@ class BugScanAgent:
                 print("PoC: ", poc)
                 print("===============================================")
 
+                # Dump bug reports
                 with open(self.result_dir_path + "/slicing_info.json", 'w') as run_info_file:
                     json.dump(self.run_info, run_info_file, indent=4)
 
@@ -144,20 +142,31 @@ class BugScanAgent:
         def parallel(n):
             lock = threading.Lock()
             
-            def worker(src):
-                src_function = self.ts_analyzer.get_function_from_localvalue(src)
-                if src_function is None:
+            def worker(seed):
+                (seed_value, is_forward) = seed
+                seed_function = self.ts_analyzer.get_function_from_localvalue(seed_value)
+                if seed_function is None:
                     return
 
-                src_state = State(src, src_function)
-                result = self.analyzer.analyze(src_state, 0)
-                if not result:
+                # Construct an analysis state and retrieve callers/callees during forward/backward slicing
+                seed_state = BugScanState(seed_value, seed_function)
+                if is_forward:
+                    flag = self.forward_slicing_analyzer.analyze(seed_state, 0)
+                else:
+                    flag = self.backward_slicing_analyzer.analyze(seed_state, 0)
+
+                # flag: whether the LLM format is valid or not.
+                # Slices are generated if flag is True.
+                if not flag:
                     return
 
-                key = src_state.get_key()
-                self.run_info[key] = self.analyzer.result_list
-
-                answer, poc = self.detect_with_llm(src_state)
+                # Detect the bugs upon slices using LLM (inlining enabled)
+                key = seed_state.get_key()
+                if is_forward:
+                    self.run_info[key] = self.forward_slicing_analyzer.result_list
+                else:
+                    self.run_info[key] = self.backward_slicing_analyzer.result_list
+                answer, poc = self.detect_with_llm(seed_state)
 
                 # For DEBUG
                 print("====================================")
@@ -174,7 +183,7 @@ class BugScanAgent:
 
             # Process at most n src concurrently
             with ThreadPoolExecutor(max_workers=n) as executor:
-                futures = [executor.submit(worker, src) for src in src_list]
+                futures = [executor.submit(worker, seed) for seed in seeds]
                 for future in as_completed(futures):
                     # Could log exceptions here if needed
                     try:
@@ -188,13 +197,13 @@ class BugScanAgent:
             parallel(self.max_workers)
         
 
-    def detect_with_llm(self, state:State) -> Tuple[str, str]:
+    def detect_with_llm(self, state:BugScanState) -> Tuple[str, str]:
         """
         Detect the bug with LLM
         """
         ## For DEBUG
         print("Detecting with LLM...")
-        solve_model = LLM(self.model_name, self.temp, self.detection_role)
+        solve_model = LLM(self.model_name, self.temperature, self.detection_role)
         key = state.get_key()
         self.bug_info[key] = []
         root_states = state.find_root()
@@ -204,7 +213,7 @@ class BugScanAgent:
 
             message = self.fetch_detection_prompt()
             message = message.replace("<FUNCTION>", inline_code)
-            message = message.replace("<SRC_NAME>", state.var.name)
+            message = message.replace("<SEED_NAME>", state.var.name)
 
             current_query_num = 0
             while current_query_num < self.MAX_QUERY_NUM:
@@ -227,7 +236,7 @@ class BugScanAgent:
         return answer, poc
     
 
-    def inline_with_LLM(self, state: State) -> str:
+    def inline_with_LLM(self, state: BugScanState) -> str:
         """
         Inline the slices with LLM
         """
@@ -235,7 +244,7 @@ class BugScanAgent:
         with open(self.inline_prompt_file, "r") as f:
             dump_config_dict = json.load(f)
         role = dump_config_dict["system_role"].replace("<LANGUAGE>", self.language)
-        solve_model = LLM(self.model_name, self.temp, role)
+        solve_model = LLM(self.model_name, self.temperature, role)
         message = dump_config_dict["task"]
         message += "\n" + "".join(dump_config_dict["meta_prompts"])
         message = message.replace("<ANSWER>", "\n".join(dump_config_dict["answer_format"]))
@@ -264,7 +273,7 @@ class BugScanAgent:
 
     def fetch_detection_prompt(self) -> str:
         """
-        Fetch the detection prompt, leaving the placeholders <FUNCTION> and <SRC_NAME> to be filled
+        Fetch the detection prompt, leaving the placeholders <FUNCTION> and <SEED_NAME> to be filled
         """
         with open(self.detection_prompt_file, "r") as f:
             dump_config_dict = json.load(f)

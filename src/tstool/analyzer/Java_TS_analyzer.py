@@ -6,8 +6,8 @@ import tree_sitter
 sys.path.append(path.dirname(path.dirname(path.dirname(path.abspath(__file__)))))
 
 from .TS_analyzer import *
-from memory.localvalue import *
-from memory.function import *
+from memory.syntactic.function import *
+from memory.syntactic.value import *
 
 
 class Java_TSParser(TSParser):
@@ -21,51 +21,30 @@ class Java_TSParser(TSParser):
         :param source_code: The content of the source file.
         :param tree: The parse tree of the source file.
         """
-        all_function_header_nodes = []
         all_function_definition_nodes = find_nodes_by_type(tree.root_node, "method_declaration")          
     
-        for node in all_function_header_nodes:
+        for node in all_function_definition_nodes:
             function_name = ""
             for sub_node in node.children:
                 if sub_node.type == "identifier":
                     function_name = source_code[sub_node.start_byte:sub_node.end_byte]
                     break
-                elif sub_node.type == "qualified_identifier":
-                    qualified_function_name = source_code[sub_node.start_byte:sub_node.end_byte]
-                    function_name = qualified_function_name.split("::")[-1]
 
             if function_name == "":
                 continue
             
-            function_node = node
-
-            is_function_definition = True
-            while True:
-                if function_node.type == "function_definition":
-                    break
-                function_node = function_node.parent
-                if function_node is None:
-                    is_function_definition = False
-                    break
-                if "statement" in function_node.type:
-                    is_function_definition = False
-                    break
-            if not is_function_definition:
-                continue
-
-            # Initialize the raw data of a function
-            start_line_number = source_code[: function_node.start_byte].count("\n") + 1
-            end_line_number = source_code[: function_node.end_byte].count("\n") + 1
+            start_line_number = source_code[: node.start_byte].count("\n") + 1
+            end_line_number = source_code[: node.end_byte].count("\n") + 1
             function_id = len(self.functionRawDataDic) + 1
             
             self.functionRawDataDic[function_id] = (
                 function_name,
                 start_line_number,
                 end_line_number,
-                function_node
+                node
             )
             self.functionToFile[function_id] = file_path
-            
+
             if function_name not in self.functionNameToId:
                 self.functionNameToId[function_name] = set([])
             self.functionNameToId[function_name].add(function_id)
@@ -83,7 +62,7 @@ class Java_TSParser(TSParser):
 
 class Java_TSAnalyzer(TSAnalyzer):
     """
-    TSAnalyzer class for retrieving necessary facts or functions for LMAgent
+    TSAnalyzer class for retrieving necessary facts or functions for llmtools
     """
     def create_ts_parser(self):
         return Java_TSParser(self.code_in_projects, self.language)
@@ -96,7 +75,6 @@ class Java_TSAnalyzer(TSAnalyzer):
         Extract the call graph edges.
         :param current_function: the function to be analyzed
         """
-        # TODO
         # Over-approximate the caller-callee relationship via function names, achieved by find_callee
         file_name = self.ts_parser.functionToFile[current_function.function_id]
         file_content = self.ts_parser.fileContentDic[file_name]
@@ -105,7 +83,7 @@ class Java_TSAnalyzer(TSAnalyzer):
         white_call_sites = []
 
         for call_site_node in all_call_sites:
-            callee_ids = self.find_callee_at_callsite(call_site_node, file_content)
+            callee_ids = self.get_callee_at_callsite(call_site_node, file_content)
             if len(callee_ids) > 0:
                 # Update the call graph
                 for callee_id in callee_ids:
@@ -117,7 +95,6 @@ class Java_TSAnalyzer(TSAnalyzer):
                         self.callee_caller_map[callee_id] = set([])
                     self.callee_caller_map[callee_id].add(caller_id)
                 white_call_sites.append(call_site_node)
-
         current_function.call_site_nodes = white_call_sites
         return
 
@@ -126,26 +103,15 @@ class Java_TSAnalyzer(TSAnalyzer):
         Get the callee name at the call site.
         :param node: the node of the call site
         :param source_code: the content of the file
-        :param language: the language of the source code
         """
-        # TODO
-        sub_sub_nodes = []
-        for sub_node in node.children:
-            if sub_node.type == "identifier":
-                sub_sub_nodes.append(sub_node)
-            else:
-                for sub_sub_node in sub_node.children:
-                    sub_sub_nodes.append(sub_sub_node)
-            break
-        sub_sub_node_types = [source_code[sub_sub_node.start_byte:sub_sub_node.end_byte] for sub_sub_node in sub_sub_nodes]  
-        if len(sub_sub_node_types) == 0:
-            return ""
-        index_of_last_dot = len(sub_sub_node_types) - 1 - sub_sub_node_types[::-1].index(".") if "." in sub_sub_node_types else -1
-        index_of_last_arrow = len(sub_sub_node_types) - 1 - sub_sub_node_types[::-1].index("->") if "->" in sub_sub_node_types else -1
-        function_name = sub_sub_node_types[max(index_of_last_dot, index_of_last_arrow) + 1]
+        child_node_strs = [source_code[child.start_byte: child.end_byte] for child in node.children]
+        if "." in child_node_strs:
+            function_name = child_node_strs[child_node_strs.index(".") + 1]
+        else:
+            function_name = child_node_strs[0]
         return function_name
 
-    def find_callsite_by_callee_name(self, current_function: Function, callee_name: str) -> List[tree_sitter.Node]:
+    def get_callsite_by_callee_name(self, current_function: Function, callee_name: str) -> List[tree_sitter.Node]:
         """
         Find the call sites by the callee function name.
         :param current_function: the function to be analyzed
@@ -153,14 +119,10 @@ class Java_TSAnalyzer(TSAnalyzer):
         """
         results = []
         file_content = self.code_in_projects[current_function.file_name]
-        call_site_nodes = find_nodes_by_type(current_function.parse_tree_root_node, "call_expression")
+        call_site_nodes = find_nodes_by_type(current_function.parse_tree_root_node, "method_invocation")
         for call_site in call_site_nodes:
-            # check name of the callee
-            for child in call_site.children:
-                if child.type == "identifier":
-                    name = file_content[child.start_byte:child.end_byte]
-                    if name == callee_name:
-                        results.append(call_site)
+            if self.get_callee_name_at_call_site(call_site, file_content) == callee_name:
+                results.append(call_site)
                 break
         return results
 
@@ -183,7 +145,7 @@ class Java_TSAnalyzer(TSAnalyzer):
     ########## AST Node Type Analysis ###############
     #################################################   
 
-    def find_paras_in_single_function(self, current_function: Function) -> Set[Tuple[str, int, int]]:
+    def get_paras_in_single_function(self, current_function: Function) -> Set[Tuple[str, int, int]]:
         """
         Find the parameters of the function.
         :param current_function: the function to be analyzed
@@ -191,7 +153,7 @@ class Java_TSAnalyzer(TSAnalyzer):
         """
         paras = set([])
         file_content = self.code_in_projects[current_function.file_name]
-        parameters = find_nodes_by_type(current_function.parse_tree_root_node, "parameter_declaration")
+        parameters = find_nodes_by_type(current_function.parse_tree_root_node, "formal_parameter")
         index = 0
         for parameter_node in parameters:
             for sub_node in find_nodes_by_type(parameter_node, "identifier"):                
@@ -201,7 +163,7 @@ class Java_TSAnalyzer(TSAnalyzer):
                 index += 1
         return paras
 
-    def find_args_by_callee_name(self, current_function: Function, callee: str) -> Set[Tuple[str, int, int]]:
+    def get_args_by_callee_name(self, current_function: Function, callee: str) -> Set[Tuple[str, int, int]]:
         """
         Find the arguments of the callee function.
         :param current_function: the function to be analyzed
@@ -209,8 +171,8 @@ class Java_TSAnalyzer(TSAnalyzer):
         :return: (arg_name, line_number, index) of the arguments
         """
         args = set([])
-        file_content = self.code_in_projects[current_function.file_name]
-        call_site_nodes = self.find_callsite_by_callee_name(current_function, callee)
+        file_content = self.ts_parser.fileContentDic[current_function.file_name]
+        call_site_nodes = self.get_callsite_by_callee_name(current_function, callee)
         for call_site in call_site_nodes:
             for child in call_site.children:
                 if child.type == "argument_list":
@@ -225,7 +187,7 @@ class Java_TSAnalyzer(TSAnalyzer):
                     break
         return args
 
-    def find_retstmts_in_single_function(self, current_function: Function) -> List[Tuple[str, int]]:
+    def get_retstmts_in_single_function(self, current_function: Function) -> List[Tuple[str, int]]:
         """
         Find the return statements in the function.
         :param current_function: the function to be analyzed
@@ -236,21 +198,21 @@ class Java_TSAnalyzer(TSAnalyzer):
         retnodes = find_nodes_by_type(current_function.parse_tree_root_node, "return_statement")
         for retnode in retnodes:
             line_number = file_content[:retnode.start_byte].count("\n") + 1
-            retstmts.append((retnode, line_number))
+            retstmts.append((file_content[retnode.start_byte:retnode.end_byte], line_number))
         return retstmts
 
     #################################################
     ########## Control Flow Analysis ################
     #################################################
 
-    def find_if_statements(self, root_node: tree_sitter.Node, source_code: str) -> Dict[Tuple, Tuple]:
+    def get_if_statements(self, function: Function, source_code: str) -> Dict[Tuple, Tuple]:
         """
-        Find the if statements in the C/C++ function.
-        :param root_node: the root node of the syntax tree
+        Find the if statements in the Java function.
+        :param function: the function to be analyzed
         :param source_code: the content of the file
         :return: a dictionary containing the if statement info and the line number: `(start_line, end_line): info`
         """
-        if_statement_nodes = find_nodes_by_type(root_node, "if_statement")
+        if_statement_nodes = find_nodes_by_type(function.parse_tree_root_node, "if_statement")
         if_statements = {}
 
         for if_statement_node in if_statement_nodes:
@@ -262,8 +224,9 @@ class Java_TSAnalyzer(TSAnalyzer):
             else_branch_start_line = 0
             else_branch_end_line = 0
 
+            block_num = 0
             for sub_target in if_statement_node.children:
-                if sub_target.type in ["parenthesized_expression", "condition_clause"]:
+                if sub_target.type == "parenthesized_expression":
                     condition_start_line = (
                         source_code[: sub_target.start_byte].count("\n") + 1
                     )
@@ -273,44 +236,53 @@ class Java_TSAnalyzer(TSAnalyzer):
                     condition_str = source_code[
                         sub_target.start_byte : sub_target.end_byte
                     ]
-                if "statement" in sub_target.type:
-                    true_branch_start_line = (
-                        source_code[: sub_target.start_byte].count("\n") + 1
-                    )
-                    true_branch_end_line = (
-                        source_code[: sub_target.end_byte].count("\n") + 1
-                    )
-                if sub_target.type == "else_clause":
-                    else_branch_start_line = (
-                        source_code[: sub_target.start_byte].count("\n") + 1
-                    )
-                    else_branch_end_line = (
-                        source_code[: sub_target.end_byte].count("\n") + 1
-                    )
-
+                if sub_target.type == "block":
+                    lower_lines = []
+                    upper_lines = []
+                    for sub_sub_target in sub_target.children:
+                        if sub_sub_target.type not in {"{", "}"}:
+                            lower_lines.append(source_code[: sub_sub_target.start_byte].count("\n") + 1)
+                            upper_lines.append(source_code[: sub_sub_target.end_byte].count("\n") + 1)
+                    if len(upper_lines) == 0 or len(lower_lines) == 0:
+                        continue
+                    
+                    if block_num == 0:
+                        true_branch_start_line = min(lower_lines)
+                        true_branch_end_line = max(upper_lines)
+                        block_num += 1
+                    elif block_num == 1:
+                        else_branch_start_line = min(lower_lines)
+                        else_branch_end_line = max(upper_lines)
+                        block_num += 1
+                if sub_target.type == "expression_statement":
+                    true_branch_start_line = source_code[: sub_target.start_byte].count("\n") + 1
+                    true_branch_end_line = source_code[: sub_target.end_byte].count("\n") + 1
+                    
             if_statement_start_line = source_code[: if_statement_node.start_byte].count("\n") + 1
             if_statement_end_line = source_code[: if_statement_node.end_byte].count("\n") + 1
             line_scope = (if_statement_start_line, if_statement_end_line)
             info = (
-                condition_start_line,
-                condition_end_line,
-                condition_str,
-                (true_branch_start_line, true_branch_end_line),
-                (else_branch_start_line, else_branch_end_line),
-            )
+                        condition_start_line,
+                        condition_end_line,
+                        condition_str,
+                        (true_branch_start_line, true_branch_end_line),
+                        (else_branch_start_line, else_branch_end_line),
+                    )
             if_statements[line_scope] = info
         return if_statements
 
 
-    def find_loop_statements(self, root_node: tree_sitter.Node, source_code: str) -> Dict[Tuple, Tuple]:
+    def get_loop_statements(self, function: Function, source_code: str) -> Dict[Tuple, Tuple]:
         """
         Find the loop statements in the C/C++ function.
-        :param root_node: the root node of the syntax tree
+        :param function: the function to be analyzed
         :param source_code: the content of the file
         :return: a dictionary containing the if statement info and the line number: `(start_line, end_line): info`
         """
         loop_statements = {}
+        root_node = function.parse_tree_root_node
         for_statement_nodes = find_nodes_by_type(root_node, "for_statement")
+        for_statement_nodes.extend(find_nodes_by_type(root_node, "enhanced_for_statement"))
         while_statement_nodes = find_nodes_by_type(root_node, "while_statement")
 
         for loop_node in for_statement_nodes:
@@ -341,13 +313,9 @@ class Java_TSAnalyzer(TSAnalyzer):
                         if loop_child_child_node.type not in {"{", "}"}:
                             lower_lines.append(source_code[: loop_child_child_node.start_byte].count("\n") + 1)
                             upper_lines.append(source_code[: loop_child_child_node.end_byte].count("\n") + 1)
-                    if len(lower_lines) > 0 and len(upper_lines) > 0:
-                        loop_body_start_line = min(lower_lines)
-                        loop_body_end_line = max(upper_lines)
-                    else:
-                        loop_body_end_line = header_line_end
-                        loop_body_start_line = header_line_end
-                if "statement" in loop_child_node.type:
+                    loop_body_start_line = min(lower_lines)
+                    loop_body_end_line = max(upper_lines)
+                if loop_child_node.type == "expression_statement":
                     loop_body_start_line = source_code[: loop_child_node.start_byte].count("\n") + 1
                     loop_body_end_line = source_code[: loop_child_node.end_byte].count("\n") + 1
             loop_statements[(loop_start_line, loop_end_line)] = (
@@ -373,19 +341,15 @@ class Java_TSAnalyzer(TSAnalyzer):
                     header_line_start = source_code[: loop_child_node.start_byte].count("\n") + 1
                     header_line_end = source_code[: loop_child_node.end_byte].count("\n") + 1
                     header_str = source_code[loop_child_node.start_byte: loop_child_node.end_byte]
-                if "statement" in loop_child_node.type:
+                if loop_child_node.type == "block":
                     lower_lines = []
                     upper_lines = []
                     for loop_child_child_node in loop_child_node.children:
                         if loop_child_child_node.type not in {"{", "}"}:
                             lower_lines.append(source_code[: loop_child_child_node.start_byte].count("\n") + 1)
                             upper_lines.append(source_code[: loop_child_child_node.end_byte].count("\n") + 1)
-                    if len(lower_lines) > 0 and len(upper_lines) > 0:
-                        loop_body_start_line = min(lower_lines)
-                        loop_body_end_line = max(upper_lines)
-                    else:
-                        loop_body_end_line = header_line_end
-                        loop_body_start_line = header_line_end
+                    loop_body_start_line = min(lower_lines)
+                    loop_body_end_line = max(upper_lines)
             loop_statements[(loop_start_line, loop_end_line)] = (
                 header_line_start,
                 header_line_end,

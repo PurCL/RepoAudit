@@ -10,8 +10,8 @@ from abc import ABC, abstractmethod
 
 sys.path.append(path.dirname(path.dirname(path.dirname(path.abspath(__file__)))))
 
-from memory.localvalue import *
-from memory.function import *
+from memory.syntactic.function import *
+from memory.syntactic.value import *
 
     
 class TSParser(ABC):
@@ -100,7 +100,7 @@ class TSParser(ABC):
 
 class TSAnalyzer(ABC):
     """
-    TSAnalyzer class for retrieving necessary facts or functions for LMAgent
+    TSAnalyzer class for retrieving necessary facts or functions for llmtools
     """
 
     def __init__(
@@ -111,6 +111,7 @@ class TSAnalyzer(ABC):
         """
         Initialize TSParser with the project path.
         :param code_in_projects: A dictionary mapping file paths of source files to their contents
+        :param language: The programming language of the source code
         """
         self.code_in_projects = code_in_projects
         self.language = language
@@ -176,17 +177,17 @@ class TSAnalyzer(ABC):
         file_content = self.ts_parser.fileContentDic[file_name]
 
         # AST node type analysis
-        current_function.paras = self.find_paras_in_single_function(current_function)
-        current_function.retsmts = self.find_retstmts_in_single_function(current_function)
+        current_function.paras = self.get_paras_in_single_function(current_function)
+        current_function.retsmts = self.get_retstmts_in_single_function(current_function)
 
         # Intraprocedural control flow analysis
-        current_function.if_statements = self.find_if_statements(
-            current_function.parse_tree_root_node,
+        current_function.if_statements = self.get_if_statements(
+            current_function,
             file_content,
         )
 
-        current_function.loop_statements = self.find_loop_statements(
-            current_function.parse_tree_root_node,
+        current_function.loop_statements = self.get_loop_statements(
+            current_function,
             file_content,
         )
 
@@ -196,7 +197,7 @@ class TSAnalyzer(ABC):
     ########## Call Graph Analysis ##################
     #################################################
     @abstractmethod
-    def extract_call_graph_edges(self, current_function: Function):
+    def extract_call_graph_edges(self, current_function: Function) -> None:
         """
         Extract the call graph edges.
         :param current_function: the function to be analyzed
@@ -215,7 +216,7 @@ class TSAnalyzer(ABC):
         pass
     
     @abstractmethod
-    def find_callsite_by_callee_name(self, current_function: Function, callee_name: str) -> List[tree_sitter.Node]:
+    def get_callsite_by_callee_name(self, current_function: Function, callee_name: str) -> List[tree_sitter.Node]:
         """
         Find the call site by callee name.
         :param current_function: the function to be analyzed
@@ -234,7 +235,7 @@ class TSAnalyzer(ABC):
         """
         pass
 
-    def find_callee_at_callsite(self, call_site_node: tree_sitter.Node, source_code: str) -> List[int]:
+    def get_callee_at_callsite(self, call_site_node: tree_sitter.Node, source_code: str) -> List[int]:
         """
         Find the callee function of the call site.
         :param file_content: the content of the file
@@ -253,7 +254,7 @@ class TSAnalyzer(ABC):
         callee_ids = []
         for callee_id in temp_callee_ids:
             callee = self.environment[callee_id]
-            paras = self.find_paras_in_single_function(callee)
+            paras = self.get_paras_in_single_function(callee)
             if len(paras) == len(arguments):
                 callee_ids.append(callee_id)
         return callee_ids
@@ -290,7 +291,7 @@ class TSAnalyzer(ABC):
     #################################################   
     
     @abstractmethod
-    def find_paras_in_single_function(self, current_function: Function) -> Set[Tuple[str, int, int]]:
+    def get_paras_in_single_function(self, current_function: Function) -> Set[Tuple[str, int, int]]:
         """
         Find the parameters of the function.
         :param current_function: the function to be analyzed
@@ -299,7 +300,7 @@ class TSAnalyzer(ABC):
         pass
     
     @abstractmethod
-    def find_args_by_callee_name(self, current_function: Function, callee: str) -> Set[Tuple[str, int, int]]:
+    def get_args_by_callee_name(self, current_function: Function, callee: str) -> Set[Tuple[str, int, int]]:
         """
         Find the arguments of the callee function.
         :param current_function: the function to be analyzed
@@ -309,7 +310,9 @@ class TSAnalyzer(ABC):
         pass
 
     @abstractmethod
-    def find_retstmts_in_single_function(self, current_function: Function) -> List[Tuple[str, int]]:
+    def get_retstmts_in_single_function(self, current_function: Function) -> List[Tuple[str, int]]:
+        # TODO: Need to be polished along with Function class
+        # We need to track multiple return values, especially for Python and Go.
         """
         Find the return statements in the function.
         :param current_function: the function to be analyzed
@@ -321,20 +324,20 @@ class TSAnalyzer(ABC):
     #################################################
 
     @abstractmethod
-    def find_if_statements(self, root_node: tree_sitter.Node, source_code: str) -> Dict[Tuple, Tuple]:
+    def get_if_statements(self, function: Function, source_code: str) -> Dict[Tuple, Tuple]:
         """
         Find the if statements in the function.
-        :param root_node: the root node of the syntax tree
+        :param function: the function to be analyzed
         :param source_code: the content of the file
         :return: a dictionary containing the if statement info and the line number: `(start_line, end_line): info`
         """
         pass
 
     @abstractmethod
-    def find_loop_statements(self, root_node: tree_sitter.Node, source_code: str) -> Dict[Tuple, Tuple]:
+    def get_loop_statements(self, function: Function, source_code: str) -> Dict[Tuple, Tuple]:
         """
         Find the loop statements in the function.
-        :param root_node: the root node of the syntax tree
+        :param function: the function to be analyzed
         :param source_code: the content of the file
         :return: a dictionary containing the if statement info and the line number: `(start_line, end_line): info`
         """
@@ -419,7 +422,7 @@ class TSAnalyzer(ABC):
     #################################################
     ########## AST visitor utility ##################
     #################################################
-    def find_node_by_line_number(self, line_number: int) -> List[Tuple[str, tree_sitter.Node]]:
+    def get_node_by_line_number(self, line_number: int) -> List[Tuple[str, tree_sitter.Node]]:
         """
         Find the node that contains the specific line number
         :param line_number: the line number to be searched
@@ -450,7 +453,7 @@ class TSAnalyzer(ABC):
     #################################################
     ############# AST selector utility ##############
     #################################################
-    def get_function_from_localvalue(self, value: LocalValue) ->  Function:
+    def get_function_from_localvalue(self, value: Value) ->  Function:
         """
         Get the function from the local value.
         """
@@ -461,18 +464,18 @@ class TSAnalyzer(ABC):
                     return function
         return None
 
-    def get_parameter_by_index(self, function: Function, index: int) -> LocalValue:
+    def get_parameter_by_index(self, function: Function, index: int) -> Value:
         """
         Get the parameter of the function with index `index`.
         :param function: the function to be analyzed
         :param index: the index of the parameter, starting from 0
         """
-        for para in self.find_paras_in_single_function(function):
+        for para in self.get_paras_in_single_function(function):
             if para[2] == index:
-                return LocalValue(para[0], para[1], ValueType.PARA, function.file_name)
+                return Value(para[0], para[1], ValueLabel.PARA, function.file_name, index)
         return None
     
-    def get_argument_by_index(self, function: Function, callee_name: str, index: int) -> List[LocalValue]:
+    def get_argument_by_index(self, function: Function, callee_name: str, index: int) -> List[Value]:
         """
         Get the argument by callee_name and index.
         :param function: the function to be analyzed
@@ -480,9 +483,9 @@ class TSAnalyzer(ABC):
         :param index: the index of the argument, starting from 0
         """
         results = []
-        for arg in self.find_args_by_callee_name(function, callee_name):
+        for arg in self.get_args_by_callee_name(function, callee_name):
             if arg[2] == index:
-                results.append(LocalValue(arg[0], arg[1], ValueType.ARG, function.file_name))
+                results.append(Value(arg[0], arg[1], ValueLabel.ARG, function.file_name, index))
         return results
     
     def get_content_by_line_number(self, line_number: int, file_name: str) -> str:
@@ -497,7 +500,7 @@ class TSAnalyzer(ABC):
             return ""
         return file_lines[line_number - 1]
     
-    def get_return_value_from_callsite(self, function: Function, callee_name: str) -> List[LocalValue]:
+    def get_return_value_from_callsite(self, function: Function, callee_name: str) -> List[Value]:
         """
         Get the return value from the call site.
         :param function: the function to be analyzed
@@ -505,10 +508,13 @@ class TSAnalyzer(ABC):
         """
         results = []
         file_code = self.code_in_projects[function.file_name]
-        for call_site_node in self.find_callsite_by_callee_name(function, callee_name):
+        for call_site_node in self.get_callsite_by_callee_name(function, callee_name):
             name = file_code[call_site_node.start_byte : call_site_node.end_byte]
             line_number = file_code[: call_site_node.start_byte].count("\n") + 1
-            results.append(LocalValue(name, line_number, ValueType.OUT, function.file_name))
+
+            # TODO: TO BE Polished. @Chengpeng.
+            # We need to extract multiple return values for each return statement and maintain their indexes starting from 0.
+            results.append(Value(name, line_number, ValueLabel.OUT, function.file_name, 0))
         return results
 
 #################################################

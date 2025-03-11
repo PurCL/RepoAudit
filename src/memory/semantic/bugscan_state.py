@@ -1,14 +1,14 @@
-from memory.function import *
-from memory.localvalue import *
+from memory.syntactic.function import *
+from memory.syntactic.value import *
 from typing import List
 
-class State:
-    def __init__(self, var: LocalValue, function: Function):
+class BugScanState:
+    def __init__(self, var: Value, function: Function):
         self.var = var
         self.function = function
         self.slice = ""
-        self.callers: List[State] = []
-        self.callees: List[State] = []
+        self.callers: List[BugScanState] = []
+        self.callees: List[BugScanState] = []
     
     def get_src_line(self) -> int:
         return self.var.line_number - self.function.start_line_number + 1
@@ -37,7 +37,7 @@ class State:
         return all_slices
     
     def get_call_tree(self) -> str:
-        def tree_str(node: State, prefix: str, is_last: bool, rec_stack: list[State]) -> str:
+        def tree_str(node: BugScanState, prefix: str, is_last: bool, rec_stack: list[BugScanState]) -> str:
             branch = ""
             if prefix:
                 branch = "└── " if is_last else "├── "

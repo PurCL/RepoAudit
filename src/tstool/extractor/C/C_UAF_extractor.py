@@ -5,34 +5,36 @@ import tree_sitter
 import argparse
 
 class C_UAF_Extractor(Extractor):
-    def find_seed(self, source_code: str, root_node: tree_sitter.Node, file: str) -> List[LocalValue]:
+    def find_seeds(self, source_code: str, root_node: tree_sitter.Node, file_name: str) -> List[Tuple[Value, bool]]:
+        """
+        Extract the seeds that can cause the use-after-free bugs from the C programs.
+        :param source_code: Content of the source file.
+        :param root_node: A node in the parsed syntax tree.
+        :param file_path: Path of the source file.
+        :return: List of the pairs of seed values and traversal strategies. True for forward, False for backward.
+        """
         """
         Extract the seeds for UAF Detection from the source code.
         1. free
-        2. delete
         """
         nodes = find_nodes_by_type(root_node, "call_expression")
-        nodes.extend(find_nodes_by_type(root_node, "delete_expression"))
-        
         free_functions = {"free"}
         spec_apis = {}         # specific user-defined APIs 
-        lines = []
+        seeds = []
         for node in nodes:
-            is_sink_node = False
-            if node.type == "delete_expression":
-                is_sink_node = True
+            is_seed_node = False
             if node.type == "call_expression":
                 for child in node.children:
                     if child.type == "identifier":
                         name = source_code[child.start_byte : child.end_byte]
-                        if name in free_functions or name in spec_apis:
-                            is_sink_node = True
-
-            if is_sink_node:
+                        if name in free_functions:
+                            is_seed_node = True
+            if is_seed_node:
                 line_number = source_code[: node.start_byte].count("\n") + 1
-                name = source_code.split("\n")[line_number - 1].strip()
-                lines.append(LocalValue(name, line_number, ValueType.SRC, file=file))
-        return lines    
+                call_str = source_code[node.start_byte: node.end_byte]
+                name = call_str.split("(")[1].split(")")[0]
+                seeds.append((Value(name, line_number, ValueLabel.NON_BUF_ACCESS_EXPR, file_name), True))
+        return seeds    
 
 
 def start_extract():

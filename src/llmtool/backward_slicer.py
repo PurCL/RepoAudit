@@ -5,9 +5,9 @@ from tstool.analyzer.TS_analyzer import *
 from tstool.analyzer.C_TS_analyzer import *
 from tstool.analyzer.Go_TS_analyzer import *
 from .LLM_utils import *
-from memory.state import State
-from memory.function import *
-from memory.localvalue import *
+from memory.semantic.state import BugScanState
+from memory.syntactic.function import *
+from memory.syntactic.value import *
 from llmtool.LLM_tool import *
 BASE_PATH = Path(__file__).resolve().parents[1]
 
@@ -18,7 +18,7 @@ class BackwardSlicer(LLMTool):
     def __init__(
             self, 
             model_name, 
-            temp, 
+            temperature, 
             language, 
             ts_analyzer,
             boundary,
@@ -26,14 +26,14 @@ class BackwardSlicer(LLMTool):
         self.prompt_file = f"{BASE_PATH}/prompt/llmtool/{language}/{language}_backward_prompt.json"
         super().__init__(model_name, language)
         system_role = self.fetch_system_role()
-        self.model = LLM(model_name, temp, system_role)
+        self.model = LLM(model_name, temperature, system_role)
         self.ts_analyzer = ts_analyzer
         self.boundary = boundary
 
-        self.src_type_prompt = {
-            ValueType.BUF: "buffer size and index of",
-            ValueType.RET: "return value",
-            ValueType.ARG: "arguments",
+        self.seed_type_prompt = {
+            ValueLabel.BUF_ACCESS_EXPR: "buffer size and index of",
+            ValueLabel.RET: "return value",
+            ValueLabel.ARG: "arguments",
         }
         self.slice_pattern = r'Slicing:\s*(.*?)\s*External Variables:'
         self.external_pattern = r'External Variables:\s*((?:-.*(?:\n|$))+)' 
@@ -45,7 +45,7 @@ class BackwardSlicer(LLMTool):
         )
 
 
-    def analyze(self, state: State, depth: int) -> bool:
+    def analyze(self, state: BugScanState, depth: int) -> bool:
         """
         Analyze the state
         """
@@ -70,8 +70,11 @@ class BackwardSlicer(LLMTool):
                 callee_name = external_variable["callee_name"]
                 callee_functions = self.ts_analyzer.get_all_callee_functions(state.function, callee_name)
                 for callee_function in callee_functions:
-                    src = LocalValue("", 0, ValueType.RET, callee_function.file_name)
-                    callee_state = State(src, callee_function)
+                    # TODO: TO BE Refactored. @Chengpeng. 
+                    # The names of returned values should be specified with indexes (starting from 0)
+                    # TSAnalyzer should extract the return values instead of return statements.
+                    src = Value("", 0, ValueLabel.RET, callee_function.file_name, callee_function.file_name, 0)
+                    callee_state = BugScanState(src, callee_function)
                     if (self.analyze(callee_state, depth+1)):
                         state.callees.append(callee_state)
                         callee_state.callers.append(state)
@@ -92,20 +95,21 @@ class BackwardSlicer(LLMTool):
 
         # For callee functions, we don't need to retrieve their callers.
         # When retrieving the caller functions, we analyze all arguments in one query.
-        if arg_set and state.var.v_type != ValueType.RET:
+        if arg_set and state.var.label != ValueLabel.RET:
             print(f"Start to find arguments {arg_set} in {state.function.function_name}")
             caller_functions = self.ts_analyzer.get_all_caller_functions(state.function)
-            # ## For DEBUG
-            # if len(caller_functions) > 5:
-            #     print(f"Caller functions number: {len(caller_functions)}, {state.function.function_name}")
             for caller_function in caller_functions:
                 callee_name = state.function.function_name
-                argments = self.ts_analyzer.find_args_by_callee_name(caller_function, callee_name)
+                argments = self.ts_analyzer.get_args_by_callee_name(caller_function, callee_name)
                 argments = [arg for arg in argments if arg[2] in arg_set]
                 arg_names = ",".join([arg[0] for arg in argments])
                 max_line_number = max([arg[1] for arg in argments])
-                argment = LocalValue(arg_names, max_line_number, ValueType.ARG, caller_function.file_name)
-                caller_state = State(argment, caller_function)
+
+                # TODO: TO BE Refactored. @Jinyao
+                # ValueLabel.ARG refers to a single argument. The following construction of Value does not have a valid physical meaning.
+                # Suggestion: Construct n arguments seperately and feed the list of values to the state. (State class might need to refactored too.)
+                argment = Value(arg_names, max_line_number, ValueLabel.ARG, caller_function.file_name)
+                caller_state = BugScanState(argment, caller_function)
                 if (self.analyze(caller_state, depth+1)):
                     state.callers.append(caller_state)
                     caller_state.callees.append(state)
@@ -119,8 +123,12 @@ class BackwardSlicer(LLMTool):
                     parameter_list.append(self.ts_analyzer.get_parameter_by_index(callee_function, index))
                 parameter_names = ", ".join([parameter.name for parameter in parameter_list])
                 parameter_line_number = min([parameter.line_number for parameter in parameter_list])
-                parameters = LocalValue(parameter_names, parameter_line_number, ValueType.PARA, callee_function.file_name)
-                callee_state = State(parameters, callee_function)
+
+                # TODO: TO BE Refactored. @Jinyao
+                # ValueLabel.PARA refers to a single parameter. The following construction of Value does not have a valid physical meaning.
+                # Suggestion: Construct n parameters seperately and feed the list of values to the state. (State class might need to refactored too.)
+                parameters = Value(parameter_names, parameter_line_number, ValueLabel.PARA, callee_function.file_name)
+                callee_state = BugScanState(parameters, callee_function)
                 if (self.analyze(callee_state, depth+1)):
                     state.callees.append(callee_state)
                     callee_state.callers.append(state)
@@ -130,12 +138,12 @@ class BackwardSlicer(LLMTool):
         return True
 
 
-    def get_prompt(self, state: State) -> str:
+    def get_prompt(self, state: BugScanState) -> str:
         """
         Generate the prompt
         """
         src_name = state.var.name
-        src_type = self.src_type_prompt[state.var.v_type] if state.var.v_type in self.src_type_prompt else ""
+        src_type = self.seed_type_prompt[state.var.label] if state.var.label in self.seed_type_prompt else ""
         src_line_number = state.get_src_line()
 
         with open(self.prompt_file, "r") as f:
@@ -150,8 +158,8 @@ class BackwardSlicer(LLMTool):
         message += "\n" + "".join(dump_config_dict["meta_prompts"])
         message = message.replace("<FUNCTION>", state.function.lined_code)
         question = (
-            dump_config_dict["question_template"].replace("<SRC_NAME>", src_name)
-            .replace("<SRC_LINE>", f"at line {src_line_number}" if state.var.v_type != ValueType.RET else "")
+            dump_config_dict["question_template"].replace("<SEED_NAME>", src_name)
+            .replace("<SRC_LINE>", f"at line {src_line_number}" if state.var.label != ValueLabel.RET else "")
             .replace("<SRC_TYPE>", src_type)
         )
         message = message.replace("<QUESTION>", question)

@@ -1,12 +1,12 @@
 {
   "model_role_name": "Go BOF Detector",
-  "system_role": "You are a good Go programmer and very good at detecting Buffer Overrun bugs in Go code.",
-  "task": "Given a specific buffer access point denoted as `src` and related functions, determine whether the buffer access point can cause a Buffer Overrun bug.",
+  "system_role": "You are a good Go programmer and very good at detecting bof panic in Go code.",
+  "task": "Given a specific buffer access point and related functions, determine whether the buffer access point can cause a bof panic bug.",
   "analysis_rules": [
     "You can follow a three-step analysis process: ",
-    "1. Identify the buffer and index of 'src' extract all statements that determine buffer size and the index value.",
-    "2. Extract all execution paths related to 'src'. A function may have many nested execution paths due to if-else and switch conditions. This step requires identifying all branches related to src for your later analysis. Do not miss exception/error handling paths and early returns, such as 'if pointer == nil { return -1 }'.",
-    "3. For each path extracted in Step 2, simulate the function's execution line by line along the path and analyze the index value and buffer size. If the index value is negative or exceeds the buffer size, then it can cause a buffer overrun bug."
+    "1. Identify the buffer and index. Extract all statements that determine buffer size and the index value.",
+    "2. Extract all execution paths related to the buffer and index. A function may have many nested execution paths due to if-else and switch conditions. This step requires identifying all branches related to the buffer and index for your later analysis. Do not miss exception/error handling paths and early returns, such as 'if pointer == nil { return -1 }'.",
+    "3. For each path extracted in Step 2, simulate the function's execution line by line along the path and analyze the index value and buffer size. If the index value is negative or exceeds the buffer size, then it can cause a bof panic bug."
   ],
   "analysis_examples": [
     "Example 1:",
@@ -27,20 +27,20 @@
     "   return len(a)",
     "}",
     "```",
-    "- Does the buffer access point `buffer[idx]` at line 4 have a buffer overrun bug?",
+    "- Does the buffer access point `buffer[idx]` have a bof panic?",
     "System:",
     "Explanation:",
-    "Step 1: Identify the buffer and index. The buffer is buffer, and the index is idx, which is assigned the return value of hoo(arr). The buffer size is defined as bufferSize = 10.",
+    "Step 1: Identify the buffer and index. The buffer is `buffer`, and the index is `idx`, which is assigned the return value of hoo(arr). The buffer size is defined as bufferSize = 10.",
     "Step 2: Extract execution paths related to idx.",
     " - Path1: If arr == nil, hoo(arr) returns -1, leading to idx = -1.",
     " - Path2: If arr is not nil, hoo(arr) returns len(arr), which depends on the input array's length.",
     "Step 3: Analyze buffer access.",
-    " - Path1: If idx = -1, buffer[-1] = &src occurs, which is an out-of-bounds write (buffer overrun).",
-    " - Path2: If len(arr) >= 10, then idx exceeds the buffer size, leading to another buffer overrun.",
+    " - Path1: If idx = -1, buffer[-1] = &src occurs, which is an out-of-bounds write (bof panic).",
+    " - Path2: If len(arr) >= 10, then idx exceeds the buffer size, leading to another bof panic.",
     "Answer: Yes",
-    "PoC: If `goo(nil)` is called, `hoo(nil)` returns -1, leading to `buffer[-1] = &src`, which is a buffer overrun vulnerability."
+    "PoC: If `goo(nil)` is called, `hoo(nil)` returns -1, leading to `buffer[-1] = &src`, which is a bof panic."
   ],
-  "question_template": "- Does the buffer access point `<SRC_NAME>` at line <SRC_LINE> have a buffer overrun bug?",
+  "question_template": "- Does the buffer access point `<SEED_NAME>` have a bof panic bug?",
   "answer_format": [
     "1. Explanation: Provide your reasoning.",
     "2. Answer: 'Yes' or 'No'.",
@@ -51,7 +51,7 @@
     "PoC: {Description of the bug propagation path}"
   ],
   "meta_prompts": [
-    "Now I will give you the function with a buffer access point `<SRC_NAME>` at line <SRC_LINE>: \n```\n<FUNCTION>\n``` \n\n",
+    "Now I will give you the function with a buffer access point `<SEED_NAME>`: \n```\n<FUNCTION>\n``` \n\n",
     "Please answer the following question:\n<QUESTION>\n\n",
     "Your answer should follow the following format: \n<ANSWER>\n",
     "Guidelines:\n",
@@ -59,6 +59,6 @@
     "- Consider nested condition statements and loops. Expand branches and loops to analyze each execution path.\n",
     "- The index should never be negative. Pay attention to possible negative values and integer overflows that may lead to a negative index.\n",
     "- Consider conditions that check index values, as they may define possible index ranges.\n",
-    "- Only report a buffer overrun bug if you can explicitly derive the bug propagation path from the provided function content. Do not assume behaviors of unspecified functions or variables. If you cannot determine the presence of a bug, answer 'No'."
+    "- Only report a bof panic bug if you can explicitly derive the bug propagation path from the provided function content. Do not assume behaviors of unspecified functions or variables. If you cannot determine the presence of a bug, answer 'No'."
   ]
 }

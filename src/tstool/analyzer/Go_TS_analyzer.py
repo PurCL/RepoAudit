@@ -6,8 +6,8 @@ import tree_sitter
 sys.path.append(path.dirname(path.dirname(path.dirname(path.abspath(__file__)))))
 
 from .TS_analyzer import *
-from memory.localvalue import *
-from memory.function import *
+from memory.syntactic.function import *
+from memory.syntactic.value import *
 
 
 class Go_TSParser(TSParser):
@@ -67,7 +67,7 @@ class Go_TSParser(TSParser):
 
 class Go_TSAnalyzer(TSAnalyzer):
     """
-    TSAnalyzer class for retrieving necessary facts or functions for LMAgent
+    TSAnalyzer class for retrieving necessary facts or functions for llmtools
     """
     def create_ts_parser(self):
         return Go_TSParser(self.code_in_projects, self.language)
@@ -75,12 +75,12 @@ class Go_TSAnalyzer(TSAnalyzer):
     #################################################
     ########## Call Graph Analysis ##################
     #################################################
-    def extract_call_graph_edges(self, current_function: Function):
+    def extract_call_graph_edges(self, current_function: Function) -> None:
         """
         Extract the call graph edges.
         :param current_function: the function to be analyzed
         """
-        # Over-approximate the caller-callee relationship via function names, achieved by find_callee_at_callsite
+        # Over-approximate the caller-callee relationship via function names, achieved by get_callee_at_callsite
         file_name = self.ts_parser.functionToFile[current_function.function_id]
         file_content = self.ts_parser.fileContentDic[file_name]
 
@@ -89,7 +89,7 @@ class Go_TSAnalyzer(TSAnalyzer):
         white_call_sites = []
 
         for call_site_node in all_call_sites:
-            callee_ids = self.find_callee_at_callsite(call_site_node, file_content)
+            callee_ids = self.get_callee_at_callsite(call_site_node, file_content)
             if len(callee_ids) > 0:
                 # Update the call graph
                 for callee_id in callee_ids:
@@ -110,9 +110,8 @@ class Go_TSAnalyzer(TSAnalyzer):
         Get the callee name at the call site.
         :param node: the node of the call site
         :param source_code: the content of the file
-        :param language: the language of the source code
+        :return: the callee name
         """
-        #TODO: error-prone
         assert node.type == "call_expression"
         for sub_node in node.children:
             if sub_node.type == "selector_expression":
@@ -127,31 +126,20 @@ class Go_TSAnalyzer(TSAnalyzer):
         return ""
     
 
-    def find_callsite_by_callee_name(self, current_function: Function, callee_name: str) -> List[tree_sitter.Node]:
+    def get_callsite_by_callee_name(self, current_function: Function, callee_name: str) -> List[tree_sitter.Node]:
         """
         Find the call sites by the callee function name.
         :param current_function: the function to be analyzed
         :param callee_name: the callee function name
+        :return: the call sites
         """
-        #TODO: error-prone
         results = []
         file_content = self.code_in_projects[current_function.file_name]
         call_site_nodes = find_nodes_by_type(current_function.parse_tree_root_node, "call_expression")
         for call_site in call_site_nodes:
-            # check name of the callee
-            for sub_node in call_site.children:
-                if sub_node.type == "selector_expression":
-                    for sub_sub_node in sub_node.children:
-                        if sub_sub_node.type == "field_identifier":
-                            if file_content[sub_sub_node.start_byte:sub_sub_node.end_byte] == callee_name:
-                                results.append(call_site)
-                                break
-                sub_node_types = [sub_node.type for sub_node in call_site.children]
-                if "selector_expression" not in sub_node_types:
-                    for sub_node in call_site.children:
-                        if sub_node.type == "identifier":
-                            if file_content[sub_node.start_byte:sub_node.end_byte] == callee_name:
-                                results.append(call_site)
+            if self.get_callee_name_at_call_site(call_site, file_content) == callee_name:
+                results.append(call_site)
+                break
         return results
 
 
@@ -160,6 +148,7 @@ class Go_TSAnalyzer(TSAnalyzer):
         Get arguments at the call site.
         :param node: the node of the call site
         :param source_code: the content of the file
+        :return: the names of the arguments
         """
         arguments = []
         for sub_node in node.children:
@@ -174,7 +163,7 @@ class Go_TSAnalyzer(TSAnalyzer):
     ########## AST Node Type Analysis ###############
     #################################################   
 
-    def find_paras_in_single_function(self, current_function: Function) -> Set[Tuple[str, int, int]]:
+    def get_paras_in_single_function(self, current_function: Function) -> Set[Tuple[str, int, int]]:
         """
         Find the parameters of the function.
         :param current_function: the function to be analyzed
@@ -200,7 +189,7 @@ class Go_TSAnalyzer(TSAnalyzer):
                             break
         return paras
 
-    def find_args_by_callee_name(self, current_function: Function, callee: str) -> Set[Tuple[str, int, int]]:
+    def get_args_by_callee_name(self, current_function: Function, callee: str) -> Set[Tuple[str, int, int]]:
         """
         Find the arguments of the callee function.
         :param current_function: the function to be analyzed
@@ -226,7 +215,7 @@ class Go_TSAnalyzer(TSAnalyzer):
                             index += 1
         return args
 
-    def find_retstmts_in_single_function(self, current_function: Function) -> List[Tuple[str, int]]:
+    def get_retstmts_in_single_function(self, current_function: Function) -> List[Tuple[str, int]]:
         """
         Find the return statements in the function.
         :param current_function: the function to be analyzed
@@ -237,21 +226,21 @@ class Go_TSAnalyzer(TSAnalyzer):
         retnodes = find_nodes_by_type(current_function.parse_tree_root_node, "return_statement")
         for retnode in retnodes:
             line_number = file_content[:retnode.start_byte].count("\n") + 1
-            retstmts.append((retnode, line_number))
+            retstmts.append((file_content[retnode.start_byte:retnode.end_byte], line_number))
         return retstmts
 
     #################################################
     ########## Control Flow Analysis ################
     #################################################
 
-    def find_if_statements(self, root_node: tree_sitter.Node, source_code: str) -> Dict[Tuple, Tuple]:
+    def get_if_statements(self, function: Function, source_code: str) -> Dict[Tuple, Tuple]:
         """
         Find the if statements in the Go functions.
-        :param root_node: the root node of the syntax tree
+        :param function: the function to be analyzed
         :param source_code: the content of the file
         :return: a dictionary containing the if statement info and the line number: `(start_line, end_line): info`
         """
-        if_statement_nodes = find_nodes_by_type(root_node, "if_statement")
+        if_statement_nodes = find_nodes_by_type(function.parse_tree_root_node, "if_statement")
         if_statements = {}
 
         for if_statement_node in if_statement_nodes:
@@ -295,15 +284,15 @@ class Go_TSAnalyzer(TSAnalyzer):
         return if_statements
 
 
-    def find_loop_statements(self, root_node: tree_sitter.Node, source_code: str) -> Dict[Tuple, Tuple]:
+    def get_loop_statements(self, function: Function, source_code: str) -> Dict[Tuple, Tuple]:
         """
         Find the loop statements in the Go functions.
-        :param root_node: the root node of the syntax tree
+        :param function: the function to be analyzed
         :param source_code: the content of the file
         :return: a dictionary containing the if statement info and the line number: `(start_line, end_line): info`
         """
         loop_statements = {}
-        for_statement_nodes = find_nodes_by_type(root_node, "for_statement")
+        for_statement_nodes = find_nodes_by_type(function.parse_tree_root_node, "for_statement")
 
         for loop_node in for_statement_nodes:
             loop_start_line = source_code[: loop_node.start_byte].count("\n") + 1

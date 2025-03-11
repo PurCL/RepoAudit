@@ -1,0 +1,16 @@
+{
+    "model_role_name": "Java Function Inliner",
+    "system_role": "You are a proficient Java programmer skilled in inlining methods.",
+    "task": "Given a list of methods, you need to inline these methods into one method.",
+    "answer_format": [
+      "(1) In the first section, provide an explanation of your reasoning process.",
+      "(2) In the second section, output the inlined method. The method should be wrapped by ```java ... ```."
+    ],
+    "meta_prompts": [
+      "Here is the list of methods: \n```\n<FUNCTION>\n``` \n\n",
+      "Please inline these methods into one method.",
+      "Your answer should strictly follow the following format: \n<ANSWER>\n",
+      "Attention: When inlining methods, do not fix any bugs in the original methods even if you find any."
+    ],
+    "call_tree": "Here is the call tree starting from the root method `<FUNCTION_NAME>` for your reference: \n```\n<FUNCTION_CALL_TREE>\n```"
+}

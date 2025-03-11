@@ -111,6 +111,7 @@ def run_dev_mode():
         choices=[
             "C",
             "C++",
+            "Java",
             "Go",
         ],
         help="Specify the language",

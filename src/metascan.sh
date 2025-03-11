@@ -1,8 +1,8 @@
 #!/bin/bash
-LANGUAGE=Java
+LANGUAGE=C
 BUG_TYPE=NPD
-SCANNER=bugscan
-PROJECT_NAME=toy
+SCANNER=metascan
+PROJECT_NAME=zstd
 
 python3 repoaudit.py \
   --language $LANGUAGE \
@@ -11,6 +11,6 @@ python3 repoaudit.py \
   --bug-type $BUG_TYPE \
   --global-temperature 0.0 \
   --scanners $SCANNER \
-  --boundary 6 \
+  --boundary 3 \
   --max-workers 3 \
   --seed-spec-file ../result/extract/$BUG_TYPE/${LANGUAGE}_${PROJECT_NAME}/seed_result.json

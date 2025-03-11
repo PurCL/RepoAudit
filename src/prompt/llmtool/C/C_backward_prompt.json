@@ -89,7 +89,7 @@
         "- Type: Return Value. Callee: hoo",
         "- Type: Global Variable. Name: BUFFER_SIZE"
     ],
-    "question_template": "- Which code statements are included in the static slice related to the value of the <SRC_TYPE> <SRC_NAME> <SRC_LINE> in this function?",
+    "question_template": "- Which code statements are included in the static slice related to the value of the <SRC_TYPE> <SEED_NAME> <SRC_LINE> in this function?",
     "answer_format_cot": [
       "1. Begin with a step-by-step explanation of how 'src' is influenced.",
       "2. After completing the explanation, start your answer with 'Answer:'.",
