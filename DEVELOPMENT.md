@@ -1,13 +1,15 @@
 # Development Plan
 
-## Detection Agent
+
+## Open-Source Preparation
+
+### Detection Agent
 
 - BugScan (DONE)
 
 - DFAScan (ICML submission version, TODO) (Jinyao & Chengpeng)
 
-
-## UI 
+### UI 
 
 - DFAScan
 
@@ -20,7 +22,7 @@
     - Web UI (Jinyao)
 
 
-## Doc
+### Doc
 
 - Quick Start
 
@@ -33,17 +35,34 @@
 - Add Multi-Modal Extension
 
 
-## Testing
+## Maintenance
+
+### Testing
 
 - Benchmark construction (e.g., small toy programs)
 
 - Regression testing
 
 
-## Multi-Modal Support
+### Prompt
+
+- Prompt synthesis
+
+- Modular design
+
+
+## Research
+
+### Multi-Modal Support
 
 - Specification Inference Agent
 
   - PatInf: Infer SFA from code (Jiasheng)
 
   - DocInfer: Infer protocol spec from doc (Mingwei)
+
+### Functional Bug Detection
+
+- Java: Defect4j benchmark
+
+- Performance bug detection
