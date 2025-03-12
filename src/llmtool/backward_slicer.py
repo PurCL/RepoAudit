@@ -81,7 +81,7 @@ class BackwardSlicer(LLMTool):
             if source_type == "Global Variable":
                 global_variable_name = external_variable["variable_name"]
                 if global_variable_name in self.ts_analyzer.glb_var_map:
-                    macro = f"{global_variable_name} = {self.ts_analyzer.glb_var_map[global_variable_name]}"
+                    macro = f"Global Variable: ```\n{global_variable_name} = {self.ts_analyzer.glb_var_map[global_variable_name]} \n```"
                     state.slice += "\n" + macro
             if source_type == "Argument":
                 callee_name = external_variable["callee_name"]

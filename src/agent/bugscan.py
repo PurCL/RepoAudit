@@ -23,10 +23,12 @@ target_seeds = {
     "C_cpv-2": "((*d++, -1, 1281), ValueType.BUF, ../benchmark/C/cpv-2/src/core/ngx_string.c)",
     "C_cpv-3": "((*b->last++, -1, 4092), ValueType.BUF, ../benchmark/C/cpv-3/src/http/ngx_http_request.c)",
     "C_cpv-3-repair": "((*b->last++, -1, 4097), ValueType.BUF, ../benchmark/C/cpv-3-repair/src/http/ngx_http_request.c)",
+    "C_cpv-4": "((ngx_sprintf(browser_cookie->value.data, \"\\\"%xT-%xO\\\":%s\",r->headers_out.last_modified_time,r->headers_out.content_length_n,r->headers_in.cookie->value.data), -1, 5289), ValueType.BUF, ../benchmark/C/cpv-4/src/http/ngx_http_core_module.c)",
     "C_cpv-8": "((ngx_memcpy(s->login.data, arg[0].data, s->login.len);, -1, 324), ValueType.SRC, ../benchmark/C/cpv-8/src/mail/ngx_mail_pop3_handler.c)",
     "C_cpv-8-repair": "((ngx_memcpy(s->login.data, arg[0].data, s->login.len);, -1, 324), ValueType.SRC, ../benchmark/C/cpv-8-repair/src/mail/ngx_mail_pop3_handler.c)",
     "C_cpv-12": "((rev[j], -1, 77), ValueType.BUF, ../benchmark/C/cpv-12/src/os/unix/ngx_linux_sendfile_chain.c)",
     "C_cpv-12-repair": "((rev[j], -1, 77), ValueType.BUF, ../benchmark/C/cpv-12-repair/src/os/unix/ngx_linux_sendfile_chain.c)",
+    "C_cpv-14": "((r->uri.data[i], -1, 1561), ValueType.BUF, ../benchmark/C/cpv-14/src/http/ngx_http_core_module.c)",
     "C_memcached": "((char *list = strdup(settings.inter);, -1, 4629), ValueType.SRC, ../benchmark/C/memcached/memcached.c)"
 }
 
@@ -172,7 +174,7 @@ class BugScanAgent:
                     continue
                 poc = poc_match.group(1).strip() if poc_match else ""
                 
-                self.bug_info[key].append({"Call Tree": root_state.get_call_tree(), "Inlined Function": inline_code, "Output": output, "Is Bug": answer, "PoC": poc})
+                self.bug_info[key].append({"Call Tree": root_state.get_call_tree(), "Slice Function": root_state.get_slice_tree(), "Inlined Function": inline_code, "Output": output, "Is Bug": answer, "PoC": poc})
                 break
             if answer == "Yes":
                 break
