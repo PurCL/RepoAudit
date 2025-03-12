@@ -39,7 +39,7 @@
 
 ### Testing
 
-- Benchmark construction (e.g., small toy programs)
+- Benchmark construction (e.g., small toy programs in five languages)
 
 - Regression testing
 
