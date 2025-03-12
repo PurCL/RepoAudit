@@ -59,7 +59,7 @@
     "- Type: Argument. Callee: copy. Index: 0",
     "- Type: Argument. Callee: len. Index: 0"
   ],
-  "question_template": "- Extract the sliced code that uses the <SRC_TYPE> <SRC_NAME> <SRC_LINE> in this function.",
+  "question_template": "- Extract the sliced code that uses the <SRC_TYPE> <SEED_NAME> <SRC_LINE> in this function.",
   "answer_format_cot": [
     "(1) Begin by outlining your reasoning process step by step, explaining how you determined the critical code statements influenced by src.",
     "(2) Once your reasoning is complete, start your answer with 'Answer:'.",
@@ -92,6 +92,7 @@
   "meta_prompts": [
     "Now I will give you a target function: \n```\n<FUNCTION>\n``` \n\n",
     "Please answer the following question:\n<QUESTION>\n",
-    "Your answer should strictly follow the following format: \n<ANSWER>\n"
+    "Your answer should strictly follow the following format: \n<ANSWER>\n",
+    "When you output the External Propagation, do not give any additional explanation. Please strictly follow the format provided."
   ]
 }

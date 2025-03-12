@@ -89,7 +89,7 @@
     "- Type: Return Value. Callee: Hoo",
     "- Type: Global Variable. Name: BUFFER_SIZE"
   ],
-  "question_template": "- Which code statements are included in the static slice related to the value of the <SRC_TYPE> <SRC_NAME> <SRC_LINE> in this function?",
+  "question_template": "- Which code statements are included in the static slice related to the value of the <SRC_TYPE> <SEED_NAME> <SRC_LINE> in this function?",
   "answer_format_cot": [
     "1. Begin with a step-by-step explanation of how 'src' is influenced.",
     "2. After completing the explanation, start your answer with 'Answer:'.",
@@ -100,6 +100,7 @@
     "      - Function parameters ('Index: <index>').",
     "      - Callee function arguments ('Function Name: <name>, Index: <index>').",
     "      - Global variables ('Variable Name: <name>').",
+
     "(4) In the second section, describe any external variables that the value depends on.",
     "- If the value depends on the return value of a caller function, provide the name of that function.",
     "- If the value is obtained from a parameter of the current function, specify the index of the parameter.",

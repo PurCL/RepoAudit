@@ -3,8 +3,8 @@ import os
 from os import path
 from pathlib import Path
 from tstool.analyzer.TS_analyzer import *
-from memory.function import *
-from memory.localvalue import *
+from memory.syntactic.function import *
+from memory.syntactic.value import *
 import tree_sitter
 import json
 from tqdm import tqdm
@@ -30,16 +30,23 @@ class Extractor(ABC):
         self.project_path = project_path
         self.suffix = set()
         self.all_files = {}
+        self.seeds = []
 
         if language_setting == "C":
             self.language = tree_sitter.Language(str(language_path), "c")
             self.suffix = {"c", "h"}
-        elif language_setting == "C++":
+        elif language_setting == "Cpp":
             self.language = tree_sitter.Language(str(language_path), "cpp")
             self.suffix = {"cpp", "cc", "hpp", "h", "c"}
         elif language_setting == "Go":
             self.language = tree_sitter.Language(str(language_path), "go")
             self.suffix = {"go"}
+        elif language_setting == "Java":
+            self.language = tree_sitter.Language(str(language_path), "java")
+            self.suffix = {"java"}
+        elif language_setting == "Python":
+            self.language = tree_sitter.Language(str(language_path), "python")
+            self.suffix = {"py"}
         else:
             raise ValueError("Invalid language setting")
         
@@ -53,8 +60,6 @@ class Extractor(ABC):
         """
         Start the seed extraction process.
         """
-        seed_lines = []
-
         pbar = tqdm(total=len(self.all_files), desc="Parsing files")
         for file_name, file_code in self.all_files.items():
             pbar.update(1)
@@ -62,10 +67,10 @@ class Extractor(ABC):
                 continue
             tree = self.parser.parse(bytes(file_code, "utf8"))
             root = tree.root_node
-            seed_lines.extend(self.find_seed(file_code, root, file=file_name))
+            self.seeds.extend(self.find_seeds(file_code, root, file_name))
     
         with open(self.seed_path, 'w') as f:
-            json.dump([str(seed_line) for seed_line in seed_lines], f, indent=4, sort_keys=True)
+            json.dump([self.seed_to_str(seed) for seed in self.seeds], f, indent=4, sort_keys=True)
         return
     
 
@@ -85,11 +90,20 @@ class Extractor(ABC):
 
     
     @abstractmethod
-    def find_seed(self, source_code: str, root_node: tree_sitter.Node, file: str) -> List[LocalValue]:
+    def find_seeds(self, source_code: str, root_node: tree_sitter.Node, file_path: str) -> List[Tuple[Value, bool]]:
         """
         Extract the seeds that can cause the bugs from the source code.
         :param source_code: Content of the source file.
-        :param tree: Parsed syntax tree.
+        :param root_node: A node in the parsed syntax tree.
         :param file_path: Path of the source file.
+        :return: List of the pairs of seed values and traversal strategies. True for forward, False for backward.
         """
         pass
+
+
+    def seed_to_str(self, seed: Tuple[Value, bool]) -> str:
+        """
+        dump the seed to string. 1 for forward, 0 for backward.
+        """
+        return str(seed[0]) + " " + str(int(seed[1]))
+

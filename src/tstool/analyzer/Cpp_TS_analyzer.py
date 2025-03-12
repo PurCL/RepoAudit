@@ -6,11 +6,11 @@ import tree_sitter
 sys.path.append(path.dirname(path.dirname(path.dirname(path.abspath(__file__)))))
 
 from .TS_analyzer import *
-from memory.localvalue import *
-from memory.function import *
+from memory.syntactic.function import *
+from memory.syntactic.value import *
 
 
-class C_TSParser(TSParser):
+class Cpp_TSParser(TSParser):
     """
     TSParser class for extracting information from source files using tree-sitter.
     """
@@ -21,56 +21,37 @@ class C_TSParser(TSParser):
         :param source_code: The content of the source file.
         :param tree: The parse tree of the source file.
         """
-        all_function_header_nodes = []
-        all_function_definition_nodes = find_nodes_by_type(tree.root_node, "function_definition")
-        for function_definition_node in all_function_definition_nodes:
-            all_function_header_nodes.extend(find_nodes_by_type(function_definition_node, "function_declarator"))              
     
-        for node in all_function_header_nodes:
-            function_name = ""
-            for sub_node in node.children:
-                if sub_node.type == "identifier":
-                    function_name = source_code[sub_node.start_byte:sub_node.end_byte]
-                    break
-                elif sub_node.type == "qualified_identifier":
-                    qualified_function_name = source_code[sub_node.start_byte:sub_node.end_byte]
-                    function_name = qualified_function_name.split("::")[-1]
+        for function_definition_node in find_nodes_by_type(tree.root_node, "function_definition"):
+            for function_declaration_node in find_nodes_by_type(function_definition_node, "function_declarator"):
+                function_name = ""
+                for sub_node in function_declaration_node.children:
+                    if sub_node.type in {"identifier", "field_identifier"}:
+                        function_name = source_code[sub_node.start_byte:sub_node.end_byte]
+                        break
+                    elif sub_node.type == "qualified_identifier":
+                        qualified_function_name = source_code[sub_node.start_byte:sub_node.end_byte]
+                        function_name = qualified_function_name.split("::")[-1]
+                        break
+                if function_name == "":
+                    continue
 
-            if function_name == "":
-                continue
-            
-            function_node = node.parent
-
-            is_function_definition = True
-            while True:
-                if function_node.type == "function_definition":
-                    break
-                function_node = function_node.parent
-                if function_node is None:
-                    is_function_definition = False
-                    break
-                if "statement" in function_node.type:
-                    is_function_definition = False
-                    break
-            if not is_function_definition:
-                continue
-
-            # Initialize the raw data of a function
-            start_line_number = source_code[: function_node.start_byte].count("\n") + 1
-            end_line_number = source_code[: function_node.end_byte].count("\n") + 1
-            function_id = len(self.functionRawDataDic) + 1
-            
-            self.functionRawDataDic[function_id] = (
-                function_name,
-                start_line_number,
-                end_line_number,
-                function_node
-            )
-            self.functionToFile[function_id] = file_path
-            
-            if function_name not in self.functionNameToId:
-                self.functionNameToId[function_name] = set([])
-            self.functionNameToId[function_name].add(function_id)
+                # Initialize the raw data of a function
+                start_line_number = source_code[: function_definition_node.start_byte].count("\n") + 1
+                end_line_number = source_code[: function_definition_node.end_byte].count("\n") + 1
+                function_id = len(self.functionRawDataDic) + 1
+                
+                self.functionRawDataDic[function_id] = (
+                    function_name,
+                    start_line_number,
+                    end_line_number,
+                    function_definition_node
+                )
+                self.functionToFile[function_id] = file_path
+                
+                if function_name not in self.functionNameToId:
+                    self.functionNameToId[function_name] = set([])
+                self.functionNameToId[function_name].add(function_id)          
         return   
 
     def parse_global_info(self, file_path: str, source_code: str, tree: tree_sitter.Tree) -> None:
@@ -124,17 +105,17 @@ class C_TSParser(TSParser):
         return
 
 
-class C_TSAnalyzer(TSAnalyzer):
+class Cpp_TSAnalyzer(TSAnalyzer):
     """
-    TSAnalyzer class for retrieving necessary facts or functions for LMAgent
+    TSAnalyzer class for retrieving necessary facts or functions for llmtools
     """
     def create_ts_parser(self):
-        return C_TSParser(self.code_in_projects, self.language)
+        return Cpp_TSParser(self.code_in_projects, self.language)
     
     #################################################
     ########## Call Graph Analysis ##################
     #################################################
-    def extract_call_graph_edges(self, current_function: Function):
+    def extract_call_graph_edges(self, current_function: Function) -> None:
         """
         Extract the call graph edges.
         :param current_function: the function to be analyzed
@@ -147,7 +128,7 @@ class C_TSAnalyzer(TSAnalyzer):
         white_call_sites = []
 
         for call_site_node in all_call_sites:
-            callee_ids = self.find_callee_at_callsite(call_site_node, file_content)
+            callee_ids = self.get_callee_at_callsite(call_site_node, file_content)
             if len(callee_ids) > 0:
                 # Update the call graph
                 for callee_id in callee_ids:
@@ -168,7 +149,7 @@ class C_TSAnalyzer(TSAnalyzer):
         Get the callee name at the call site.
         :param node: the node of the call site
         :param source_code: the content of the file
-        :param language: the language of the source code
+        :return: the callee name
         """
         sub_sub_nodes = []
         for sub_node in node.children:
@@ -186,22 +167,19 @@ class C_TSAnalyzer(TSAnalyzer):
         function_name = sub_sub_node_types[max(index_of_last_dot, index_of_last_arrow) + 1]
         return function_name
 
-    def find_callsite_by_callee_name(self, current_function: Function, callee_name: str) -> List[tree_sitter.Node]:
+    def get_callsite_by_callee_name(self, current_function: Function, callee_name: str) -> List[tree_sitter.Node]:
         """
         Find the call sites by the callee function name.
         :param current_function: the function to be analyzed
         :param callee_name: the callee function name
+        :return: the call site nodes
         """
         results = []
         file_content = self.code_in_projects[current_function.file_name]
         call_site_nodes = find_nodes_by_type(current_function.parse_tree_root_node, "call_expression")
         for call_site in call_site_nodes:
-            # check name of the callee
-            for child in call_site.children:
-                if child.type == "identifier":
-                    name = file_content[child.start_byte:child.end_byte]
-                    if name == callee_name:
-                        results.append(call_site)
+            if self.get_callee_name_at_call_site(call_site, file_content) == callee_name:
+                results.append(call_site)
                 break
         return results
 
@@ -210,6 +188,7 @@ class C_TSAnalyzer(TSAnalyzer):
         Get arguments at the call site.
         :param node: the node of the call site
         :param source_code: the content of the file
+        :return: the names of the arguments
         """
         arguments = []
         for sub_node in node.children:
@@ -224,7 +203,7 @@ class C_TSAnalyzer(TSAnalyzer):
     ########## AST Node Type Analysis ###############
     #################################################   
 
-    def find_paras_in_single_function(self, current_function: Function) -> Set[Tuple[str, int, int]]:
+    def get_paras_in_single_function(self, current_function: Function) -> Set[Tuple[str, int, int]]:
         """
         Find the parameters of the function.
         :param current_function: the function to be analyzed
@@ -242,7 +221,7 @@ class C_TSAnalyzer(TSAnalyzer):
                 index += 1
         return paras
 
-    def find_args_by_callee_name(self, current_function: Function, callee: str) -> Set[Tuple[str, int, int]]:
+    def get_args_by_callee_name(self, current_function: Function, callee: str) -> Set[Tuple[str, int, int]]:
         """
         Find the arguments of the callee function.
         :param current_function: the function to be analyzed
@@ -251,7 +230,7 @@ class C_TSAnalyzer(TSAnalyzer):
         """
         args = set([])
         file_content = self.code_in_projects[current_function.file_name]
-        call_site_nodes = self.find_callsite_by_callee_name(current_function, callee)
+        call_site_nodes = self.get_callsite_by_callee_name(current_function, callee)
         for call_site in call_site_nodes:
             for child in call_site.children:
                 if child.type == "argument_list":
@@ -266,7 +245,7 @@ class C_TSAnalyzer(TSAnalyzer):
                     break
         return args
 
-    def find_retstmts_in_single_function(self, current_function: Function) -> List[Tuple[str, int]]:
+    def get_retstmts_in_single_function(self, current_function: Function) -> List[Tuple[str, int]]:
         """
         Find the return statements in the function.
         :param current_function: the function to be analyzed
@@ -277,21 +256,21 @@ class C_TSAnalyzer(TSAnalyzer):
         retnodes = find_nodes_by_type(current_function.parse_tree_root_node, "return_statement")
         for retnode in retnodes:
             line_number = file_content[:retnode.start_byte].count("\n") + 1
-            retstmts.append((retnode, line_number))
+            retstmts.append((file_content[retnode.start_byte:retnode.end_byte], line_number))
         return retstmts
 
     #################################################
     ########## Control Flow Analysis ################
     #################################################
 
-    def find_if_statements(self, root_node: tree_sitter.Node, source_code: str) -> Dict[Tuple, Tuple]:
+    def get_if_statements(self, function: Function, source_code: str) -> Dict[Tuple, Tuple]:
         """
         Find the if statements in the C/C++ function.
-        :param root_node: the root node of the syntax tree
+        :param function: the function to be analyzed
         :param source_code: the content of the file
         :return: a dictionary containing the if statement info and the line number: `(start_line, end_line): info`
         """
-        if_statement_nodes = find_nodes_by_type(root_node, "if_statement")
+        if_statement_nodes = find_nodes_by_type(function.parse_tree_root_node, "if_statement")
         if_statements = {}
 
         for if_statement_node in if_statement_nodes:
@@ -343,14 +322,15 @@ class C_TSAnalyzer(TSAnalyzer):
         return if_statements
 
 
-    def find_loop_statements(self, root_node: tree_sitter.Node, source_code: str) -> Dict[Tuple, Tuple]:
+    def get_loop_statements(self, function: Function, source_code: str) -> Dict[Tuple, Tuple]:
         """
         Find the loop statements in the C/C++ function.
-        :param root_node: the root node of the syntax tree
+        :param function: the function to be analyzed
         :param source_code: the content of the file
         :return: a dictionary containing the if statement info and the line number: `(start_line, end_line): info`
         """
         loop_statements = {}
+        root_node = function.parse_tree_root_node
         for_statement_nodes = find_nodes_by_type(root_node, "for_statement")
         while_statement_nodes = find_nodes_by_type(root_node, "while_statement")
 

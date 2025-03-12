@@ -22,7 +22,7 @@ def find_nodes(root_node: tree_sitter.Node, node_type: str) -> List[tree_sitter.
     return nodes
 
 # Read the Java file
-with open("../benchmark/Java/demo/01.java", "r") as file:
+with open("../benchmark/Java/toy/MultiFunctionDemo.java", "r") as file:
     source_code = file.read()
 
 # Parse the Java code
@@ -31,12 +31,11 @@ tree = parser.parse(bytes(source_code, "utf8"))
 root = tree.root_node
 all_function_nodes = []
 
-for_nodes = find_nodes(root, "for_statement")
-for_nodes.extend(find_nodes(root, "enhanced_for_statement"))
-while_nodes = find_nodes(root, "while_statement")
+nodes = find_nodes(root, "formal_parameter")
 
-for node in for_nodes:
-    for sub_node in node.children:
-        print(sub_node.type)
-        print(source_code[sub_node.start_byte:sub_node.end_byte])
-        print("")
+for node in nodes:
+    print(source_code[node.start_byte: node.end_byte])
+    child_node_strs = [(child.type, source_code[child.start_byte: child.end_byte]) for child in node.children]
+    print(child_node_strs)
+    print("\n")
+

@@ -1,14 +1,18 @@
 from tstool.analyzer.TS_analyzer import *
-from tstool.analyzer.C_TS_analyzer import *
+from tstool.analyzer.Cpp_TS_analyzer import *
 from ..extractor import *
 import tree_sitter
 import argparse
 
 
-class C_BOF_Extractor(Extractor):
-    def find_seed(self, source_code: str, root_node: tree_sitter.Node, file: str) -> List[LocalValue]:
+class Cpp_BOF_Extractor(Extractor):
+    def find_seeds(self, source_code: str, root_node: tree_sitter.Node, file_name: str) -> List[Tuple[Value, bool]]:
         """
-        Extract the potential BOF operations from the source code.
+        Extract the seeds that can cause the buffer overflow bugs from C/C++ programs.
+        :param source_code: Content of the source file.
+        :param root_node: A node in the parsed syntax tree.
+        :param file_path: Path of the source file.
+        :return: List of the pairs of seed values and traversal strategies. True for forward, False for backward.
         """
         nodes= find_nodes_by_type(root_node, "subscript_expression")
         nodes.extend(find_nodes_by_type(root_node, "call_expression"))
@@ -17,25 +21,25 @@ class C_BOF_Extractor(Extractor):
         mem_operations = {"memcpy", "memset", "memmove", "strndup"}
         mem_allocations = {"malloc", "calloc", "realloc"}
         spec_apis = {"ngx_memcpy", "ngx_sprintf"}          # specific user-defined APIs
-        lines = []
+        seeds = []
         for node in nodes:
-            is_src_node = False
+            is_seed_node = False
             if node.type == "subscript_expression":
-                is_src_node = True
+                is_seed_node = True
             if node.type == "call_expression":
                 for child in node.children:
                     if child.type == "identifier":
                         name = source_code[child.start_byte : child.end_byte]
                         if name in mem_operations or name in mem_allocations or name in spec_apis:
-                            is_src_node = True
+                            is_seed_node = True
             if node.type == "pointer_expression" and node.children[0].type == "*":
-                is_src_node = True
+                is_seed_node = True
 
-            if is_src_node:
+            if is_seed_node:
                 line_number = source_code[: node.start_byte].count("\n") + 1
                 name = source_code[node.start_byte: node.end_byte]
-                lines.append(LocalValue(name, line_number, ValueType.BUF, file=file))
-        return lines
+                seeds.append((Value(name, line_number, ValueLabel.BUF_ACCESS_EXPR, file_name), False))
+        return seeds
     
 
 def start_extract():
@@ -49,7 +53,7 @@ def start_extract():
         "--language",
         choices=[
             "C",
-            "C++",
+            "Cpp",
         ],
         help="Specify the language",
     )
@@ -63,7 +67,7 @@ def start_extract():
     language_setting = args.language
     seed_path = args.seed_path
     
-    bof_extractor = C_BOF_Extractor(project_path, language_setting, seed_path) 
+    bof_extractor = Cpp_BOF_Extractor(project_path, language_setting, seed_path) 
     bof_extractor.run()
 
 

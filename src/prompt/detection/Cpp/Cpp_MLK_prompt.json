@@ -1,12 +1,12 @@
 {
     "model_role_name": "C/C++ MLK Detector",
     "system_role": "You are a good C/C++ programmer and very good at detecting Memory Leak bugs in C/C++ code.",
-    "task": "Given a specific memory allocation point denoted as `src` and related functions, determine whether the memory can cause a Memory Leak bug.",
+    "task": "Given a specific memory allocation point and related functions, determine whether the memory can cause a Memory Leak bug.",
     "analysis_rules": [
         "You can follow a three-step analysis process: ",
-        "1. Identify the 'src' object and analyze all aliases of 'src' by propagation expressions. Then, extract all the free sites of 'src'.",
-        "2. Identify all execution paths in the function, considering nested branches caused by if-else conditions, switch statements, and loops. Focus on paths involving 'src' or leading to function termination. Ensure exception handling paths and early exits (e.g., 'if (pointer == NULL) { return -1; }') are included in the analysis.",
-        "3. For each path extracted in Step 2, simulate the function's execution line by line along the path and analyze the state of 'src'. If 'src' is not referenced by any pointer and is not freed before the function exits, then it is a memory leak."
+        "1. Identify the pointer pointing to the allocated object and analyze all its aliases. The pointer and its alias are source values. Then, extract all the free sites of its aliased pointers.",
+        "2. Identify all execution paths in the function, considering nested branches caused by if-else conditions, switch statements, and loops. Focus on paths involving the source values or leading to function termination. Ensure exception handling paths and early exits (e.g., 'if (pointer == NULL) { return -1; }') are included in the analysis.",
+        "3. For each path extracted in Step 2, simulate the function's execution line by line along the path and analyze the state of the source values. If a source value is not referenced by any pointer and is not freed before the function exits, then it is a memory leak."
       ],
     "analysis_examples": [
       "Example 1:",
@@ -29,7 +29,7 @@
       "- Does the memory object `base` at line 1 have a memory leak bug?",
       "System:",
       "Explanation:",
-        "Step1: The src is the memory object get from the pointer parameter `base`. Free Sites: the pointer base is free at line 4 and line 9.",
+        "Step1: The pointer pointing to the allocated memory object is the pointer parameter `base`. Free Sites: the pointer `base` is free at line 4 and line 9.",
         "Step2: There are two execution path related to source pointer base in this function, based on `condition` at line 2:",
         " - Path1: Lines 2-5, 11. When the condition is true, the pointer `base` at line 1 can reach the free site at line 4.",
         " - Path2: Lines 6-10, 11. When the condition is false, the pointer `base` at line 1 is overwritten at line 7, thus cannot reach the free site at line 9.",
@@ -38,7 +38,7 @@
       "PoC: The pointer `base` at line 1 is overwritten at line 7 before reaching the free site at line 9. Thus there is a memory leak bug in the function goo when condition is false.",
       ""
     ],
-    "question_template": "- Does the memory object `<SRC_NAME>` at line <SRC_LINE> have a memory leak bug?",
+    "question_template": "- Does the memory object `<SEED_NAME>` have a memory leak bug?",
     "answer_format": [
         "1. Explanation: Provide the process of reasoning and explanations.",
         "2. Answer: Indicate whether there is a memory leak bug (Yes/No).",
@@ -49,12 +49,12 @@
         "PoC: {Description of the bug propagation path}"
     ],
     "meta_prompts": [
-       "Now I will give you the function with a memory object `<SRC_NAME>` at line <SRC_LINE>: \n```\n<FUNCTION>\n``` \n\n",
+       "Now I will give you the function with a memory object `<SEED_NAME>`: \n```\n<FUNCTION>\n``` \n\n",
        "Please answer the following question:\n<QUESTION>\n\n",
        "Your answer should follow the following format: \n<ANSWER>\n",
        "Guidelines:",
-       "- Pay attention to two situations where 'src' may not reach the free site: (1) 'src' is overwritten before reaching the free site. (2) The function exits by return or exception before executing the free operation.\n",
-       "- If 'src' is propagated to external variables (variables not defined in the current function and not part of its parameters), it may be freed in other functions whose code is unavailable. In such cases, stop analyzing 'src'.\n",
+       "- Pay attention to two situations where the source values may not reach the free site: (1) a value is overwritten before reaching the free site. (2) The function exits by return or exception before executing the free operation.\n",
+       "- If a source value is propagated to external variables (variables not defined in the current function and not part of its parameters), it may be freed in other functions whose code is unavailable. In such cases, stop tracking the source value.\n",
        "- It is safe to return when source memory allocation fails. If a path returns after checking that source memory allocation has failed (e.g., the pointer equals NULL or 0), do not consider it a memory leak bug. However, other failure return cases may still cause a memory leak bug.\n",
        "- You should only report a memory leak bug when you can provide an explicit bug propagation path from the given function contents. Do not assume the behavior of functions that are not provided, nor the values of variables that are not provided. If you cannot determine whether the memory object can cause a bug, answer No.\n"
     ]

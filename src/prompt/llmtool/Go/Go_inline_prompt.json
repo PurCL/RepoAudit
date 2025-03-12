@@ -15,7 +15,8 @@
   "meta_prompts": [
      "Here is the list of functions: \n```\n<FUNCTION>\n``` \n\n",
      "Please inline these functions into one function",
-     "Your answer should follow the following format: \n<ANSWER>\n"
+     "Your answer should follow the following format: \n<ANSWER>\n",
+     "Attention: When you inline functions, do not fix any bugs in original functions even if you find any."
   ],
   "call_tree": "Here is the call tree starting from the root function `<FUNCTION_NAME>` for your reference: \n```\n<FUNCTION_CALL_TREE>\n```"
 }

@@ -4,17 +4,17 @@ from os import path
 
 sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
 
-from src.memory.state import State
-from src.memory.localvalue import *
-from src.memory.function import *
+from memory.semantic.bugscan_state import BugScanState
+from memory.syntactic.value import *
+from memory.syntactic.function import *
 
 class TestState(unittest.TestCase):
     def setUp(self):
         # Create LocalValue and Function instances
         for i in range(1, 5):
             function = Function(function_id=i, function_name=f"test_function{i}", function_code="", start_line_number=1, end_line_number=10, function_node=None, file_name="test_file.py")
-            local_value = LocalValue(name=f"test_var{i}", line_number=i, v_type=ValueType.SRC, file="test_file.py")
-            setattr(self, f"state{i}", State(local_value, function))
+            local_value = Value(name=f"test_var{i}", line_number=i, v_label=ValueLabel.SRC, file="test_file.py")
+            setattr(self, f"state{i}", BugScanState(local_value, function))
 
         # Set up callers and callees
         self.state2.callers.append(self.state1)

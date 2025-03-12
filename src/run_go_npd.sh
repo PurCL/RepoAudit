@@ -1,11 +1,17 @@
 #!/usr/bin/env bash
-LANGUAGE=Cpp
-BUG_TYPE=MLK
+LANGUAGE=Go
+BUG_TYPE=NPD
 SCANNER=bugscan
 
+# nilaway
+# dosa
+# tally
 
 PROJECTS=(
-  sofa-pbrpc
+  atomic automaxprocs dig go-helix hackeroni mock ratelimit toy
+  goleak icu4go multierr sally zap
+  cff flagoverride gopatch kafka-client
+  config fx gwr mapdecode protoidl tools
 )
 
 for PROJECT in "${PROJECTS[@]}"; do
@@ -31,8 +37,8 @@ for PROJECT in "${PROJECTS[@]}"; do
   --bug-type $BUG_TYPE \
   --global-temperature 0.0 \
   --scanners $SCANNER \
-  --max-workers 10 \
   --boundary 3 \
+  --max-workers 15 \
   --seed-spec-file ../result/extract/$BUG_TYPE/${LANGUAGE}_${PROJECT}/seed_result.json
 done
 

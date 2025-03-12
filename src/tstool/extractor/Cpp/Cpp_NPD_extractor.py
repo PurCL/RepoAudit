@@ -1,41 +1,49 @@
 from tstool.analyzer.TS_analyzer import *
-from tstool.analyzer.C_TS_analyzer import *
+from tstool.analyzer.Cpp_TS_analyzer import *
 from ..extractor import *
 import tree_sitter
 import argparse
 
-class C_NPD_Extractor(Extractor):
-    def find_seed(self, source_code: str, root_node: tree_sitter.Node, file: str) -> List[LocalValue]:
+class Cpp_NPD_Extractor(Extractor):
+    def find_seeds(self, source_code: str, root_node: tree_sitter.Node, file_name: str) -> List[Tuple[Value, bool]]:
         """
-        Extract the potential null values as seeds from the source code.
-        1. ptr = NULL;
-        2. return NULL;
-        3. (type)* ptr = NULL;
+        Extract the seeds that can cause the NPD bugs from the C/C++ programs.
+        :param source_code: Content of the source file.
+        :param root_node: A node in the parsed syntax tree.
+        :param file_path: Path of the source file.
+        :return: List of the pairs of seed values and traversal strategies. True for forward, False for backward.
         """
         nodes = find_nodes_by_type(root_node, "init_declarator")
         nodes.extend(find_nodes_by_type(root_node, "assignment_expression"))
         nodes.extend(find_nodes_by_type(root_node, "return_statement"))
         nodes.extend(find_nodes_by_type(root_node, "call_expression"))
 
-        spec_apis = {}        # specific user-defined APIs that can return NULL
-        lines = []
+        """
+        Extract the potential null values as seeds from the source code.
+        1. ptr = NULL;
+        2. return NULL;
+        3. (type)* ptr = NULL;
+        """
+        spec_apis = {"malloc"}        # specific user-defined APIs that can return NULL
+        seeds = []
         for node in nodes:
-            is_src_node = False
+            is_seed_node = False
             if node.type == "call_expression":
                 for child in node.children:
                     if child.type == "identifier":
                         name = source_code[child.start_byte : child.end_byte]
                         if name in spec_apis:
-                            is_src_node = True
+                            is_seed_node = True
             else:
                 for child in node.children:
                     if child.type == "null":
-                        is_src_node = True
-            if is_src_node:
+                        is_seed_node = True
+
+            if is_seed_node:
                 line_number = source_code[: node.start_byte].count("\n") + 1
-                name = source_code.split("\n")[line_number - 1].strip()
-                lines.append(LocalValue(name, line_number, ValueType.SRC, file=file))
-        return lines
+                name = source_code[node.start_byte: node.end_byte]
+                seeds.append((Value(name, line_number, ValueLabel.NON_BUF_ACCESS_EXPR, file_name), True))
+        return seeds
 
 
 def start_extract():
@@ -49,7 +57,7 @@ def start_extract():
         "--language",
         choices=[
             "C",
-            "C++",
+            "Cpp",
         ],
         help="Specify the language",
     )
@@ -63,7 +71,7 @@ def start_extract():
     language_setting = args.language
     seed_path = args.seed_path
     
-    npd_extractor = C_NPD_Extractor(project_path, language_setting, seed_path) 
+    npd_extractor = Cpp_NPD_Extractor(project_path, language_setting, seed_path) 
     npd_extractor.run() 
 
 
