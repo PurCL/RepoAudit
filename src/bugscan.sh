@@ -1,6 +1,6 @@
 #!/bin/bash
-LANGUAGE=Python
-BUG_TYPE=NPD
+LANGUAGE=Go
+BUG_TYPE=BOF
 SCANNER=bugscan
 PROJECT_NAME=toy
 

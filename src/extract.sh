@@ -1,6 +1,6 @@
 #!/bin/bash
-LANGUAGE=Cpp
-BUG_TYPE=NPD
+LANGUAGE=Go
+BUG_TYPE=BOF
 PROJECT_NAME=toy
 
 # create the directory for the result

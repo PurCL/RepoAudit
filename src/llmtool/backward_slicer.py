@@ -70,9 +70,9 @@ class BackwardSlicer(LLMTool):
                 callee_name = external_variable["callee_name"]
                 callee_functions = self.ts_analyzer.get_all_callee_functions(state.function, callee_name)
                 for callee_function in callee_functions:
-                    # TODO: TO BE Refactored. @Chengpeng. 
+                    # TODO: TO BE Refactored. @Jinyao. 
                     # The names of returned values should be specified with indexes (starting from 0)
-                    # TSAnalyzer should extract the return values instead of return statements.
+                    # Should invoke self.ts_analyzer.get_return_values_in_single_function
                     src = Value("", 0, ValueLabel.RET, callee_function.file_name, callee_function.file_name, 0)
                     callee_state = BugScanState(src, callee_function)
                     if (self.analyze(callee_state, depth+1)):
