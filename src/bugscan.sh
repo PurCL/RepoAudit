@@ -1,12 +1,12 @@
 #!/bin/bash
-LANGUAGE=Python
+LANGUAGE=Java
 BUG_TYPE=NPD
 SCANNER=bugscan
 PROJECT_NAME=toy
 
 python3 repoaudit.py \
   --language $LANGUAGE \
-  --inference-model claude-3.7 \
+  --inference-model o3-mini \
   --project-path ../benchmark/$LANGUAGE/$PROJECT_NAME \
   --bug-type $BUG_TYPE \
   --global-temperature 0.0 \
