@@ -1,6 +1,6 @@
 #!/bin/bash
 LANGUAGE=Go
-BUG_TYPE=BOF
+BUG_TYPE=NPD
 PROJECT_NAME=toy
 
 # create the directory for the result

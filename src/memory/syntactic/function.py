@@ -30,12 +30,16 @@ class Function:
         self.api_call_site_nodes = []        # call site info of library APIs
 
         ## Results of AST node type analysis
-        self.paras = set([])        # A set of (Expr, int) tuples, where int indicates the index of the parameter
-        self.retsmts = []           # A list of (Node, int) tuples, where int indicates the AST node of the return statement and its line number
+        self.pasras = set([])        # A set of parameters
+        self.retvals = set([])           # A set of returned values
 
         ## Results of intraprocedural control flow analysis
         self.if_statements = {}     # if statement info
         self.loop_statements = {}   # loop statement info
+
+
+    def __hash__(self) -> int:
+        return hash((self.function_name, self.function_code, self.file_name, self.start_line_number, self.end_line_number))
 
 
     def file_line2function_line(self, file_line: int) -> int:

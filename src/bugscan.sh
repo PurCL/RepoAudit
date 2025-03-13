@@ -1,6 +1,6 @@
 #!/bin/bash
 LANGUAGE=Go
-BUG_TYPE=BOF
+BUG_TYPE=NPD
 SCANNER=bugscan
 PROJECT_NAME=toy
 

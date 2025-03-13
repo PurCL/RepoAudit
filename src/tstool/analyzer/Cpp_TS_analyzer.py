@@ -133,51 +133,30 @@ class Cpp_TSAnalyzer(TSAnalyzer):
                 break
         return results
 
-    def get_arguments_at_callsite(self, node: tree_sitter.Node, source_code: str) -> List[str]:
+    def get_arguments_at_callsite(self, current_function: Function, call_site_node: tree_sitter.Node) -> Set[Value]:
         """
-        Get arguments at the call site.
-        :param node: the node of the call site
-        :param source_code: the content of the file
-        :return: the names of the arguments
+        Get arguments from a call site in a function.
+        :param current_function: the function to be analyzed
+        :param call_site_node: the node of the call site
+        :return: the arguments
         """
-        arguments = []
-        for sub_node in node.children:
+        arguments = set([])
+        file_name = current_function.file_name
+        source_code = self.code_in_projects[file_name]
+        for sub_node in call_site_node.children:
             if sub_node.type == "argument_list":
                 arg_list = sub_node.children[1:-1]
                 for element in arg_list:
                     if element.type != ",":
-                        arguments.append(source_code[element.start_byte:element.end_byte])
+                        line_number = source_code[:element.start_byte].count("\n") + 1
+                        arguments.add(Value(source_code[element.start_byte:element.end_byte], line_number, ValueLabel.ARG, file_name, len(arguments)))
         return arguments
 
-    def get_arguments_by_callee_name(self, current_function: Function, callee: str) -> Set[Tuple[str, int, int]]:
+    def get_parameters_in_single_function(self, current_function: Function) -> Set[Value]:
         """
-        Find the arguments of the callee function.
-        :param current_function: the function to be analyzed
-        :param callee: the callee function name
-        :return: (arg_name, line_number, index) of the arguments
-        """
-        args = set([])
-        file_content = self.code_in_projects[current_function.file_name]
-        call_site_nodes = self.get_callsite_by_callee_name(current_function, callee)
-        for call_site in call_site_nodes:
-            for child in call_site.children:
-                if child.type == "argument_list":
-                    arg_list = child.children[1:-1]
-                    index = 0
-                    for element in arg_list:
-                        if element.type != ",":
-                            line_number = file_content[:element.start_byte].count("\n") + 1
-                            arg_name = file_content[element.start_byte:element.end_byte]
-                            args.add((arg_name, line_number, index))
-                            index += 1
-                    break
-        return args
-
-    def get_parameters_in_single_function(self, current_function: Function) -> Set[Tuple[str, int, int]]:
-        """
-        Find the parameters of the function.
-        :param current_function: the function to be analyzed
-        :return: (para_name, line_number, index) of the parameters
+        Find the parameters of a function.
+        :param current_function: The function to be analyzed.
+        :return: A set of parameters as values
         """
         paras = set([])
         file_content = self.code_in_projects[current_function.file_name]
@@ -187,23 +166,26 @@ class Cpp_TSAnalyzer(TSAnalyzer):
             for sub_node in find_nodes_by_type(parameter_node, "identifier"):                
                 parameter_name = file_content[sub_node.start_byte:sub_node.end_byte]
                 line_number = file_content[:sub_node.start_byte].count("\n") + 1
-                paras.add((parameter_name, line_number, index))
-                index += 1
+                paras.add(Value(parameter_name, line_number, ValueLabel.PARA, current_function.file_name, index))
+                break
+            index += 1
         return paras
-
-    def get_retstmts_in_single_function(self, current_function: Function) -> List[Tuple[str, int]]:
+    
+    def get_return_values_in_single_function(self, current_function: Function) -> Set[Value]:
         """
-        Find the return statements in the function.
-        :param current_function: the function to be analyzed
-        :return: (ret_stmt, line_number) of the return statements
+        Find the return values of a function.
+        :param current_function: The function to be analyzed.
+        :return: A set of return values
         """
-        retstmts = []
+        retvalues = set([])
         file_content = self.code_in_projects[current_function.file_name]
         retnodes = find_nodes_by_type(current_function.parse_tree_root_node, "return_statement")
         for retnode in retnodes:
             line_number = file_content[:retnode.start_byte].count("\n") + 1
-            retstmts.append((file_content[retnode.start_byte:retnode.end_byte], line_number))
-        return retstmts
+            restmts_str = file_content[retnode.start_byte:retnode.end_byte]
+            returned_value = restmts_str.replace("return", "").strip()
+            retvalues.add(Value(returned_value, line_number, ValueLabel.RET, current_function.file_name, 0))
+        return retvalues
 
     def get_if_statements(self, function: Function, source_code: str) -> Dict[Tuple, Tuple]:
         """

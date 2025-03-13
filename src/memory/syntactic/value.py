@@ -51,7 +51,7 @@ class Value:
         :param line_number: the line number of the value
         :param label: the label of the value
         :param file: the file path of the value
-        :param index: the index of the value. For PARA, RET, ARG, and OUT, it start from 0. Otherwise, it is -1.
+        :param index: the index of the value. For PARA, RET, ARG, it start from 0. Otherwise, it is -1.
         """
         self.name = name
         self.line_number = line_number
@@ -79,6 +79,8 @@ class Value:
     def __repr__(self) -> str:
         return self.__str__()
     
+    def __hash__(self) -> int:
+        return hash((self.name, self.line_number, self.label, self.file, self.index))
     
     @classmethod
     def from_str_to_value(cls, s: str) -> "Value":

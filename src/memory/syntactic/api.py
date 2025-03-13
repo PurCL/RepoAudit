@@ -23,3 +23,6 @@ class API:
             return NotImplemented
         return (self.api_name == other.api_name and
                 self.api_para_num == other.api_para_num)
+    
+    def __hash__(self) -> int:
+        return hash(self.api_name, self.api_para_num)

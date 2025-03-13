@@ -31,42 +31,22 @@ tree = parser.parse(bytes(source_code, "utf8"))
 root = tree.root_node
 all_function_nodes = []
 
-nodes = find_nodes(tree.root_node, "call")
-paras = set()
-index = 0
-file_content = source_code
+nodes = find_nodes(tree.root_node, "return_statement")
 
-# for node in nodes:
-#     print(source_code[:node.start_byte].count("\n") + 1)
-#     for sub_node in node.children:
-#         for sub_node2 in node.children:
-#             if sub_node2.type == "argument_list":
-#                 for sub_sub_node in sub_node2.children:
-#                     print(sub_sub_node.type, source_code[sub_sub_node.start_byte:sub_sub_node.end_byte])
-#         if sub_node.type == "identifier":
-#             function_name = source_code[sub_node.start_byte:sub_node.end_byte]
-#             break
-#         if sub_node.type == "attribute":
-#             for sub_sub_node in sub_node.children:
-#                 if sub_sub_node.type == "identifier":
-#                     function_name = source_code[sub_sub_node.start_byte:sub_sub_node.end_byte]
-#             break
-#     print(function_name)
-#     print("=====================================")
-
-nodes = find_nodes(tree.root_node, "function_definition")
-paras = set()
-index = 0
-file_content = source_code
-
-for node in nodes:
-    print(source_code[:node.start_byte].count("\n"))
-    for sub_node in node.children:
-        if sub_node.type == "identifier":
-            print(source_code[sub_node.start_byte:sub_node.end_byte])
-        if sub_node.type == "parameters":
-            for sub_sub_node in sub_node.children:
-                for sub_node in find_nodes(sub_sub_node, "identifier"):      
-                    print(source_code[sub_node.start_byte:sub_node.end_byte])  
-                    break  
-    print("=====================================")
+for retnode in nodes:
+    line_number = source_code[:retnode.start_byte].count("\n") + 1
+    sub_node_types = [sub_node.type for sub_node in retnode.children]
+    index = 0
+    print(source_code[retnode.start_byte:retnode.end_byte])
+    if "expression_list" in sub_node_types:
+        expression_list_index = sub_node_types.index("expression_list")
+        for expression_node in retnode.children[expression_list_index].children:
+            if expression_node.type != ",":
+                print(source_code[expression_node.start_byte:expression_node.end_byte], index)
+                index += 1
+    elif len(sub_node_types) == 1:
+        print("None", 0)
+    elif len(sub_node_types) == 2:
+        ret_value_node = retnode.children[1]
+        print(source_code[ret_value_node.start_byte:ret_value_node.end_byte], 0)
+    print("\n")

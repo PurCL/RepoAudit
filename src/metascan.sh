@@ -1,5 +1,5 @@
 #!/bin/bash
-LANGUAGE=Go
+LANGUAGE=Python
 BUG_TYPE=NPD
 SCANNER=metascan
 PROJECT_NAME=toy

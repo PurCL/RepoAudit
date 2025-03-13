@@ -61,15 +61,16 @@ class MetaScanAgent:
             function_meta_data["function_start_line"] = function.start_line_number
             function_meta_data["function_end_line"] = function.end_line_number
 
-            function_meta_data["parameters"] = list(function.paras)
-            function_meta_data["retstmts"] = list(function.retsmts)
+            function_meta_data["parameters"] = [str(para) for para in function.paras]
+
+            function_meta_data["retvals"] = [str(retval) for retval in function.retvals]
 
             function_meta_data["call_sites"] = []
             for call_site in function.function_call_site_nodes:
                 call_site_info = {}
                 file_content = self.ts_analyzer.fileContentDic[function.file_name]
-                call_site_info["callee_id"] = self.ts_analyzer.get_callee_function_ids_at_callsite(call_site, file_content)
-                call_site_info["args"] = list(self.ts_analyzer.get_arguments_at_callsite(call_site, file_content))
+                call_site_info["callee_id"] = self.ts_analyzer.get_callee_function_ids_at_callsite(function, call_site)
+                call_site_info["args"] = [str(arg) for arg in self.ts_analyzer.get_arguments_at_callsite(function, call_site)]
                 call_site_info["call_site_start_line"] = file_content[:call_site.start_byte].count("\n") + 1
                 function_meta_data["call_sites"].append(call_site_info)
 
@@ -110,8 +111,6 @@ class MetaScanAgent:
                 if_statement["else_branch_end_line"] = else_branch_end_line
                 function_meta_data["if_statements"].append(if_statement)
 
-            function_meta_data_dict[function_id] = function_meta_data
-
             function_meta_data["loop_statements"] = []
             for (loop_statement_start_line, loop_statement_end_line) in self.ts_analyzer.function_env[function_id].loop_statements:
                 (
@@ -131,6 +130,8 @@ class MetaScanAgent:
                 loop_statement["loop_body_start_line"] = loop_body_start_line
                 loop_statement["loop_body_end_line"] = loop_body_end_line
                 function_meta_data["loop_statements"].append(loop_statement)
+        
+            function_meta_data_dict[function_id] = function_meta_data
 
         with open(log_dir_path + "/meta_scan_result.json", 'w') as f:
             json.dump(function_meta_data_dict, f, indent=4, sort_keys=True)

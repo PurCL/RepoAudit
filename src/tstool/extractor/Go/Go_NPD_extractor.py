@@ -23,9 +23,12 @@ class Go_NPD_Extractor(Extractor):
         for node in var_declaration_nodes:
             if len(find_nodes_by_type(node, "=")) == 0:
                 line_number = source_code[: node.start_byte].count("\n") + 1
-                # TODO: TO BE polished. `name` should be the variable name, not the declaration str. @Chengpeng
-                name = source_code[node.start_byte: node.end_byte]
-                seeds.append((Value(name, line_number, ValueLabel.NON_BUF_ACCESS_EXPR, file_name), True))
+                for sub_node in node.children:
+                    if sub_node.type == "var_spec":
+                        for sub_sub_node in sub_node.children:
+                            if sub_sub_node.type == "identifier":
+                                name = source_code[sub_sub_node.start_byte:sub_sub_node.end_byte]
+                                seeds.append((Value(name, line_number, ValueLabel.NON_BUF_ACCESS_EXPR, file_name), True))
 
         ## Case II: Nil value from literal nil nodes
         literal_nil_nodes = find_nodes_by_type(root_node, "nil")
@@ -33,30 +36,6 @@ class Go_NPD_Extractor(Extractor):
             line_number = source_code[: node.start_byte].count("\n") + 1
             name = source_code[node.start_byte: node.end_byte]
             seeds.append((Value(name, line_number, ValueLabel.NON_BUF_ACCESS_EXPR, file_name), True))
-
-        ## Case III: missing returned values
-        return_statement_nodes = find_nodes_by_type(root_node, "return_statement")
-        return_statements_with_num = []
-        for return_statement_node in return_statement_nodes:
-            for sub_node in return_statement_node.children:
-                if sub_node.type == "expression_list":
-                    return_statements_with_num.append((return_statement_node, len(sub_node.children)))
-            sub_node_types = [sub_node.type for sub_node in return_statement_node.children]
-            if "expression_list" not in sub_node_types:
-                line_number = source_code[: return_statement_node.start_byte].count("\n") + 1
-                name = source_code[return_statement_node.start_byte: return_statement_node.end_byte]
-                # TODO: TO BE polished. `name` should not be a return stmt str, not the declaration str. @Chengpeng
-                seeds.append((Value(name, line_number, ValueLabel.NON_BUF_ACCESS_EXPR, file_name), True))
-
-        # select the largest number of return values
-        if len(return_statements_with_num) > 0:
-            return_statement_node, max_num = max(return_statements_with_num, key=lambda x: x[1])
-            for (return_statement_node, num) in return_statements_with_num:
-                if num < max_num:
-                    line_number = source_code[: return_statement_node.start_byte].count("\n") + 1
-                    name = source_code[return_statement_node.start_byte: return_statement_node.end_byte]
-                    # TODO: TO BE polished. `name` should not be a return stmt str, not the declaration str. @Chengpeng
-                    seeds.append((Value(name, line_number, ValueLabel.NON_BUF_ACCESS_EXPR, file_name), True))
         return seeds
     
 

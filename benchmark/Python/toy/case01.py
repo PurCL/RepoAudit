@@ -9,11 +9,12 @@ def get_object(flag: bool):
     if flag:
         return MyObject("hello")
     else:
-        return None
+        return None, 1, 2
 
 
 def process_object(obj: MyObject):
     print(obj.value.upper(), "a", "d")
+    return
 
 
 def main():
