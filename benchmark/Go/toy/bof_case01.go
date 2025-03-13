@@ -20,7 +20,7 @@ func Add(a int, b int) int {
 func main() {
     // Create an instance of MyType and call its method.
     obj := MyType{Name: "Alice"}
-    obj.Greet()
+    obj.Greet(2)
 
     // Call the standalone function.
     result := Add(10, 20)

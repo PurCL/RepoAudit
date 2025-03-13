@@ -12,8 +12,10 @@ class Function:
         file_name: str
     ) -> None:
         """
-        Record basic facts of the function
-        """
+        Record basic facts of the function.
+        Here, the function indicates a user-defined function or method.
+        The implementation is provided in the project.
+        """ 
         self.function_id = function_id
         self.function_name = function_name
         self.function_code = function_code
@@ -24,7 +26,8 @@ class Function:
 
         # Attention: the parse tree is in the context of the whole file
         self.parse_tree_root_node = function_node  # root node of the parse tree of the current function
-        self.call_site_nodes = []   # call site info
+        self.function_call_site_nodes = []   # call site info of user-defined functions
+        self.api_call_site_nodes = []        # call site info of library APIs
 
         ## Results of AST node type analysis
         self.paras = set([])        # A set of (Expr, int) tuples, where int indicates the index of the parameter

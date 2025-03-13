@@ -1,8 +1,8 @@
 #!/bin/bash
-LANGUAGE=Cpp
+LANGUAGE=Go
 BUG_TYPE=NPD
 SCANNER=metascan
-PROJECT_NAME=sofa-pbrpc
+PROJECT_NAME=toy
 
 python3 repoaudit.py \
   --language $LANGUAGE \

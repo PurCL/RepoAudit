@@ -100,7 +100,7 @@ class BackwardSlicer(LLMTool):
             caller_functions = self.ts_analyzer.get_all_caller_functions(state.function)
             for caller_function in caller_functions:
                 callee_name = state.function.function_name
-                argments = self.ts_analyzer.get_args_by_callee_name(caller_function, callee_name)
+                argments = self.ts_analyzer.get_arguments_by_callee_name(caller_function, callee_name)
                 argments = [arg for arg in argments if arg[2] in arg_set]
                 arg_names = ",".join([arg[0] for arg in argments])
                 max_line_number = max([arg[1] for arg in argments])

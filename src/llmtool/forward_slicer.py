@@ -71,7 +71,7 @@ class ForwardSlicer(LLMTool):
             if source_type == "Return Value" and state.var.label != ValueLabel.PARA:
                 caller_functions = self.ts_analyzer.get_all_caller_functions(state.function)
                 for caller_function in caller_functions:
-                    call_sites = self.ts_analyzer.get_return_value_from_callsite(caller_function, state.function.function_name)
+                    call_sites = self.ts_analyzer.get_output_value_from_callsite(caller_function, state.function.function_name)
                     for return_value in call_sites:
                         caller_state = BugScanState(return_value, caller_function)
                         if (self.analyze(caller_state, depth + 1)):
@@ -96,7 +96,7 @@ class ForwardSlicer(LLMTool):
             caller_functions = self.ts_analyzer.get_all_caller_functions(state.function)
             for caller_function in caller_functions:
                 callee_name = state.function.function_name
-                argments = self.ts_analyzer.get_args_by_callee_name(caller_function, callee_name)
+                argments = self.ts_analyzer.get_arguments_by_callee_name(caller_function, callee_name)
                 argments = [arg for arg in argments if arg[2] in arg_set]
                 arg_names = ",".join([arg[0] for arg in argments])
                 max_line_number = max([arg[1] for arg in argments])

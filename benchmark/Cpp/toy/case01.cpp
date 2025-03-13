@@ -30,6 +30,7 @@ public:
 };
 
 A* bar() {
+    printf("adf %d", 1);
     return nullptr;
 }
 
