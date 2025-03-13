@@ -71,9 +71,10 @@ class ForwardSlicer(LLMTool):
             if source_type == "Return Value" and state.var.label != ValueLabel.PARA:
                 caller_functions = self.ts_analyzer.get_all_caller_functions(state.function)
                 for caller_function in caller_functions:
-                    call_sites = self.ts_analyzer.get_output_value_from_callsite(caller_function, state.function.function_name)
-                    for return_value in call_sites:
-                        caller_state = BugScanState(return_value, caller_function)
+                    call_site_nodes = self.ts_analyzer.get_callsite_by_callee_name(caller_function, state.function.function_name)
+                    for call_site_node in call_site_nodes:
+                        output_value = self.ts_analyzer.get_output_value_at_callsite(caller_function, call_site_node)
+                        caller_state = BugScanState(output_value, caller_function)
                         if (self.analyze(caller_state, depth + 1)):
                             state.callers.append(caller_state)
                             caller_state.callees.append(state)
@@ -96,10 +97,14 @@ class ForwardSlicer(LLMTool):
             caller_functions = self.ts_analyzer.get_all_caller_functions(state.function)
             for caller_function in caller_functions:
                 callee_name = state.function.function_name
-                argments = self.ts_analyzer.get_arguments_by_callee_name(caller_function, callee_name)
-                argments = [arg for arg in argments if arg[2] in arg_set]
-                arg_names = ",".join([arg[0] for arg in argments])
-                max_line_number = max([arg[1] for arg in argments])
+                
+                argments = set([])
+                call_site_nodes = self.ts_analyzer.get_callsite_by_callee_name(caller_function, callee_name)
+                for call_site in call_site_nodes:
+                    argments.update(self.ts_analyzer.get_arguments_at_callsite(caller_function, call_site))
+                argments = [arg for arg in argments if arg.index in arg_set]
+                arg_names = ",".join([arg.name for arg in argments])
+                max_line_number = max([arg.line_number for arg in argments])
 
                 # TODO: TO BE Refactored. @Jinyao
                 # ValueLabel.ARG refers to a single argument. The following construction of Value does not have a valid physical meaning.
@@ -115,8 +120,11 @@ class ForwardSlicer(LLMTool):
             callee_functions = self.ts_analyzer.get_all_callee_functions(state.function, callee_name)
             for callee_function in callee_functions:
                 parameter_list = []
+                paras = self.ts_analyzer.get_parameters_in_single_function(callee_function)
                 for index in index_set:
-                    parameter_list.append(self.ts_analyzer.get_parameter_by_index(callee_function, index))
+                    for para in paras:
+                        if para.index == index:
+                            parameter_list.append(para)
                 parameter_names = ", ".join([parameter.name for parameter in parameter_list])
                 parameter_line_number = min([parameter.line_number for parameter in parameter_list])
 

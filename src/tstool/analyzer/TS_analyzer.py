@@ -149,7 +149,7 @@ class TSAnalyzer(ABC):
         file_content = self.fileContentDic[file_name]
 
         current_function.paras = self.get_parameters_in_single_function(current_function)
-        current_function.retsmts = self.get_retstmts_in_single_function(current_function)
+        current_function.retvals = self.get_return_values_in_single_function(current_function)
         current_function.if_statements = self.get_if_statements(current_function, file_content)
         current_function.loop_statements = self.get_loop_statements(current_function, file_content)
         return current_function
@@ -194,7 +194,7 @@ class TSAnalyzer(ABC):
         api_call_sites = []
 
         for call_site_node in all_call_sites:
-            callee_ids = self.get_callee_function_ids_at_callsite(call_site_node, file_content)
+            callee_ids = self.get_callee_function_ids_at_callsite(current_function, call_site_node)
             if len(callee_ids) > 0:
                 # Update the caller-callee relationship between user-defined functions
                 for callee_id in callee_ids:
@@ -208,7 +208,7 @@ class TSAnalyzer(ABC):
                 function_call_sites.append(call_site_node)
             else:
                 api_id = None
-                arguments = self.get_arguments_at_callsite(call_site_node, file_content)
+                arguments = self.get_arguments_at_callsite(current_function, call_site_node)
                 callee_name = self.get_callee_name_at_call_site(call_site_node, file_content) 
                 tmp_api = API(-1, callee_name, len(arguments))
 
@@ -288,15 +288,17 @@ class TSAnalyzer(ABC):
         """
         pass
 
-    def get_callee_function_ids_at_callsite(self, call_site_node: tree_sitter.Node, source_code: str) -> List[int]:
+    def get_callee_function_ids_at_callsite(self, current_function: Function, call_site_node: tree_sitter.Node) -> List[int]:
         """
         Determine the callee function(s) from a call site.
+        :param current_function: The function to be analyzed.
         :param call_site_node: The node of the call site.
-        :param source_code: The content of the source file.
         :return: A list of function ids of the callee functions.
         """
+        file_name = current_function.file_name
+        source_code = self.code_in_projects[file_name]
         callee_name = self.get_callee_name_at_call_site(call_site_node, source_code)
-        arguments = self.get_arguments_at_callsite(call_site_node, source_code)
+        arguments = self.get_arguments_at_callsite(current_function, call_site_node)
         temp_callee_ids = []
         while callee_name in self.glb_var_map:
             callee_name = self.glb_var_map[callee_name]
@@ -311,15 +313,17 @@ class TSAnalyzer(ABC):
                 callee_ids.append(callee_id)
         return callee_ids
     
-    def get_callee_api_ids_at_callsite(self, call_site_node: tree_sitter.Node, source_code: str) -> List[int]:
+    def get_callee_api_ids_at_callsite(self, current_function: Function, call_site_node: tree_sitter.Node) -> List[int]:
         """
         Determine the callee api(s) from a call site.
+        :param current_function: The function to be analyzed.
         :param call_site_node: The node of the call site.
-        :param source_code: The content of the source file.
         :return: A list of api ids of the callee apis.
         """
+        file_name = current_function.file_name
+        source_code = self.code_in_projects[file_name]
         callee_name = self.get_callee_name_at_call_site(call_site_node, source_code)
-        arguments = self.get_arguments_at_callsite(call_site_node, source_code)
+        arguments = self.get_arguments_at_callsite(current_function, call_site_node)
         callee_ids = []
         while callee_name in self.glb_var_map:
             callee_name = self.glb_var_map[callee_name]
@@ -341,74 +345,47 @@ class TSAnalyzer(ABC):
 
     # Helper functions for arguments
     @abstractmethod
-    def get_arguments_at_callsite(self, node: tree_sitter.Node, source_code: str) -> List[str]:
+    def get_arguments_at_callsite(self, current_function: Function, call_site_node: tree_sitter.Node) -> Set[Value]:
         """
-        Get arguments from a call site.
-        :param node: The node of the call site.
-        :param source_code: The content of the source file.
-        :return: A list of arguments.
-        """
-        pass
-
-    def get_argument_by_index(self, function: Function, callee_name: str, index: int) -> List[Value]:
-        """
-        Retrieve the argument Value(s) at a given index for a specific callee.
-        """
-        results = []
-        for arg in self.get_arguments_by_callee_name(function, callee_name):
-            if arg[2] == index:
-                results.append(Value(arg[0], arg[1], ValueLabel.ARG, function.file_name, index))
-        return results
-
-    @abstractmethod
-    def get_arguments_by_callee_name(self, current_function: Function, callee: str) -> Set[Tuple[str, int, int]]:
-        """
-        Retrieve the arguments based on callee name from a function.
-        :param current_function: The function to be analyzed.
-        :param callee: The callee function name.
-        :return: A set of tuples (arg_name, line_number, index) for the arguments.
+        Get arguments from a call site in a function.
+        :param current_function: the function to be analyzed
+        :param call_site_node: the node of the call site
+        :return: the arguments
         """
         pass
 
     # Helper functions for parameters
     @abstractmethod
-    def get_parameters_in_single_function(self, current_function: Function) -> Set[Tuple[str, int, int]]:
+    def get_parameters_in_single_function(self, current_function: Function) -> Set[Value]:
         """
         Find the parameters of a function.
         :param current_function: The function to be analyzed.
-        :return: A set of tuples (para_name, line_number, index) for the parameters.
+        :return: A set of parameters as values
         """
         pass
 
-    def get_parameter_by_index(self, function: Function, index: int) -> Value:
-        """
-        Get the parameter Value for the function by its index.
-        """
-        for para in self.get_parameters_in_single_function(function):
-            if para[2] == index:
-                return Value(para[0], para[1], ValueLabel.PARA, function.file_name, index)
-        return None
-
     # Helper functions for output values
-    def get_output_value_from_callsite(self, function: Function, callee_name: str) -> List[Value]:
+    def get_output_value_from_callsite(self, current_function: Function, call_site_node: tree_sitter.Node) -> Value:
         """
-        Extract return Value(s) from call sites corresponding to a specific callee.
+        Get the output value from a call site.
+        :param current_function: The function to be analyzed.
+        :param call_site_node: The node of the call site.
+        :return: The output value.
         """
-        results = []
-        file_code = self.code_in_projects[function.file_name]
-        for call_site_node in self.get_callsite_by_callee_name(function, callee_name):
-            name = file_code[call_site_node.start_byte:call_site_node.end_byte]
-            line_number = file_code[:call_site_node.start_byte].count("\n") + 1
-            results.append(Value(name, line_number, ValueLabel.OUT, function.file_name, 0))
-        return results
+        file_code = self.code_in_projects[current_function.file_name]
+        name = file_code[call_site_node.start_byte:call_site_node.end_byte]
+        line_number = file_code[:call_site_node.start_byte].count("\n") + 1
+        output_value = Value(name, line_number, ValueLabel.OUT, current_function.file_name, -1)
+        return output_value
+        
 
     # Helper functions for return values
     @abstractmethod
-    def get_retstmts_in_single_function(self, current_function: Function) -> List[Tuple[str, int]]:
+    def get_return_values_in_single_function(self, current_function: Function) -> Set[Value]:
         """
-        Find return statements within a function.
+        Find the return values of a function.
         :param current_function: The function to be analyzed.
-        :return: A list of tuples (ret_stmt, line_number) for the return statements.
+        :return: A set of return values as values
         """
         pass
 

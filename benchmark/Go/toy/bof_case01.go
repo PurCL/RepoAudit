@@ -17,6 +17,23 @@ func Add(a int, b int) int {
     return a + b
 }
 
+// SumAndDiff returns two integers: their sum and their difference.
+func SumAndDiff(a, b int) (int, int) {
+    if a > b {
+        return a + b, a - b
+    }
+    return a + b, b - a
+}
+
+// PrintMessage prints the provided message. It may exit early without returning any value.
+func PrintMessage(msg string) {
+    if msg == "" {
+        // Early return without any value (since the function returns nothing).
+        return
+    }
+    fmt.Println(msg)
+}
+
 func main() {
     // Create an instance of MyType and call its method.
     obj := MyType{Name: "Alice"}

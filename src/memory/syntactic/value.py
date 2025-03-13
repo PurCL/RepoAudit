@@ -79,6 +79,8 @@ class Value:
     def __repr__(self) -> str:
         return self.__str__()
     
+    def __hash__(self) -> int:
+        return hash((self.name, self.line_number, self.label, self.file, self.index))
     
     @classmethod
     def from_str_to_value(cls, s: str) -> "Value":
