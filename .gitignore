@@ -16,6 +16,8 @@ log/
 # **/run_info.json
 **.log
 result**
+bugscan_jy.sh
+extract_jy.sh
 
 # Distribution / packaging
 .Python

@@ -16,7 +16,11 @@
      "Here is the list of functions: \n```\n<FUNCTION>\n``` \n\n",
      "Please inline these functions into one function",
      "Your answer should follow the following format: \n<ANSWER>\n",
+<<<<<<< HEAD:src/prompt/llmtool/C/C_inline_prompt.json
+     "During the inlining process, you should also inline the global variables."
+=======
      "Attention: When you inline functions, do not fix any bugs in original functions even if you find any."
+>>>>>>> ea52bb73c1dd9869b9e52aaae439d55b5bf269a6:src/prompt/llmtool/Cpp/Cpp_inline_prompt.json
   ],
   "call_tree": "Here is the call tree starting from the root function `<FUNCTION_NAME>` for your reference: \n```\n<FUNCTION_CALL_TREE>\n```"
 }

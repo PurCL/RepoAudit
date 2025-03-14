@@ -82,7 +82,7 @@ class BugScanAgent:
 
     def start_scan(self):
         log_dir_path = str(
-            Path(__file__).resolve().parent.parent.parent / (f"log/{self.bug_type}/{self.project_name}")
+            Path(__file__).resolve().parent.parent.parent / (f"log/bugscan/{self.bug_type}/{self.project_name}-{time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())}")
         )
         if not os.path.exists(log_dir_path):
             os.makedirs(log_dir_path)
@@ -238,7 +238,7 @@ class BugScanAgent:
                     continue
                 poc = poc_match.group(1).strip() if poc_match else ""
                 
-                self.bug_info[key].append({"Call Tree": root_state.get_call_tree(), "Inlined Function": inline_code, "Output": output, "Is Bug": answer, "PoC": poc})
+                self.bug_info[key].append({"Call Tree": root_state.get_call_tree(), "Slice Function": root_state.get_slice_tree(), "Inlined Function": inline_code, "Output": output, "Is Bug": answer, "PoC": poc})
                 break
             if answer == "Yes":
                 break

@@ -24,9 +24,8 @@ class ForwardSlicer(LLMTool):
             boundary,
             ) -> None:
         self.prompt_file = f"{BASE_PATH}/prompt/llmtool/{language}/{language}_forward_prompt.json"
-        super().__init__(model_name, language)
-        system_role = self.fetch_system_role()
-        self.model = LLM(model_name, temperature, system_role)
+        super().__init__(model_name, temperature, language)
+        self.cache = {str, Cache}
         self.ts_analyzer = ts_analyzer
         self.boundary = boundary
 
@@ -157,7 +156,7 @@ class ForwardSlicer(LLMTool):
         message += "\n" + "\n".join(dump_config_dict["analysis_rules"])
         message += "\n" + "\n".join(dump_config_dict["analysis_examples"])
         
-        answer = self.fetch_answer_format()
+        answer_format = "\n".join(dump_config_dict["answer_format_cot"])
 
         message += "\n" + "".join(dump_config_dict["meta_prompts"])
         message = message.replace("<FUNCTION>", state.function.lined_code)
@@ -167,7 +166,7 @@ class ForwardSlicer(LLMTool):
             .replace("<SRC_TYPE>", src_type)
         )
         message = message.replace("<QUESTION>", question)
-        message = message.replace("<ANSWER>", answer)
+        message = message.replace("<ANSWER>", answer_format)
 
         ## For DEBUG
         print(f"\n Function: \n{state.function.lined_code}")
@@ -253,10 +252,3 @@ class ForwardSlicer(LLMTool):
             dump_config_dict = json.load(f)
         role = dump_config_dict["system_role"].replace("<LANGUAGE>", self.language)
         return role
-
-
-    def fetch_answer_format(self) -> str:
-        with open(self.prompt_file, "r") as f:
-            dump_config_dict = json.load(f)
-        answer_format = dump_config_dict["answer_format_cot"]
-        return "\n".join(answer_format)
