@@ -115,12 +115,12 @@ class DataflowAnalyzer(LLMTool):
                             continue
                         callee_functions = self.ts_analyzer.get_all_callee_functions(state.function, propagation_info["function_name"])
                         for callee_function in callee_functions:
-                            src = self.ts_analyzer.get_parameter_by_index(callee_function, index)
-                            if not src:
-                                continue
-                            callee_state = DFAState(src, callee_function)
-                            if (self.__analyze(callee_state, depth+1, info_list)):
-                                current_path.add_child(callee_state, dependency, "argument", sink_line)
+                            for parameter in self.ts_analyzer.get_parameters_in_single_function(callee_function):
+                                if parameter.index == index:
+                                    src = parameter
+                                    callee_state = DFAState(src, callee_function)
+                                    if (self.__analyze(callee_state, depth+1, info_list)):
+                                        current_path.add_child(callee_state, dependency, "argument", sink_line)
                     
                     if propagation_info["type"] == "Return":
                         # For callee functions, the source variable is parameter, we don't need to retrieve their callers.
@@ -128,9 +128,9 @@ class DataflowAnalyzer(LLMTool):
                             continue 
                         caller_functions = self.ts_analyzer.get_all_caller_functions(state.function)
                         for caller_function in caller_functions:
-                            call_sites = self.ts_analyzer.get_return_value_from_callsite(caller_function, state.function.function_name)
-                            for return_value in call_sites:
-                                caller_state = DFAState(return_value, caller_function)
+                            for callsite in self.ts_analyzer.get_callsite_by_callee_name(caller_function, state.function.function_name):
+                                output_value = self.ts_analyzer.get_output_value_at_callsite(caller_function, callsite)
+                                caller_state = DFAState(output_value, caller_function)
                                 if (self.__analyze(caller_state, depth+1, info_list)):
                                     current_path.add_child(caller_state, dependency, "return", sink_line)
                     
@@ -146,12 +146,12 @@ class DataflowAnalyzer(LLMTool):
                         caller_functions = self.ts_analyzer.get_all_caller_functions(state.function)
                         for caller_function in caller_functions:
                             callee_name = state.function.function_name
-                            pointer_args = self.ts_analyzer.get_argument_by_index(caller_function, callee_name, index)
-                            for arg in pointer_args:
-                                caller_state = DFAState(arg, caller_function)
-                                if (self.__analyze(caller_state, depth+1, info_list)):
-                                    current_path.add_child(caller_state, dependency, "parameter", sink_line)
-        
+                            for callsite in self.ts_analyzer.get_callsite_by_callee_name(caller_function, callee_name):
+                                for arg in self.ts_analyzer.get_arguments_at_callsite(caller_function, callsite):
+                                    if arg.index == index:
+                                        caller_state = DFAState(arg, caller_function)
+                                        if (self.__analyze(caller_state, depth+1, info_list)):
+                                            current_path.add_child(caller_state, dependency, "parameter", sink_line)
         return True
 
     def get_prompt(self, state: DFAState) -> str:

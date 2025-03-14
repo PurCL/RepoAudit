@@ -285,7 +285,7 @@ class DFScanAgent:
 
 
     def validate_with_LLM(self, bug_trace:list[PostPath]) -> bool:
-        functions = [self.ts_analyzer.environment[path.function_id] for path in bug_trace]
+        functions = [self.ts_analyzer.function_env[path.function_id] for path in bug_trace]
         
         vali_paths = []
         for i, path in enumerate(bug_trace):
