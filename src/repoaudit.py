@@ -2,6 +2,7 @@ import argparse
 import glob
 from agent.metascan import *
 from agent.bugscan import *
+from agent.DFscan import *
 
 class RepoAudit:
     def __init__(
@@ -79,6 +80,20 @@ class RepoAudit:
             )
             bugscan_agent.start_scan()
 
+        if "DFscan" in self.scanners:
+            DFscan_agent = DFScanAgent(
+                self.seed_spec_file,
+                project_name,
+                self.language,
+                self.all_files,
+                self.inference_model_name,
+                self.temperature,
+                self.bug_type,
+                self.boundary,
+                self.max_workers
+            )
+            DFscan_agent.start_scan()
+
     def travese_files(self, project_path: str, suffixs: List) -> None:
         """
         Traverse all files in the project path.
@@ -142,7 +157,7 @@ def run_dev_mode():
     parser.add_argument(
         "--scanners",
         nargs='+',
-        choices=["metascan", "bugscan"],
+        choices=["metascan", "bugscan", "DFscan"],
         help="Specify which scanners to invoke",
     )
     parser.add_argument(

@@ -82,7 +82,7 @@ class BugScanAgent:
 
     def start_scan(self):
         log_dir_path = str(
-            Path(__file__).resolve().parent.parent.parent / (f"log/{self.bug_type}/{self.project_name}")
+            Path(__file__).resolve().parent.parent.parent / (f"log/bugscan/{self.bug_type}/{self.project_name}-{time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())}")
         )
         if not os.path.exists(log_dir_path):
             os.makedirs(log_dir_path)
