@@ -1,5 +1,5 @@
 #!/bin/bash
-LANGUAGE=Python
+LANGUAGE=Java
 BUG_TYPE=NPD
 SCANNER=metascan
 PROJECT_NAME=toy
@@ -11,6 +11,6 @@ python3 repoaudit.py \
   --bug-type $BUG_TYPE \
   --global-temperature 0.0 \
   --scanners $SCANNER \
-  --boundary 3 \
+  --boundary 6 \
   --max-workers 3 \
   --seed-spec-file ../result/extract/$BUG_TYPE/${LANGUAGE}_${PROJECT_NAME}/seed_result.json

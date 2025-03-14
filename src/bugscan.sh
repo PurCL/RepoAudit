@@ -1,5 +1,5 @@
 #!/bin/bash
-LANGUAGE=Go
+LANGUAGE=Java
 BUG_TYPE=NPD
 SCANNER=bugscan
 PROJECT_NAME=toy
