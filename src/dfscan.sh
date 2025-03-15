@@ -12,5 +12,5 @@ python3 repoaudit.py \
   --global-temperature 0.0 \
   --scanners $SCANNER \
   --boundary 3 \
-  --max-workers 3 \
-  --seed-spec-file ../result/extract/$BUG_TYPE/${LANGUAGE}_${PROJECT_NAME}/seed_result.json
+  --max-workers 1 \
+  --seed-spec-file ../result/src_extract/$BUG_TYPE/${LANGUAGE}_${PROJECT_NAME}/seed_result.json

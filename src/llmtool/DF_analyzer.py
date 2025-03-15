@@ -42,9 +42,9 @@ class DataflowAnalyzer(LLMTool):
         }
 
         self.path_pattern = r"(Lines|Line) (?P<lines>.+?)\. Status: (?P<status>\w+)"
-        self.callee_pattern = r"- Callee: (?P<callee>.+?)\. Argument: (?P<argument>\d+)\. Propagation Line: (?P<line_number>\d+)\. Dependency: (?P<dependency>.+)"
-        self.caller_pattern = r"- Caller. Type: (?P<type>.+?)\. Index: (?P<index>.+?)\. Propagation Line: (?P<line_number>\d+)\. Dependency: (?P<dependency>.+)"
+        self.propagation_pattern = r"- Type: (?P<type>.+?)\. Function Name: (?P<function>.+?)\. Index: (?P<index>.+?)\. Line: (?P<line>.+?)\. Dependency: (?P<dependency>.+)"
         self.safe_pattern = r"- Dependency: (?P<dependency>.+)"
+        self.bug_pattern = r"- Line: (?P<line>\d+)\. Operation: `(?P<operation>[^`]+)`\. Dependency: (?P<dependency>.+)"
 
 
     def analyze(self, state: DFAState, depth: int) -> Tuple[bool, list[dict]]:
@@ -103,7 +103,7 @@ class DataflowAnalyzer(LLMTool):
                     if "->" in dependency:
                         continue
                     try:
-                        sink_line = int(propagation_info["line"]) + state.function.start_line_number - 1
+                        propagation_line = int(propagation_info["line"]) + state.function.start_line_number - 1
                     except:
                         print(f"Sink line error: {path_info}")
                         continue
@@ -120,7 +120,7 @@ class DataflowAnalyzer(LLMTool):
                                 continue
                             callee_state = DFAState(src, callee_function)
                             if (self.__analyze(callee_state, depth+1, info_list)):
-                                current_path.add_child(callee_state, dependency, "argument", sink_line)
+                                current_path.add_child(callee_state, dependency, propagation_line)
                     
                     if propagation_info["type"] == "Return":
                         # For callee functions, the source variable is parameter, we don't need to retrieve their callers.
@@ -132,7 +132,7 @@ class DataflowAnalyzer(LLMTool):
                             for return_value in call_sites:
                                 caller_state = DFAState(return_value, caller_function)
                                 if (self.__analyze(caller_state, depth+1, info_list)):
-                                    current_path.add_child(caller_state, dependency, "return", sink_line)
+                                    current_path.add_child(caller_state, dependency, propagation_line)
                     
                     if propagation_info["type"] == "Parameter":
                         # For callee functions, the source variable is parameter, we don't need to retrieve their callers.
@@ -150,7 +150,7 @@ class DataflowAnalyzer(LLMTool):
                             for arg in pointer_args:
                                 caller_state = DFAState(arg, caller_function)
                                 if (self.__analyze(caller_state, depth+1, info_list)):
-                                    current_path.add_child(caller_state, dependency, "parameter", sink_line)
+                                    current_path.add_child(caller_state, dependency, propagation_line=-1)
         
         return True
 
@@ -270,51 +270,29 @@ class DataflowAnalyzer(LLMTool):
                         dependency = match.group("dependency")
                         current_path["safe_info"] = {"dependency": dependency}
                     
-                    if status == "Bug":
-                        if self.bug_type == "MLK":
-                            bug_pattern = r"- Dependency: (?P<dependency>.+)"
-                            match = re.search(bug_pattern, line)
-                            if not match:
-                                format_error = f"Bug format error {line}"
-                                break
-                            dependency = match.group("dependency")
-                            current_path["bug_info"] = {"dependency": dependency}
-                        
-                        if self.bug_type == "NPD" or self.bug_type == "UAF":
-                            bug_pattern = r"- (Lines|Line) (?P<line>\d+)\. Trigger Operation: `(?P<deference_operation>[^`]+)`\. Dependency: (?P<dependency>.+)"
-                            match = re.search(bug_pattern, line)
-                            if not match:
-                                format_error = f"Bug format error {line}"
-                                break
-                            bug_line = match.group('line')
-                            operation = match.group('deference_operation')
-                            dependency = match.group('dependency')
-                            current_path["bug_info"] = {"operation": operation, "dependency": dependency, "line": bug_line}
+                    if status == "Bug":    
+                        match = re.search(self.bug_pattern, line)
+                        if not match:
+                            format_error = f"Bug format error {line}"
+                            break
+                        bug_line = match.group('line')
+                        operation = match.group('operation')
+                        dependency = match.group('dependency')
+                        current_path["bug_info"] = {"operation": operation, "dependency": dependency, "line": bug_line}
 
                     if status == "Unknown":
                         if "propagation_info" not in current_path:
                             current_path["propagation_info"] = []
-                        if line.startswith("- Callee"):
-                            match = re.search(self.callee_pattern, line)
-                            if not match:
-                                format_error = f"Callee format error {line}"
-                                break
-                            callee_name = match.group('callee')
-                            index = match.group('argument')
-                            dependency = match.group('dependency')
-                            callsite_line = match.group('line_number')
-                            current_path["propagation_info"].append({"type": "Argument", "function_name": callee_name, "index": index, "dependency": dependency, "line": callsite_line})
-
-                        if line.startswith("- Caller"):
-                            match = re.search(self.caller_pattern, line)
-                            if not match:
-                                format_error = f"Caller format error {line}"
-                                break
-                            type = match.group('type')
-                            index = match.group('index')
-                            dependency = match.group('dependency')
-                            ret_line = match.group('line_number')
-                            current_path["propagation_info"].append({"type": type, "function_name": "", "index": index, "dependency": dependency, "line": ret_line})
+                        match = re.search(self.propagation_pattern, line)
+                        if not match:
+                            format_error = f"Propagation format error {line}"
+                            break
+                        type = match.group('type')
+                        function_name = match.group('function')
+                        index = match.group('index')
+                        line_number = match.group('line')
+                        dependency = match.group('dependency')
+                        current_path["propagation_info"].append({"type": type, "function_name": function_name, "index": index, "dependency": dependency, "line": line_number})
 
             if format_error != "":
                 print(format_error)
