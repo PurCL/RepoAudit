@@ -50,19 +50,19 @@
       "    result.set_value(length)",
       "    output_buffer.append(src)",
       "```",
-      "External Propagation:",
-      "- Type: Argument. Callee: log_message. Index: 0",
+      "External Variables:",
+      "- Type: Argument. Callee: log_message. Index: 0.",
       "- Type: Return Value.",
-      "- Type: Parameter. Index: 0 (result modified via set_value)",
-      "- Type: Parameter. Index: 1 (output_buffer modified via append)"
+      "- Type: Parameter. Index: 0.",
+      "- Type: Parameter. Index: 1."
     ],
-    "question_template": "- Extract the sliced code that uses the <SRC_TYPE> <SEED_NAME> <SRC_LINE> in this function.",
+    "question_template": "- Extract the sliced code that uses the <SEED_TYPE> <SEED_NAME> <SEED_LINE> in this function.",
     "answer_format_cot": [
       "(1) Begin by outlining your reasoning process step by step, explaining how you determined the critical code statements influenced by src.",
       "(2) Once your reasoning is complete, start your answer with 'Answer:'.",
       "(3) Provide two sections in your answer:",
       "    a. Slicing: The minimal set of code statements showing where the src value propagates or is used.",
-      "    b. External Propagation: A list describing any propagation of src beyond the current function. For each external propagation, specify:",
+      "    b. External Variables: A list describing any propagation of src beyond the current function. For each External Variables, specify:",
       "         - If passed as an argument to a callee, include the callee's name and the argument index (starting at 0).",
       "         - If returned from the function, no additional details are needed.",
       "         - If assigned to a module or class attribute, state the attribute's name.",
@@ -72,6 +72,6 @@
       "Now I will give you a target function: \n```\n<FUNCTION>\n``` \n\n",
       "Please answer the following question:\n<QUESTION>\n",
       "Your answer should strictly follow the following format: \n<ANSWER>\n",
-      "When you output the External Propagation, do not give any additional explanation. Please strictly follow the format provided."
+      "When you output the external variables, do not give any additional explanation. Please strictly follow the format provided."
     ]
 }

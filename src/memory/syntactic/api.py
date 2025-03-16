@@ -25,4 +25,4 @@ class API:
                 self.api_para_num == other.api_para_num)
     
     def __hash__(self) -> int:
-        return hash(self.api_name, self.api_para_num)
+        return hash((self.api_name, self.api_para_num))

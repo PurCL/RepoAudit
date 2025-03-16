@@ -6,7 +6,7 @@
     "1. Analyze the function and identify statements that impact the value of 'src'.",
     "2. Extract a concise slice containing only critical statements affecting 'src'. Summarize redundant statements instead of listing them explicitly.",
     "3. If the value of 'src' depends on external variables or functions, describe how they propagate into the function through the following mechanisms:",
-    "   - If 'src' depends on the return value of another function, provide the function's name.",
+    "   - If 'src' depends on the output value of another function called in the current function, provide the callee function's name.",
     "   - If 'src' is derived from a function parameter, specify the parameter index.",
     "   - If 'src' relies on an argument of a function call, provide the function's name and the argument index.",
     "   - If 'src' relies on a global variable, provide its name."
@@ -47,8 +47,8 @@
     "9. }",
     "```",
     "External Variables:",
-    "- Type: Parameter. Index: 0",
-    "- Type: Return Value. Callee: Goo",
+    "- Type: Parameter. Index: 0.",
+    "- Type: Output Value. Callee: Goo.",
     "",
     "Example 2:",
     "User:",
@@ -86,25 +86,25 @@
     "6. }",
     "```",
     "External Variables:",
-    "- Type: Return Value. Callee: Hoo",
-    "- Type: Global Variable. Name: BUFFER_SIZE"
+    "- Type: Output Value. Callee: Hoo.",
+    "- Type: Global Variable. Name: BUFFER_SIZE."
   ],
-  "question_template": "- Which code statements are included in the static slice related to the value of the <SRC_TYPE> <SEED_NAME> <SRC_LINE> in this function?",
+  "question_template": "- Which code statements are included in the static slice related to the value of the <SEED_TYPE> <SEED_NAME> <SEED_LINE> in this function?",
   "answer_format_cot": [
     "1. Begin with a step-by-step explanation of how 'src' is influenced.",
     "2. After completing the explanation, start your answer with 'Answer:'.",
     "3. Your response must contain two sections:",
     "   - Slicing: The minimal set of code statements affecting 'src'.",
     "   - External Variables: A list of external dependencies, specifying:",
-    "      - Callee function return values ('Function Name: <name>').",
+    "      - Callee function output values ('Function Name: <name>').",
     "      - Function parameters ('Index: <index>').",
     "      - Callee function arguments ('Function Name: <name>, Index: <index>').",
     "      - Global variables ('Variable Name: <name>').",
-
-    "(4) In the second section, describe any external variables that the value depends on.",
-    "- If the value depends on the return value of a caller function, provide the name of that function.",
+    "4. In the second section, describe any external variables that the value depends on.",
+    "- If the value depends on the output value of a callee function, provide the name of that callee function.",
     "- If the value is obtained from a parameter of the current function, specify the index of the parameter.",
     "- If the value depends on global variables, provide the name of the relevant global variable.",
+    "",
     "Here are 2 example answers:",
     "Example 1:",
     "Explanation: {Detailed reasoning process}.",
@@ -114,7 +114,7 @@
     "{Relevant code statements}",
     "```",
     "External Variables:",
-    "- Type: {The type of the external variable}. {Additional information based on the source type: function name if it is a return value, index (starting at 0) if it is a parameter, or the global variable name if it is a global variable.}",
+    "- Type: {The type of the external variable}. {Additional information based on the source type: function name if it is an output value, index (starting at 0) if it is a parameter, or the global variable name if it is a global variable.}",
     "Example 2:",
     "Explanation: {Detailed reasoning process}.",
     "Answer:",
@@ -123,14 +123,15 @@
     "{Relevant code statements}",
     "```",
     "External Variables:",
-    "- Type: Return Value. Callee: Foo",
-    "- Type: Parameter. Index: 0",
-    "- Type: Argument. Callee: Goo. Index: 1",
-    "- Type: Global Variable. Name: BAR"
+    "- Type: Output Value. Callee: Foo.",
+    "- Type: Parameter. Index: 0.",
+    "- Type: Argument. Callee: Goo. Index: 1.",
+    "- Type: Global Variable. Name: BAR."
   ],
   "meta_prompts": [
     "Now I will give you a target function: \n```go\n<FUNCTION>\n``` \n\n",
     "Please answer the following question:\n<QUESTION>\n",
-    "Your answer should strictly follow the following format: \n<ANSWER>\n"
+    "Your answer should strictly follow the following format: \n<ANSWER>\n",
+    "When you output the external variables, do not give any additional explanation. Please strictly follow the format provided."
   ]
 }

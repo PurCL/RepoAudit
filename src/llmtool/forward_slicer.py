@@ -11,6 +11,21 @@ from memory.syntactic.value import *
 from llmtool.LLM_tool import *
 BASE_PATH = Path(__file__).resolve().parents[1]
 
+class Cache:
+    def __init__(self, slice: str, external_variables: list[dict] = None) -> None:
+        self.slice = slice
+        self.__variable_format = {
+            "type": "",
+            "callee_name": "",
+            "index": "",
+            "variable_name": ""
+        }
+        self.external_variables = external_variables if external_variables is not None else []
+
+    def add_external_variable(self, value_dict: dict) -> None:
+        if value_dict.keys() == self.__variable_format.keys():
+            self.external_variables.append(value_dict)
+
 class ForwardSlicer(LLMTool):
     """
     Forward slicer class
@@ -36,11 +51,11 @@ class ForwardSlicer(LLMTool):
             ValueLabel.ARG: "arguments",                # goto caller
         }
 
-        self.slice_pattern = r'Slicing:\s*(.*?)\s*External Propagation:'
-        self.external_pattern = r'External Propagation:\s*((?:-.*(?:\n|$))+)' 
+        self.slice_pattern = r'Slicing:\s*(.*?)\s*External Variables:'
+        self.external_pattern = r'External Variables:\s*((?:-.*(?:\n|$))+)' 
         self.var_pattern = (
             r'^\s*-\s*Type:\s*(?P<type>[^.]+)\.'
-            r'(?:\s*Callee:\s*(?:(?:[^.]+\.)*(?P<callee_name>[^.]+))\.)?'  # optional callee name for arguments
+            r'(?:\s*Callee:\s*(?P<callee_name>[^.]+)\.)?'  # optional callee name for arguments
             r'(?:\s*Index:\s*(?P<index>\d+))?'        # optional index for parameters/arguments
             r'(?:\s*Name:\s*(?P<variable_name>[^\n.]+))?'      # optional name for global variables
         )
@@ -162,8 +177,8 @@ class ForwardSlicer(LLMTool):
         message = message.replace("<FUNCTION>", state.function.lined_code)
         question = (
             dump_config_dict["question_template"].replace("<SEED_NAME>", src_name)
-            .replace("<SRC_LINE>", f"at line {src_line_number}")
-            .replace("<SRC_TYPE>", src_type)
+            .replace("<SEED_LINE>", f"at line {src_line_number}")
+            .replace("<SEED_TYPE>", src_type)
         )
         message = message.replace("<QUESTION>", question)
         message = message.replace("<ANSWER>", answer_format)

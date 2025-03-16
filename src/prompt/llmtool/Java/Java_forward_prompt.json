@@ -1,21 +1,21 @@
 {
     "model_role_name": "Java Static Forward Slicer",
     "system_role": "You are a Java programmer and highly experienced in analyzing Java code.",
-    "task": "Given a method and a specific source variable or object denoted as 'src', perform static slicing to extract the code statements that use 'src' or its aliases or where the method terminates.",
+    "task": "Given a function and a specific source variable or object denoted as 'src', perform static slicing to extract the code statements that use 'src' or its aliases or where the function terminates.",
     "analysis_rules": [
-      "1. Identify all method exit points, including 'return' statements, exceptions, and System.exit calls, as they are crucial for slicing.",
-      "2. Identify all aliases of 'src' by analyzing the method's data flow.",
-      "3. Extract code statements where 'src' (or its aliases) are used or where the method terminates. The slice should be concise, retaining only essential statements. Redundant statements may be summarized, but all method exit points must be explicitly included.",
-      "4. If 'src' can propagate outside the method directly, describe how this occurs. There are four primary propagation mechanisms:",
-      "   - As an argument to another method call (callee).",
-      "   - As a return value of the method.",
-      "   - Through assignment to class fields (global variables).",
-      "   - By modifying objects passed as method parameters."
+      "1. Identify all function exit points, including 'return' statements, exceptions, and System.exit calls, as they are crucial for slicing.",
+      "2. Identify all aliases of 'src' by analyzing the function's data flow.",
+      "3. Extract code statements where 'src' (or its aliases) are used or where the function terminates. The slice should be concise, retaining only essential statements. Redundant statements may be summarized, but all function exit points must be explicitly included.",
+      "4. If 'src' can propagate outside the function directly, describe how this occurs. There are four primary propagation mechanisms:",
+      "   - As an argument to another function call (callee).",
+      "   - As a return value to the caller.",
+      "   - Through assignment to global variables, e.g,. class fields.",
+      "   - By modifying objects passed as function parameters."
     ],
     "analysis_examples": [
       "Example 1:",
       "User:",
-      "Now I will give you a target method:",
+      "Now I will give you a target function:",
       "```java",
       "public void processData(ResultContainer result, StringBuilder outputBuffer) {",
       "    int tempValue = 42;",
@@ -31,9 +31,9 @@
       "    outputBuffer.append(src);",
       "}",
       "```",
-      "Extract the sliced code that uses the variable src at its initialization in this method.",
+      "Extract the sliced code that uses the variable src at its initialization in this function.",
       "System:",
-      "Explanation: The method initializes 'src' with a call to initializeSource(), checks for null, modifies it, logs it, and then uses its length to set a result and appends it to outputBuffer. The slice must capture:",
+      "Explanation: The function initializes 'src' with a call to initializeSource(), checks for null, modifies it, logs it, and then uses its length to set a result and appends it to outputBuffer. The slice must capture:",
       " - The initialization of 'src'.",
       " - The null-check and its branch.",
       " - The modification of 'src'.",
@@ -54,28 +54,28 @@
       "    outputBuffer.append(src);",
       "}",
       "```",
-      "External Propagation:",
-      "- Type: Argument. Callee: logMessage. Index: 0",
+      "External Variables:",
+      "- Type: Argument. Callee: logMessage. Index: 0.",
       "- Type: Return Value.",
-      "- Type: Parameter. Index: 0 (ResultContainer modified via setValue)",
-      "- Type: Parameter. Index: 1 (StringBuilder modified via append)"
+      "- Type: Parameter. Index: 0.",
+      "- Type: Parameter. Index: 1."
     ],
-    "question_template": "- Extract the sliced code that uses the <SRC_TYPE> <SEED_NAME> <SRC_LINE> in this method.",
+    "question_template": "- Extract the sliced code that uses the <SEED_TYPE> <SEED_NAME> <SEED_LINE> in this function.",
     "answer_format_cot": [
       "(1) Begin by outlining your reasoning process step by step, explaining how you determined the critical code statements influenced by src.",
       "(2) Once your reasoning is complete, start your answer with 'Answer:'.",
       "(3) Provide two sections in your answer:",
       "    a. Slicing: The minimal set of code statements showing where the src value propagates or is used.",
-      "    b. External Propagation: A list describing any propagation of src beyond the current method. For each external propagation, specify:",
+      "    b. External Variables: A list describing any propagation of src beyond the current function. For each External Variables, specify:",
       "         - If passed as an argument to a callee, include the callee's name and the argument index (starting at 0).",
-      "         - If returned from the method, no additional details are needed.",
-      "         - If assigned to a class field, state the field's name.",
+      "         - If returned from the function, no additional details are needed.",
+      "         - If assigned to a global variable, state the variable's name.",
       "         - If written to an object passed as a parameter, include the parameter index (starting at 0)."
     ],
     "meta_prompts": [
-      "Now I will give you a target method: \n```\n<FUNCTION>\n``` \n\n",
+      "Now I will give you a target function: \n```\n<FUNCTION>\n``` \n\n",
       "Please answer the following question:\n<QUESTION>\n",
       "Your answer should strictly follow the following format: \n<ANSWER>\n",
-      "When you output the External Propagation, do not give any additional explanation. Please strictly follow the format provided."
+      "When you output the external variables, do not give any additional explanation. Please strictly follow the format provided."
     ]
 }

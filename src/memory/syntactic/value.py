@@ -16,29 +16,38 @@ class ValueLabel(Enum):
     LOCAL = 9
     GLOBAL = 10
 
+    def __str__(self) -> str:
+        mapping = {
+            ValueLabel.SRC: "ValueLabel.SRC",
+            ValueLabel.SINK: "ValueLabel.SINK",
+            ValueLabel.PARA: "ValueLabel.PARA",
+            ValueLabel.RET: "ValueLabel.RET",
+            ValueLabel.ARG: "ValueLabel.ARG",
+            ValueLabel.OUT: "ValueLabel.OUT",
+            ValueLabel.BUF_ACCESS_EXPR: "ValueLabel.BUF_ACCESS_EXPR",
+            ValueLabel.NON_BUF_ACCESS_EXPR: "ValueLabel.NON_BUF_ACCESS_EXPR",
+            ValueLabel.LOCAL: "ValueLabel.LOCAL",
+            ValueLabel.GLOBAL: "ValueLabel.GLOBAL"
+        }
+        return mapping[self]
+
     @staticmethod
     def from_str(s: str):
-        if s == "ValueLabel.SRC":
-            return ValueLabel.SRC
-        elif s == "ValueLabel.SINK":
-            return ValueLabel.SINK
-        elif s == "ValueLabel.PARA":
-            return ValueLabel.PARA
-        elif s == "ValueLabel.RET":
-            return ValueLabel.RET
-        elif s == "ValueLabel.ARG":
-            return ValueLabel.ARG
-        elif s == "ValueLabel.OUT":
-            return ValueLabel.OUT
-        elif s == "ValueLabel.BUF_ACCESS_EXPR":
-            return ValueLabel.BUF_ACCESS_EXPR
-        elif s == "ValueLabel.NON_BUF_ACCESS_EXPR":
-            return ValueLabel.NON_BUF_ACCESS_EXPR
-        elif s == "ValueLabel.LOCAL":
-            return ValueLabel.LOCAL
-        elif s == "ValueLabel.GLOBAL":
-            return ValueLabel.GLOBAL
-        else:
+        mapping = {
+            "ValueLabel.SRC": ValueLabel.SRC,
+            "ValueLabel.SINK": ValueLabel.SINK,
+            "ValueLabel.PARA": ValueLabel.PARA,
+            "ValueLabel.RET": ValueLabel.RET,
+            "ValueLabel.ARG": ValueLabel.ARG,
+            "ValueLabel.OUT": ValueLabel.OUT,
+            "ValueLabel.BUF_ACCESS_EXPR": ValueLabel.BUF_ACCESS_EXPR,
+            "ValueLabel.NON_BUF_ACCESS_EXPR": ValueLabel.NON_BUF_ACCESS_EXPR,
+            "ValueLabel.LOCAL": ValueLabel.LOCAL,
+            "ValueLabel.GLOBAL": ValueLabel.GLOBAL
+        }
+        try:
+            return mapping[s]
+        except KeyError:
             raise ValueError(f"Invalid label: {s}")
 
 

@@ -11,6 +11,22 @@ from memory.syntactic.value import *
 from llmtool.LLM_tool import *
 BASE_PATH = Path(__file__).resolve().parents[1]
 
+
+class Cache:
+    def __init__(self, slice: str, external_variables: list[dict] = None) -> None:
+        self.slice = slice
+        self.__variable_format = {
+            "type": "",
+            "callee_name": "",
+            "index": "",
+            "variable_name": ""
+        }
+        self.external_variables = external_variables if external_variables is not None else []
+
+    def add_external_variable(self, value_dict: dict) -> None:
+        if value_dict.keys() == self.__variable_format.keys():
+            self.external_variables.append(value_dict)
+
 class BackwardSlicer(LLMTool):
     """
     Backward slicer class
@@ -165,8 +181,8 @@ class BackwardSlicer(LLMTool):
         message = message.replace("<FUNCTION>", state.function.lined_code)
         question = (
             dump_config_dict["question_template"].replace("<SEED_NAME>", src_name)
-            .replace("<SRC_LINE>", f"at line {src_line_number}" if state.var.label != ValueLabel.RET else "")
-            .replace("<SRC_TYPE>", src_type)
+            .replace("<SEED_LINE>", f"at line {src_line_number}" if state.var.label != ValueLabel.RET else "")
+            .replace("<SEED_TYPE>", src_type)
         )
         message = message.replace("<QUESTION>", question)
         message = message.replace("<ANSWER>", answer_format)
@@ -236,10 +252,3 @@ class BackwardSlicer(LLMTool):
             print(f"Format error in {self.MAX_QUERY_NUM} queries")
             return False   
         return True
-
-
-    def fetch_system_role(self):
-        with open(self.prompt_file, "r") as f:
-            dump_config_dict = json.load(f)
-        role = dump_config_dict["system_role"].replace("<LANGUAGE>", self.language)
-        return role

@@ -77,7 +77,6 @@ class Java_TSAnalyzer(TSAnalyzer):
         for call_site in call_site_nodes:
             if self.get_callee_name_at_call_site(call_site, file_content) == callee_name:
                 results.append(call_site)
-                break
         return results
 
     def get_arguments_at_callsite(self, current_function: Function, call_site_node: tree_sitter.Node) -> Set[Value]:

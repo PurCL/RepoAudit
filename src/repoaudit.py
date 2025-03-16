@@ -3,6 +3,7 @@ import glob
 from agent.metascan import *
 from agent.bugscan import *
 from agent.DFscan import *
+from agent.slicescan import *
 
 class RepoAudit:
     def __init__(
@@ -94,6 +95,36 @@ class RepoAudit:
             )
             DFscan_agent.start_scan()
 
+        if "slicescan" in self.scanners:
+                # def __init__(self,
+                #  seed_values: List[Value],
+                #  is_backward: bool,
+                #  project_name: str,
+                #  language: str,
+                #  code_in_projects: Dict[str, str],
+                #  model_name: str,
+                #  temperature: float,
+                #  call_depth: int = 1,
+                #  max_workers: int = 1
+                #  ) -> None:
+            slicescan_agent = SliceScanAgent(
+                [],
+                True,
+                project_name,
+                self.language,
+                self.all_files,
+                self.inference_model_name,
+                self.temperature,
+                self.boundary,
+                self.max_workers
+            )
+            slicescan_agent.start_scan()
+
+
+            print(slicescan_agent.get_agent_result())
+
+
+
     def travese_files(self, project_path: str, suffixs: List) -> None:
         """
         Traverse all files in the project path.
@@ -157,7 +188,7 @@ def run_dev_mode():
     parser.add_argument(
         "--scanners",
         nargs='+',
-        choices=["metascan", "bugscan", "DFscan"],
+        choices=["metascan", "bugscan", "DFscan", "slicescan"],
         help="Specify which scanners to invoke",
     )
     parser.add_argument(
