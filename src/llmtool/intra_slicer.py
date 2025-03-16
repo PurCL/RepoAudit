@@ -99,6 +99,7 @@ class IntraSlicer(LLMTool):
         super().__init__(model_name, temperature, language, max_query_num)
         self.backward_prompt_file = f"{BASE_PATH}/prompt/llmtool/{language}/{language}_backward_prompt.json"
         self.forward_prompt_file = f"{BASE_PATH}/prompt/llmtool/{language}/{language}_forward_prompt.json"
+        return
 
     def _get_prompt(self, input: IntraSlicerInput) -> str:
         prompt_file = self.forward_prompt_file if not input.is_backward else self.backward_prompt_file
@@ -125,16 +126,16 @@ class IntraSlicer(LLMTool):
 
 
     def _parse_response(self, response: str) -> IntraSlicerOutput:
-        self.slice_pattern = r'Slicing:\s*(.*?)\s*External Variables:'
-        self.ext_values_pattern = r'External Variables:\s*((?:-.*(?:\n|$))+)' 
-        self.var_pattern = (
+        slice_pattern = r'Slicing:\s*(.*?)\s*External Variables:'
+        ext_values_pattern = r'External Variables:\s*((?:-.*(?:\n|$))+)' 
+        var_pattern = (
             r'^\s*-\s*Type:\s*(?P<type>[^.]+)\.'
             r'(?:\s*Callee:\s*(?P<callee_name>[^.]+)\.)?'      # optional callee name for arguments
             r'(?:\s*Index:\s*(?P<index>\d+))?'                 # optional index for parameters/arguments
             r'(?:\s*Name:\s*(?P<variable_name>[^\n.]+))?'      # optional name for global variables
         )
     
-        slice_match = re.search(self.slice_pattern, response, re.DOTALL)
+        slice_match = re.search(slice_pattern, response, re.DOTALL)
         if slice_match:
             output_slice = slice_match.group(1).strip()
         else:
@@ -143,11 +144,11 @@ class IntraSlicer(LLMTool):
             return None
 
         output_ext_values = []
-        var_match = re.search(self.ext_values_pattern, response, re.DOTALL)
+        var_match = re.search(ext_values_pattern, response, re.DOTALL)
         if var_match:
             var_lines = var_match.group(1).splitlines()
             for line in var_lines:
-                match = re.match(self.var_pattern, line)
+                match = re.match(var_pattern, line)
                 if not match:
                     continue
                 if match["type"] not in ["Return Value", "Parameter", "Argument", "Global Variable", "Output Value"]:

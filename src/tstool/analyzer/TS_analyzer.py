@@ -247,21 +247,49 @@ class TSAnalyzer(ABC):
 
     # Helper functions for callees
     ## For user-defined functions
-    def get_all_callee_functions(self, function: Function, callee_name: str) -> List[Function]:
+    def get_all_callee_functions(self, function: Function) -> List[Function]:
         """
         Get all callee functions matching a specific name from the given function.
         :param function: The function to be analyzed.
-        :param callee: The name of the callee function.
         """
-        while callee_name in self.glb_var_map:
-            callee_name = self.glb_var_map[callee_name]
+        # TODO: @jinyao. We need to find a more elegant way to expand the macro
+        # while callee_name in self.glb_var_map:
+        #     callee_name = self.glb_var_map[callee_name]
         if function.function_id not in self.function_caller_callee_map:
             return []
-        callee_list = []
-        for callee_id in self.function_caller_callee_map[function.function_id]:
-            if self.function_env[callee_id].function_name == callee_name:
-                callee_list.append(self.function_env[callee_id])
-        return callee_list
+        callee_ids = self.function_caller_callee_map[function.function_id]
+        return [self.function_env[callee_id] for callee_id in callee_ids]
+    
+    def get_all_transitive_caller_functions(self, function: Function, max_depth = 1000) -> List[Function]:
+        """
+        Get all transitive caller functions for the provided function.
+        """
+        if max_depth == 0:
+            return []
+        if function.function_id not in self.function_callee_caller_map:
+            return []
+        caller_ids = self.function_callee_caller_map[function.function_id]
+        caller_functions = [self.function_env[caller_id] for caller_id in caller_ids]
+        for caller_function in caller_functions:
+            caller_functions.extend(self.get_all_transitive_caller_functions(caller_function, max_depth - 1))
+        caller_functions = list({function.function_id: function for function in caller_functions}.values())
+        return caller_functions
+    
+    def get_all_transitive_callee_functions(self, function: Function, max_depth = 1000) -> List[Function]:
+        """
+        Get all transitive callee functions for the provided function.
+        """
+        if max_depth == 0:
+            return []
+        if function.function_id not in self.function_caller_callee_map:
+            return []
+        callee_ids = self.function_caller_callee_map[function.function_id]
+        callee_functions = [self.function_env[callee_id] for callee_id in callee_ids]
+        for callee_function in callee_functions:
+            callee_functions.extend(self.get_all_transitive_callee_functions(callee_function, max_depth - 1))
+        callee_functions = list({function.function_id: function for function in callee_functions}.values())
+        return callee_functions
+
     
     # Helper functions for callees
     ## For library APIs

@@ -96,7 +96,7 @@ class Extractor(ABC):
         :param source_code: Content of the source file.
         :param root_node: A node in the parsed syntax tree.
         :param file_path: Path of the source file.
-        :return: List of the pairs of seed values and traversal strategies. True for forward, False for backward.
+        :return: List of the pairs of seed values and traversal strategies. True for backward, False for forward.
         """
         pass
 

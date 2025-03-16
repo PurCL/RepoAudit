@@ -72,15 +72,24 @@ class SliceScanAgent:
                     self.seed_values = list(rets)
         
         self.seed_function = self.ts_analyzer.get_function_from_localvalue(self.seed_values[0])
+
+        # LLM tool used by SliceScanAgent
         self.intra_slicer = IntraSlicer(self.model_name, self.temperature, self.language, self.MAX_QUERY_NUM)
+
         self.state = SliceScanState(self.seed_function, self.seed_values, self.call_depth, self.is_backward)
         return
 
 
-    def update_worklist(self, input: IntraSlicerInput, output: IntraSlicerOutput, slice_context: SliceContext) -> List[Tuple[int, Value]]:
+    def __update_worklist(self, 
+                        input: IntraSlicerInput, 
+                        output: IntraSlicerOutput, 
+                        slice_context: SliceContext
+                        ) -> List[Tuple[int, Value]]:
         """
         Update the worklist based on the output of the intra-slicer
-        :param worklist: the current worklist
+        :param input: the input of the intra-slicer
+        :param output: the output of the intra-slicer
+        :param slice_context: the slice context, i.e., the parentheses context calling call stack
         """
         delta_worklist = []  # The list of (slice_context, function_id, a singleton of value)
         function_id = input.function.function_id
@@ -112,7 +121,11 @@ class SliceScanAgent:
                 elif ext_val_type == "Argument":
                     callee_name = external_variable["callee_name"]
                     index = external_variable["index"]
-                    callee_functions = self.ts_analyzer.get_all_callee_functions(function, callee_name)
+                    callee_functions = [
+                        function
+                        for function in self.ts_analyzer.get_all_callee_functions(function)
+                        if function.function_name == callee_name
+                    ]
                     for callee_function in callee_functions:
                         new_slice_context = copy.deepcopy(slice_context)
 
@@ -168,7 +181,11 @@ class SliceScanAgent:
                 ext_val_type = external_variable["type"]
                 if ext_val_type == "Output Value":
                     callee_name = external_variable["callee_name"]
-                    callee_functions = self.ts_analyzer.get_all_callee_functions(function, callee_name)
+                    callee_functions = [
+                        function
+                        for function in self.ts_analyzer.get_all_callee_functions(function)
+                        if function.function_name == callee_name
+                    ]
                     for callee_function in callee_functions:
                         # Backward slicing: Trace back to the callee function from the current function
                         new_slice_context = copy.deepcopy(slice_context)
@@ -214,7 +231,11 @@ class SliceScanAgent:
                     # Example: the argument *p used at a call site foo(p) is further utilized, i.e., x = p->f; 
                     # We need to consider the side-effect of the callee foo.
                     callee_name = external_variable["callee_name"]
-                    callee_functions = self.ts_analyzer.get_all_callee_functions(function, callee_name)
+                    callee_functions = [
+                        function
+                        for function in self.ts_analyzer.get_all_callee_functions(function)
+                        if function.function_name == callee_name
+                    ]
                     index = external_variable["index"]
                     for callee_function in callee_functions:
                         # Backward slicing: Trace back to the callee function from the current function
@@ -269,7 +290,7 @@ class SliceScanAgent:
             self.state.update_intra_slices_in_state(slice_context, self.ts_analyzer.function_env[function_id], seed_set, output.slice)
 
             # Add more functions to the worklist according to the external variables in the intra-slicing output
-            delta_worklist = self.update_worklist(input, output, slice_context)
+            delta_worklist = self.__update_worklist(input, output, slice_context)
             print("length of delta_worklist: ", len(delta_worklist))
             print("length of worklist: ", len(worklist))
 
@@ -386,8 +407,6 @@ class SliceScanAgent:
         # else:
         #     parallel(self.max_workers)
 
-    def get_agent_result(self) -> str:
-        for function in self.state.get_relevant_functions():
-            print(function.lined_code)
 
-        return self.state.get_result()
+    def get_agent_state(self) -> SliceScanState:
+        return self.state

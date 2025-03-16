@@ -92,7 +92,7 @@ class SliceScanState:
         self.intra_slices : List[Tuple[SliceContext, int, List[Value], str]] = []
         self.global_slices: List = []
 
-        # Map from a pair of function id and value to the slice state
+        # Map from the function id to the function
         # The functions are the relevant ones in the slicing task
         self.relevant_functions : Dict[int, Function] = {}
 

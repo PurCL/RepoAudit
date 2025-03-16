@@ -11,7 +11,7 @@ class Cpp_UAF_Extractor(Extractor):
         :param source_code: Content of the source file.
         :param root_node: A node in the parsed syntax tree.
         :param file_path: Path of the source file.
-        :return: List of the pairs of seed values and traversal strategies. True for forward, False for backward.
+        :return: List of the pairs of seed values and traversal strategies. True for backward, False for forward.
         """
         """
         Extract the seeds for UAF Detection from the source code.

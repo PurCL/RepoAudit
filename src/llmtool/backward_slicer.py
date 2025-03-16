@@ -83,7 +83,12 @@ class BackwardSlicer(LLMTool):
 
             if source_type == "Return Value":
                 callee_name = external_variable["callee_name"]
-                callee_functions = self.ts_analyzer.get_all_callee_functions(state.function, callee_name)
+                callee_functions = [
+                    function
+                    for function in self.ts_analyzer.get_all_callee_functions(state.function)
+                    if function.function_name == callee_name
+                ]
+
                 for callee_function in callee_functions:
                     # TODO: TO BE Refactored. @Jinyao. 
                     # The names of returned values should be specified with indexes (starting from 0)
@@ -135,7 +140,11 @@ class BackwardSlicer(LLMTool):
 
         # When retrieving callee functions, we analyze all parameters in one query.    
         for callee_name, index_set in para_dict.items():
-            callee_functions = self.ts_analyzer.get_all_callee_functions(state.function, callee_name)
+            callee_functions = [
+                function
+                for function in self.ts_analyzer.get_all_callee_functions(state.function)
+                if function.function_name == callee_name
+            ]
             for callee_function in callee_functions:
                 parameter_list = []
                 paras = self.ts_analyzer.get_parameters_in_single_function(callee_function)

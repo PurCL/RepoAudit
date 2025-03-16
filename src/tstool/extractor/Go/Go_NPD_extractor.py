@@ -15,7 +15,7 @@ class Go_NPD_Extractor(Extractor):
         :param source_code: Content of the source file.
         :param root_node: A node in the parsed syntax tree.
         :param file_path: Path of the source file.
-        :return: List of the pairs of seed values and traversal strategies. True for forward, False for backward.
+        :return: List of the pairs of seed values and traversal strategies. True for backward, False for forward.
         """
         ## Case I: Nil value from uninitialized variables
         var_declaration_nodes = find_nodes_by_type(root_node, "var_declaration")
@@ -28,14 +28,14 @@ class Go_NPD_Extractor(Extractor):
                         for sub_sub_node in sub_node.children:
                             if sub_sub_node.type == "identifier":
                                 name = source_code[sub_sub_node.start_byte:sub_sub_node.end_byte]
-                                seeds.append((Value(name, line_number, ValueLabel.NON_BUF_ACCESS_EXPR, file_name), True))
+                                seeds.append((Value(name, line_number, ValueLabel.NON_BUF_ACCESS_EXPR, file_name), False))
 
         ## Case II: Nil value from literal nil nodes
         literal_nil_nodes = find_nodes_by_type(root_node, "nil")
         for node in literal_nil_nodes:
             line_number = source_code[: node.start_byte].count("\n") + 1
             name = source_code[node.start_byte: node.end_byte]
-            seeds.append((Value(name, line_number, ValueLabel.NON_BUF_ACCESS_EXPR, file_name), True))
+            seeds.append((Value(name, line_number, ValueLabel.NON_BUF_ACCESS_EXPR, file_name), False))
         return seeds
     
 

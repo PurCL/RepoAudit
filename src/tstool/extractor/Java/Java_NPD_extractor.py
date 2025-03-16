@@ -15,13 +15,13 @@ class Java_NPD_Extractor(Extractor):
         :param source_code: Content of the source file.
         :param root_node: A node in the parsed syntax tree.
         :param file_path: Path of the source file.
-        :return: List of the pairs of seed values and traversal strategies. True for forward, False for backward.
+        :return: List of the pairs of seed values and traversal strategies. True for backward, False for forward.
         """
         null_value_nodes = find_nodes_by_type(root_node, "null_literal")
         seeds = []
         for node in null_value_nodes:
             line_number = source_code[: node.start_byte].count("\n") + 1
-            seeds.append((Value(source_code[node.start_byte:node.end_byte], line_number, ValueLabel.NON_BUF_ACCESS_EXPR, file_name), True))
+            seeds.append((Value(source_code[node.start_byte:node.end_byte], line_number, ValueLabel.NON_BUF_ACCESS_EXPR, file_name), False))
         return seeds
     
 

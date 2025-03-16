@@ -1,54 +1,69 @@
 from memory.syntactic.function import *
 from memory.syntactic.value import *
-from typing import List
+from typing import List, Tuple, Dict
+
+
+class BugReport:
+    def __init__(self, 
+                 bug_type: str, 
+                 buggy_value: Value, 
+                 buggy_function: Function,
+                 relevant_functions: Dict[int, Function], 
+                 tree_str: str,
+                 slice: str,
+                 inlined_slice: str,
+                 poc_str: str) -> None:
+        """
+        :param bug_type: the type of bug
+        :param buggy_value: the buggy value
+        :param buggy_function: the buggy function
+        :param relevant_functions: the relevant functions
+        :param call_tree: the call tree, showing the caller-callee relationship in tree format
+        :param slice: the slice consisting of the intra-slice and global-slice
+        :param inlined_slice: the inlined slice that simplify the buggy semantics of the bug report
+        :param poc_str: the proof of concept string as bug explanation
+        """
+        self.bug_type = bug_type
+        self.buggy_value = buggy_value
+        self.buggy_function = buggy_function
+        self.relevant_functions = relevant_functions
+        self.call_tree = tree_str
+        self.slice = slice
+        self.inlined_slice = inlined_slice
+        self.poc_str = poc_str
+        return
+    
+    def to_dict(self) -> dict:
+        return {
+            "bug_type": self.bug_type,
+            "buggy_value": str(self.buggy_value),
+            "buggy_function": self.buggy_function.function_name,
+            "relevant_functions": [self.relevant_functions[function_id].lined_code for function_id in self.relevant_functions],
+            "call_tree": self.call_tree,
+            "slice": self.slice,
+            "inlined_slice": self.inlined_slice,
+            "poc_str": self.poc_str,
+        }
+    
+    def __str__(self):
+        return str(self.to_dict())
+    
 
 class BugScanState:
-    def __init__(self, var: Value, function: Function):
-        self.var = var
-        self.function = function
-        self.slice = ""
-        self.callers: List[BugScanState] = []
-        self.callees: List[BugScanState] = []
-    
-    def get_src_line(self) -> int:
-        return self.var.line_number - self.function.start_line_number + 1
-    
-    def get_key(self) -> str:
-        return f"<{self.var.line_number}, {self.function.function_name}, {self.function.file_name}>"
-
-    def find_root(self):
+    def __init__(self, seed_values: List[Tuple[Value, bool]]) -> None:
         """
-        Find the root functions with no callers
+        :param seed_values: the seed values indicating the potential buggy points or root causes
         """
-        root_list = []
-        for caller in self.callers:
-            root_list.extend(caller.find_root())
-        if root_list == []:
-            root_list.append(self)
-        return root_list
+        self.seed_values = seed_values
+        self.bug_reports: dict[int, BugReport] = {}
+        self.total_bug_count = 0
+        return
     
-    def get_slice_tree(self) -> List[str]:
+    def update_state(self, bug_report: BugReport) -> None:
         """
-        Get the entire slice tree with the root as the current state
+        Update the bug scan state with the bug report
+        :param bug_report: the bug report
         """
-        all_slices = [self.slice] if self.slice != "" else []
-        for callee in self.callees:
-            all_slices.extend(callee.get_slice_tree())
-        return all_slices
-    
-    def get_call_tree(self) -> str:
-        def tree_str(node: BugScanState, prefix: str, is_last: bool, rec_stack: list[BugScanState]) -> str:
-            branch = ""
-            if prefix:
-                branch = "└── " if is_last else "├── "
-            result = prefix + branch + f"{node.function.function_name}" + "\n"
-            new_prefix = prefix + ("    " if is_last else "│   ")
-            child_count = len(node.callees)
-            for i, child in enumerate(node.callees):
-                if child in rec_stack:
-                    cycle_branch = "└── " if i == child_count - 1 else "├── "
-                    result += new_prefix + cycle_branch + f"{child.function} (cycle detected)" + "\n"
-                else:
-                    result += tree_str(child, new_prefix, i == child_count - 1, rec_stack + [child])
-            return result
-        return tree_str(self, "", True, [self])
+        self.bug_reports[self.total_bug_count] = bug_report
+        self.total_bug_count += 1
+        return

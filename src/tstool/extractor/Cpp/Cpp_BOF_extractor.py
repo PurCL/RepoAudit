@@ -12,7 +12,7 @@ class Cpp_BOF_Extractor(Extractor):
         :param source_code: Content of the source file.
         :param root_node: A node in the parsed syntax tree.
         :param file_path: Path of the source file.
-        :return: List of the pairs of seed values and traversal strategies. True for forward, False for backward.
+        :return: List of the pairs of seed values and traversal strategies. True for backward, False for forward.
         """
         nodes= find_nodes_by_type(root_node, "subscript_expression")
         nodes.extend(find_nodes_by_type(root_node, "call_expression"))
@@ -38,7 +38,7 @@ class Cpp_BOF_Extractor(Extractor):
             if is_seed_node:
                 line_number = source_code[: node.start_byte].count("\n") + 1
                 name = source_code[node.start_byte: node.end_byte]
-                seeds.append((Value(name, line_number, ValueLabel.BUF_ACCESS_EXPR, file_name), False))
+                seeds.append((Value(name, line_number, ValueLabel.BUF_ACCESS_EXPR, file_name), True))
         return seeds
     
 

@@ -70,12 +70,12 @@ class RepoAudit:
         if "bugscan" in self.scanners:
             bugscan_agent = BugScanAgent(
                 self.seed_spec_file,
+                self.bug_type,
                 project_name,
                 self.language,
                 self.all_files,
                 self.inference_model_name,
                 self.temperature,
-                self.bug_type,
                 self.boundary,
                 self.max_workers
             )

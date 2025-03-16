@@ -113,7 +113,11 @@ class DataflowAnalyzer(LLMTool):
                         except:
                             print(f"Argument index error: {path_info}")
                             continue
-                        callee_functions = self.ts_analyzer.get_all_callee_functions(state.function, propagation_info["function_name"])
+                        callee_functions = [
+                            function
+                            for function in self.ts_analyzer.get_all_callee_functions(state.function)
+                            if function.function_name == propagation_info["function_name"]
+                        ]
                         for callee_function in callee_functions:
                             for parameter in self.ts_analyzer.get_parameters_in_single_function(callee_function):
                                 if parameter.index == index:

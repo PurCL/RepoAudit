@@ -11,7 +11,7 @@ class Cpp_UAF_Extractor(Extractor):
         :param source_code: Content of the source file.
         :param root_node: A node in the parsed syntax tree.
         :param file_path: Path of the source file.
-        :return: List of the pairs of seed values and traversal strategies. True for forward, False for backward.
+        :return: List of the pairs of seed values and traversal strategies. True for backward, False for forward.
         """
         """
         Extract the seeds for UAF Detection from the source code.
@@ -33,7 +33,7 @@ class Cpp_UAF_Extractor(Extractor):
                 line_number = source_code[: node.start_byte].count("\n") + 1
                 call_str = source_code[node.start_byte: node.end_byte]
                 name = call_str.split("(")[1].split(")")[0]
-                seeds.append((Value(name, line_number, ValueLabel.NON_BUF_ACCESS_EXPR, file_name), True))
+                seeds.append((Value(name, line_number, ValueLabel.NON_BUF_ACCESS_EXPR, file_name), False))
         return seeds    
 
 
