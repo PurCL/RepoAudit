@@ -4,8 +4,8 @@
 [submodule "benchmark/C/zstd"]
 	path = benchmark/C/zstd
 	url = https://github.com/facebook/zstd.git
-[submodule "benchmark/C++/sofa-pbrpc"]
-	path = benchmark/C++/sofa-pbrpc
+[submodule "benchmark/Cpp/sofa-pbrpc"]
+	path = benchmark/Cpp/sofa-pbrpc
 	url = https://github.com/baidu/sofa-pbrpc.git
 [submodule "benchmark/Go/sally"]
 	path = benchmark/Go/sally

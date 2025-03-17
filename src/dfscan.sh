@@ -1,8 +1,8 @@
 #!/bin/bash
 LANGUAGE=Cpp
-BUG_TYPE=NPD
-SCANNER=DFscan
-PROJECT_NAME=sofa-pbrpc
+BUG_TYPE=UAF
+SCANNER=metascan
+PROJECT_NAME=toy
 
 python3 repoaudit.py \
   --language $LANGUAGE \
@@ -12,5 +12,5 @@ python3 repoaudit.py \
   --global-temperature 0.0 \
   --scanners $SCANNER \
   --boundary 3 \
-  --max-workers 1 \
+  --max-workers 5 \
   --seed-spec-file ../result/src_extract/$BUG_TYPE/${LANGUAGE}_${PROJECT_NAME}/seed_result.json

@@ -2,16 +2,14 @@
     "model_role_name": "UAF Dependent Flow Propagator",
       "user_role_name": "UAF Dependent Flow Propagator",
       "system_role": "You are a <LANGUAGE> programmer and very good at analyzing <LANGUAGE> code. Particularly, you are good at understanding single <LANGUAGE> functions and interprocedural relationships.",
-      "task": "Given a specific source variable/parameter/expression at a specific line, denoted by l1. This source has a freed memory object, denoted by src. Please analyze the execution flows of the given function and determine the functions that the object of src can propogate to.  And, if you can find an Use After Free bug, where src is used after being freed, report it.",
+      "task": "Given a specific memory object (denoted by src) freed at a specific line (denoted by L1), analyze the execution flows of the given function to determine all propagation paths of the src pointer. Identify any Use After Free vulnerabilities where the freed memory object is used (dereferenced or freed) after L1. Report all functions src can propagate to.",
       "analysis_rules": [
-        "The key principle for answering this question is to extract all the execution paths related to src and simulate the function's execution along each path to determine whether src is propagated outside the given function. There are three ways this can occur:",
+        "The key principle for answering this question is to extract all the execution paths related to src and simulate the function's execution along each path to determine the data flow of src. There are three ways src can propagate outside the current function:",
         "1. src is passed as an argument to a callee function within the current function.",
         "2. src is returned to the caller of the current function.",
-        "3. src is stored in the memory pointed to by function parameters (e.g., '*p = src', where p is a function parameter).",
-        "If the value of src is passed as an argument to a callee of the current function, you need to provide the name of the callee and the index of the argument, then explain the propagation path from src to the call site.",
-        "If the value of src is passed to the caller function via a return statement or pointer parameter of the current function, you need to explain the propagation path from src to the caller function.",
-        "Remember that if src propagates through a pointer parameter of the function, it can be propagated to the caller function in all conditions after this function exits because the pointer parameter in this function and the pointer argument in the caller function refer to the same object. For example, if function goo passes a pointer argument `base` to its callee function foo, and in function `foo(int * ptr) { free(ptr); }` the pointer `ptr` refers to the same memory object as the pointer `base` in function `goo() { foo(base); }`, then the src object also propagates to pointer `base` in function goo.",
-        "There are different propagation paths within a function due to various control flows such as if-else statements, loops, etc. You must first identify all the paths along which the source point can be executed, and then analyze each path individually.",
+        "3. src is pointed to by function parameters (e.g., 'foo(p) {p = src;}').",
+        "Remember if src can be pointed to by function parameters, it can be propagated to the caller function in all conditions after this function exits. Because the caller and callee functions can access the same memory object. For example, funtion `goo` passes a pointer `base` to its callee function `foo`. In funtion `foo(int * ptr) {free(ptr)}`, the pointer `ptr` points to the same memory object as the pointer `base` in function `goo() {foo(base);}`. Thus, the src object also propagates to pointer `base` in function `goo()`.",
+        "There can be different propagation paths within a function due to various control flows such as if-else statements, loops, etc. You must first identify all the paths along which the source point can be executed, and then analyze each path individually.",
         "When you encounter loop statements, expand the first iteration of the loop, then analyze the potential nested paths within the loop.",
         "When you encounter conditional statements such as if or switch, consider each branch of the condition as a separate path. For example, in an if-else statement, analyze the true branch and the false branch separately.",
         "Conditional statements and loops may be nested with multiple conditions. When you encounter nested conditions or loops, expand the nested branches or loops and identify each path."
@@ -24,20 +22,21 @@
         "   2. Free Sites: The free sites of src, excluding the source point. This includes invocation sites of free functions, such as `free(src)`, `delete src`, or other user-defined free functions. For user-defined free functions, you can infer their free operation from the function's name.",
         "   3. Function Invocation: The call sites where src is passed as an argument.",
         "   4. Return Statements: The return statements or exceptions that can end an execution path.",
-        "   5. Pointer Parameters: The pointer parameters that refer to src.",
+        "   5. Pointer Parameters: The pointer parameters that point to src.",
         "",
         "- Step 2: Extract the execution paths related to the key points. First, identify every potential execution path, then check whether the extracted key points are executed in that path. List all paths in which the key points can be executed. A function may have many nested execution paths due to if-else and switch conditions. This step requires you to identify all branches where the key points can be executed for your later analysis. Do not miss exception/error-handling paths and early returns (e.g., `if (pointer == NULL) { free(src); return -1; }`). When you encounter a return statement or exception in a branch that exits the current function, that path ends here and cannot be a prefix for other paths. In other words, each extracted path should contain at most one return statement or exception.",
         "",
         "- Step 3: For each path extracted in Step 2, first analyze the whole path to determine the aliases of src in that path. Then, starting from the source point, simulate the function's execution line by line along the path and answer the following questions:",
-        "   (1) Can the freed src object or its aliases reach their dereference sites or free sites in this path? If they can reach a dereference or free site without any interruption (e.g., being overwritten or the function exiting) in this path, you should stop exploring this path and report a Use After Free (UAF) bug. Note that you only conclude a dereference or free operation as a potential UAF bug when you find that the freed src object in the propagating path is freed again or explicitly dereferenced using one of the following operations: `*ptr`, `ptr->x`.",
-        "   (2) If the src object is not dereferenced or freed in this path, does it propagate to other functions after the source point? Recall the ways that src can propagate outside the current function. If it propagates to other functions, continue exploring those functions. If it is neither used nor propagated to other functions after the source point, this path is safe and you should stop exploring it.",
+        "   (1) First, can the src object or its aliases be used (dereference or free) in this path? If they are used after L1 without any interruption (e.g., being overwritten or the function exiting) in this path, you should stop exploring this path and report an Use After Free (UAF) bug.",
+        "   (2) If there is no UAF bug in this path, does src propagate to other functions after the source point? Recall the three ways that src can propagate outside the current function. If it propagates to other functions, output the dependency of the propagation. If it is neither used nor propagated to other functions after the source point, this path is safe and you should stop exploring it.",
         "",
-        "When simulating the execution path in Step 3, start from the source point; all usage sites or interprocedural propagation sites (such as function invocations) before the source point should be ignored. Once you encounter a return statement, ignore any subsequent operations in that path. If the source point is overwritten by another value (e.g., `free(src); src = foo();` or `free(src); src = NULL;`), ignore the subsequent operations on the pointer in that path.",
-        "",
+        
+        "When simulating the execution path in Step 3, start from the source point; all usage sites or interprocedural propagation sites (such as function invocations) before L1 should be ignored. Once you encounter a return statement, ignore any subsequent operations in that path. If the source point is overwritten by another value (e.g., `free(src); src = foo();` or `free(src); src = NULL;`), ignore the subsequent operations on the pointer in that path.",
+
         "When the path ends, consider the pointer parameter. If you find that an alias pointer of src is a pointer parameter, it can propagate to the caller after the function exits.",
-        "",
+
         "In your analysis, consider the field member of a struct and the struct pointer as two distinct pointers. For example, if `ptr->x = src;`, then the pointer `ptr->x` is an alias of src, but the pointer `ptr` is not an alias of src. If pointer `ptr` is returned to the caller but the field member `ptr->x` is not, then src is not considered to have propagated to the caller via `ptr`.",
-        "",
+
         "Also, freeing `ptr->x` is independent of freeing `ptr`. Remember that freeing a pointer does not free its field members. For example, in function `foo() { free(ptr->x); free(ptr); }`, freeing ptr does not free the field member `x` of ptr. Do not consider this as a UAF bug."
       ],
       "analysis_examples": [
@@ -137,13 +136,16 @@
         "Path 1: Lines 3-8, 9-11, 15. Status: Bug",
         "- Line: 10. Operation: `free(a->trr)`. Dependency: The alias pointer `a->trr` (which holds the value of `base`) is freed at line 10, causing a use-after-free bug.",
         "Path 2: Lines 3-8, 12-14, 15. Status: Unknown",
-        "- Type: Parameter. Function Name: None. Index: 0. Line: 1. Dependency: The src object propagates to the caller via the pointer parameter `base` since no further dereference occurs in this path."
+        "- Type: Parameter. Function Name: None. Index: 0. Line: 6. Dependency: The src object propagates to the caller via the pointer parameter `base` since no further dereference occurs in this path."
       ],
-      "question_template": "- Which function does the <SRC_TYPE> source point <SRC_NAME> at line <SRC_LINE> in this function propagate to?",
+      "question_template": "- Which function does the <SRC_TYPE> source point <SRC_NAME> freed at line <SRC_LINE> in this function propagate to?",
       "answer_format_cot": [
         "(1) First, provide a detailed reasoning process with explanations. Follow the explanation format in the examples and analyze the execution paths step by step.",
         "(2) When you finish the reasoning, start your answer with 'Answer:'.",
         "(3) In your answer, provide the lines and status of each execution path you analyzed. The status can be Safe, Bug, or Unknown. For Safe paths, include the dependency of the source pointer in this path. For Bug paths, explain the bug and the operation that triggers it. For Unknown paths, describe the propagation of src beyond the current function.",
+        " - If the value of src is passed as an argument to a callee of the current function, you need to provide the name of the callee and the index of the argument, then explain the propagation path from src to the call site.",
+        " - If the value of src is returned to the caller function via a return statement, you need to explain the propagation path from src to the return statement.",
+        " - If src is stored in the memory pointed to by function parameters, you need to provide the index of the parameter and the line number where the assignment occurs.",
         "Here are three example answer formats:",
         "First:",
         "Explanation: {Your Explanation.}",
@@ -171,6 +173,9 @@
         "<KEY_POINTS>\n",
         "Please answer the following question:\n<QUESTION>\n",
         "Your answer should strictly follow the following format: \n<ANSWER>\n",
-        "You should not assume the behavior of functions that are not provided and do not use words like 'if' in your explanation."
+        "Some tips:",
+        "1. You should not assume the behavior of functions that are not provided and do not use words like 'if' in your explanation.",
+        "2. After analyzing the data flow of src, you should first detect UAF bug. If src is freed or dereferenced after L1, you should report the operation as an UAF bug. Otherwise, you should then track its propagation.",
+        "3. When detecting a UAF bug, you may not be provided with the entire code snippets of src, so you should not identify the explicit first free operation first. Instead, treat line L1 as the first free operation. Since src is propagated from other functions, its status is considered Freed after L1. Any dereference or free operation of src beyond L1 should be reported as a UAF bug."
       ]
   }

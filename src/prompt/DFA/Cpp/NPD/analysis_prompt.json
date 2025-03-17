@@ -4,17 +4,14 @@
       "system_role": "You are a <LANGUAGE> programmer and very good at analyzing <LANGUAGE> code. Particularly, you are good at understanding single <LANGUAGE> functions and interprocedural relationships.",
       "task": "Given a specific source variable/parameter/expression at a specific line, denoted by l1. This source has a NULL value object, denoted by src. Please analyze the execution flows of the given function and determine the functions that the object of src can propogate to. And, if you can find a Null Pointer Deference (NPD) bug where src is deferenced without null check, report it.",
       "analysis_rules": [
-        "The key principle for answering this question is to extract all the execution paths related to src, and simulate the function's execution along each related path to determine whether src is propagated outside the given function. There are two ways this can occur:",
+        "The key principle for answering this question is to extract all the execution paths related to src and simulate the function's execution along each path to determine whether src propagates outside the given function. There are three ways this can occur:",
         "1. src is passed as an argument to a callee function within the current function.",
         "2. src is returned to the caller of the current function.",
-        "3. src is stored in the memory pointed to by function parameters (e.g., '*p = src', where p is a function parameter).",
-        "If the value of src is passed as an argument to a callee of the current function, provide the name of the callee and the index of the argument. Then explain the propagation path from src to the call site.",
-        "If the value of src is passed to the caller function via a return statement or pointer parameter of the current function, explain the propagation path from src to the caller function.",
-        "Remember, if src propagates through a pointer parameter of the function, it can be propagated to the caller function in all cases after this function exits because the pointer parameter in this function and the pointer argument in the caller function refer to the same object. For example, if function goo passes a pointer argument `base` to its callee function foo, and in function `foo(int * ptr) { ptr = NULL; }` the pointer `ptr` refers to the same NULL object as pointer `base` in function `goo() { foo(base); }`, then the src object also propagates to pointer `base` in function goo.",
-        "There are different propagation paths within a function due to various control flows such as if-else statements, loops, etc. You must first identify all the paths along which the source point can be executed, and then analyze each path individually.",
-        "When encountering loop statements, expand the first iteration of the loop and then analyze the potential nested paths within the loop.",
-        "When encountering conditional statements like if or switch, consider each branch as a separate path. For example, for an if-else statement, analyze the true branch and the false branch separately.",
-        "Conditional and loop statements may be nested. When encountering nested conditions or loops, expand the nested branches and identify each path."
+        "3. src is stored in the memory pointed to by function parameters (e.g., 'foo(p) {p = src;}'.",
+        "There can be different propagation paths within a function due to various control flows such as if-else statements, loops, etc. You need to first identify all the paths along which the source point can be executed, then analyze each path individually.",
+        "When you encounter loop statements, expand the first iteration of the loop and then analyze the potential nested paths within the loop.",
+        "When you encounter conditional statements like if or switch, consider each branch of the condition as a separate path. For example, with an if-else statement, analyze both the true branch and the false branch separately.",
+        "Conditional and loop statements may be nested. When you encounter nested conditions or loops, expand the nested branches or loops and identify each path."
       ],
       "Detection_rules": [
         "You can divide the analysis process into 3 steps:",
@@ -30,15 +27,13 @@
         "- Step 3: For each path extracted in Step 2, simulate the function's execution line by line along that path and answer the following questions:",
         "   1) Is the src value or any of its aliases checked to be non-null or assigned a new non-null value within this function? (e.g., `src = NULL; src = foo();` or `if(!src) { return -1; }`) If src is verified to be non-null in this function, then the function is safe and you should stop exploring all paths in this function.",
         "   2) If src is not checked to be non-null in this path, can the src value or its alias reach its dereference sites in this path? If it reaches a dereference site without any null-check or interruption (such as being overwritten or the function exiting), stop exploring that path and report a Null Pointer Dereference bug. Note that you only conclude a pointer dereference as a potential NPD bug when the src value in the propagating path is explicitly dereferenced using one of the following operations: `*ptr`, `ptr->x`, or `ptr[x]`.",
-        "   3) If the src value is not dereferenced in this path, does it propagate to other functions? If it propagates to other functions, continue exploring those functions. If it is neither dereferenced nor propagated to other functions, this path is safe and you should stop exploring it.",
+        "   3) If the src value is not dereferenced in this path, does it propagate to other functions? Recall the three ways that src can propagate outside the current function. If it propagates to other functions, output the dependency of the propagation. If it is neither dereferenced nor propagated to other functions, this path is safe and you should stop exploring it.",
         "",
         "In your analysis, consider the field member of a struct and the struct pointer as two distinct pointers. For example, if `ptr->x = src;`, then the pointer `ptr->x` is an alias of src, but the pointer `ptr` is not. If pointer `ptr` is returned to the caller function but the field member `ptr->x` is not, then src is not considered to have propagated to the caller function via `ptr`.",
-        "",
         "If there exists any path that handles the null value of src and does not propagate this null value to other functions, then src is considered checked for non-null in this function and you should stop exploring further paths.",
-        "",
         "Additional tips:",
         "- `&(ptr)` will never be NULL.",
-        "- It is safe to delete a NULL pointer."
+        "- It is safe to delete a NULL pointer, don't consider delete as a dereference operation."
       ],
       "analysis_examples": [
         "Example 1:",
@@ -122,6 +117,9 @@
         "(1) First, provide a detailed reasoning process with explanations. Follow the explanation format in the examples and analyze the execution paths step by step.",
         "(2) When you finish the reasoning, start your answer with 'Answer:'.",
         "(3) In your answer, provide the lines and status of each execution path you analyzed. The status can be Safe, Bug, or Unknown. For Safe paths, include the dependency of the source pointer in this path. For Bug paths, explain the bug and the operation that triggers it. For Unknown paths, describe the propagation of src beyond the current function.",
+        " - If the value of src is passed as an argument to a callee of the current function, you need to provide the name of the callee and the index of the argument, then explain the propagation path from src to the call site.",
+        " - If the value of src is returned to the caller function via a return statement, you need to explain the propagation path from src to the return statement.",
+        " - If src is stored in the memory pointed to by function parameters, you need to provide the index of the parameter and the line number where the assignment occurs.",
         "Here are three example answer formats:",
         "First:",
         "Explanation: {Your Explanation.}",

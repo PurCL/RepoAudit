@@ -1,7 +1,7 @@
 #!/bin/bash
 LANGUAGE=Cpp
-BUG_TYPE=NPD
-PROJECT_NAME=sofa-pbrpc
+BUG_TYPE=UAF
+PROJECT_NAME=toy
 
 # create the directory for the result
 if [ ! -d ../result/src_extract/$BUG_TYPE/${LANGUAGE}_${PROJECT_NAME} ]; then

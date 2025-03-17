@@ -18,11 +18,15 @@ class Cpp_UAF_Extractor(Extractor):
         1. free
         """
         nodes = find_nodes_by_type(root_node, "call_expression")
+        nodes.extend(find_nodes_by_type(root_node, "delete_expression"))
+
         free_functions = {"free"}
         spec_apis = {}         # specific user-defined APIs 
         seeds = []
         for node in nodes:
             is_seed_node = False
+            if node.type == "delete_expression":
+                is_seed_node = True
             if node.type == "call_expression":
                 for child in node.children:
                     if child.type == "identifier":
@@ -30,9 +34,8 @@ class Cpp_UAF_Extractor(Extractor):
                         if name in free_functions:
                             is_seed_node = True
             if is_seed_node:
+                name = source_code[node.start_byte: node.end_byte]
                 line_number = source_code[: node.start_byte].count("\n") + 1
-                call_str = source_code[node.start_byte: node.end_byte]
-                name = call_str.split("(")[1].split(")")[0]
                 seeds.append(Value(name, line_number, ValueLabel.SRC, file_name))
         return seeds    
 

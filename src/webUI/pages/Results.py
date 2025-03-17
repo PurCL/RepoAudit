@@ -131,10 +131,8 @@ def main():
                 st.markdown("**Explanation:**")
                 st.markdown(explanations_markdown)
 
-                if "Vali_LLM" in item:
-                    st.write("**LLM Validation Result:**", item["Vali_LLM"])
-                if "Vali_human" in item:
-                    st.write("**Human Validation Result:**", item["Vali_human"])
+                st.write("**LLM Validation Result:**", item["Vali_LLM"])
+                st.write("**Human Validation Result:**", item["Vali_human"])
 
                 # Add validation radio buttons
                 validation_key = f"validation_{key}"

@@ -4,7 +4,7 @@ from ..extractor import *
 import tree_sitter
 import argparse
 
-class Cpp_ML_Extractor(Extractor):
+class Cpp_MLK_Extractor(Extractor):
     def find_seeds(self, source_code: str, root_node: tree_sitter.Node, file_name: str) -> List[Tuple[Value, bool]]:
         """
         Extract the seeds that can cause the memory leak bugs from C/C++ programs.
@@ -70,7 +70,7 @@ def start_extract():
     language_setting = args.language
     seed_path = args.seed_path
     
-    ml_extractor = Cpp_ML_Extractor(project_path, language_setting, seed_path) 
+    ml_extractor = Cpp_MLK_Extractor(project_path, language_setting, seed_path) 
     ml_extractor.run()
 
 

@@ -52,13 +52,13 @@ class DataflowAnalyzer(LLMTool):
         Analyze the code for a given state and return the analysis results.
         :param state: The current state object containing the function, variables, etc.
         :param depth: The depth of the analysis or the recursion level
-        :return: A boolean value indicating whether the analysis was successful
+        :return: A tuple containing the flag (True when success) and the list of analysis information
         """
         info_list = []
         flag = self.__analyze(state, depth, info_list)
         return flag, info_list
         
-    def __analyze(self, state: DFAState, depth: int, info_list) -> bool:
+    def __analyze(self, state: DFAState, depth: int, info_list: list) -> bool:
         """
         Analyze the state
         """
@@ -123,9 +123,9 @@ class DataflowAnalyzer(LLMTool):
                                 current_path.add_child(callee_state, dependency, propagation_line)
                     
                     if propagation_info["type"] == "Return":
-                        # For callee functions, the source variable is parameter, we don't need to retrieve their callers.
-                        if state.var.label == ValueLabel.PARA:
-                            continue 
+                        # # For callee functions, the source variable is parameter, we don't need to retrieve their callers.
+                        # if state.var.label == ValueLabel.PARA:
+                        #     continue 
                         caller_functions = self.ts_analyzer.get_all_caller_functions(state.function)
                         for caller_function in caller_functions:
                             call_sites = self.ts_analyzer.get_return_value_from_callsite(caller_function, state.function.function_name)
@@ -135,9 +135,9 @@ class DataflowAnalyzer(LLMTool):
                                     current_path.add_child(caller_state, dependency, propagation_line)
                     
                     if propagation_info["type"] == "Parameter":
-                        # For callee functions, the source variable is parameter, we don't need to retrieve their callers.
-                        if state.var.label == ValueLabel.PARA:
-                            continue 
+                        # # For callee functions, the source variable is parameter, we don't need to retrieve their callers.
+                        # if state.var.label == ValueLabel.PARA:
+                        #     continue 
                         try:
                             index = int(propagation_info["index"])
                         except:

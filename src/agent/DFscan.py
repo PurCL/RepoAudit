@@ -127,8 +127,6 @@ class DFScanAgent:
                 
                 bug_tace_list = self.find_bug_trace(seed_state)
 
-                # self.reach_validation(seed_state, [], bug_path_list, 0)
-
                 if len(bug_tace_list) > 0:
                     for bug_trace in bug_tace_list:
                         key = " --> ".join([f"({path.src_name}, {path.function_name})" for path in bug_trace])
@@ -171,74 +169,80 @@ class DFScanAgent:
             print("Output Token Cost: ", self.df_analyzer.total_output_token_cost)
 
 
-        # def parallel(n):
-        #     lock = threading.Lock()
+        def parallel(n):
+            lock = threading.Lock()
             
-        #     def worker(seed):
-        #         seed_value = seed
-        #         seed_function = self.ts_analyzer.get_function_from_localvalue(seed_value)
-        #         if seed_function is None:
-        #             return
+            def worker(seed):
+                seed_value = seed
+                seed_function = self.ts_analyzer.get_function_from_localvalue(seed_value)
+                if seed_function is None:
+                    return
 
-        #         # Construct an analysis state and retrieve callers/callees during forward/backward slicing
-        #         seed_state = DFAState(seed_value, seed_function)
-        #         flag = self.df_analyzer.analyze(seed_state, 0)
+                # Construct an analysis state and retrieve callers/callees during forward/backward slicing
+                seed_state = DFAState(seed_value, seed_function)
+                flag, run_info_list = self.df_analyzer.analyze(seed_state, 0)
 
-        #         # flag: whether the LLM format is valid or not.
-        #         # Slices are generated if flag is True.
-        #         if not flag:
-        #             return
+                # flag: whether the LLM format is valid or not.
+                # Slices are generated if flag is True.
+                if not flag:
+                    return
 
-        #         # Detect the bugs upon slices using LLM (inlining enabled)
-        #         key = seed_state.get_key()
-        #         self.run_info[key] = self.df_analyzer.result_list
+                # Detect the bugs upon slices using LLM (inlining enabled)
+                key = seed_state.get_key()
+                self.run_info[key] = run_info_list
 
-        #         bug_path_list: list[list[PostPath]] = []
-        #         self.reach_validation(seed_state, [], bug_path_list, 0)
+                bug_tace_list = self.find_bug_trace(seed_state)
 
-        #         if len(bug_path_list) > 0:
-        #             for bug_trace in bug_path_list:
-        #                 path = " --> ".join([path.path for path in bug_trace])
-        #                 explanation = "\n".join([path.explanation for path in bug_trace])
-        #                 function_path = " --> ".join([path.function_path for path in bug_trace])
-        #                 src_sink_path = " --> ".join([f"<Name:{path.function_name}, ID:{path.function_id}, SRC:{path.src_line}, SINK:{path.sink_line}>" for path in bug_trace])
+                if len(bug_tace_list) > 0:
+                    for bug_trace in bug_tace_list:
+                        key = " --> ".join([f"({path.src_name}, {path.function_name})" for path in bug_trace])
+                        if key not in self.bug_info.keys():
+                            vali_result, vali_info = self.validate_with_LLM(bug_trace)
+                            self.vali_result[key] = "True" if vali_result else "False"
+                            self.vali_info[key] = vali_info
+                            if self.vali_result[key] == "True":
+                                self.bug_num += 1
+                            self.bug_info[key] = {
+                                "Explanation": [path.explanation for path in bug_trace],
+                                "Path": [],
+                                "Vali_LLM": self.vali_result[key],
+                                "Vali_human": ""
+                            }
+                            for path in bug_trace:
+                                path_info = {
+                                    "source": path.src_name,
+                                    "src_line": path.src_line,
+                                    "function_name": path.function_name,
+                                    "function_code": path.function_code,
+                                    "file_name": path.file_name,
+                                }
+                                self.bug_info[key]["Path"].append(path_info)
 
-        #                 # LLM validate
-        #                 if function_path not in self.vali_result:
-        #                     self.vali_result[function_path] = "TP" if self.validate_with_LLM(bug_trace) else "FP"
-        #                     self.vali_info[function_path] = self.validator.result_list
-        #                     if self.vali_result[function_path] == "TP":
-        #                         self.bug_num += 1
-
-        #                 if function_path not in self.bug_info.keys():
-        #                     self.bug_info[function_path] = []
-        #                 self.bug_info[function_path].append({"Path": path, "Explanation": explanation, "SrcSinkPath": src_sink_path, "Validate": self.vali_result[function_path]})
-
-        #         # Use lock to protect file writes
-        #         with lock:
-        #             with open(f"{self.result_dir_path}/bug_info.json", "w") as f:
-        #                 json.dump(self.bug_info, f, indent=4)
+                # Use lock to protect file writes
+                with lock:
+                    with open(f"{self.result_dir_path}/bug_info.json", "w") as f:
+                        json.dump(self.bug_info, f, indent=4)
                     
-        #             with open(f"{self.result_dir_path}/run_info.json", "w") as f:
-        #                 json.dump(self.run_info, f, indent=4)
+                    with open(f"{self.result_dir_path}/run_info.json", "w") as f:
+                        json.dump(self.run_info, f, indent=4)
                 
-        #             with open(f"{self.result_dir_path}/vali_info.json", "w") as f:
-        #                 json.dump(self.vali_info, f, indent=4)
+                    with open(f"{self.result_dir_path}/vali_info.json", "w") as f:
+                        json.dump(self.vali_info, f, indent=4)
 
-        #     # Process at most n src concurrently
-        #     with ThreadPoolExecutor(max_workers=n) as executor:
-        #         futures = [executor.submit(worker, seed) for seed in seeds]
-        #         for future in as_completed(futures):
-        #             # Could log exceptions here if needed
-        #             try:
-        #                 future.result()
-        #             except Exception as e:
-        #                 print(f"Error processing src: {e}")
+            # Process at most n src concurrently
+            with ThreadPoolExecutor(max_workers=n) as executor:
+                futures = [executor.submit(worker, seed) for seed in seeds]
+                for future in as_completed(futures):
+                    # Could log exceptions here if needed
+                    try:
+                        future.result()
+                    except Exception as e:
+                        print(f"Error processing src: {e}")
             
         if self.max_workers == 1:
             sequential()
-        # else:
-        #     parallel(self.max_workers)
+        else:
+            parallel(self.max_workers)
 
 
     def find_bug_trace(self, state: DFAState) -> list[list[Trace]]:
@@ -278,52 +282,6 @@ class DFScanAgent:
             return
         find_bug_trace(state, [], bug_trace_list, 0)
         return bug_trace_list
-
-
-    # def reach_validation(self, state: DFAState, path_trace: list[PostPath], bug_path_list: list[list[PostPath]], depth: int):
-    #     """
-    #     Postprocess the state, return true if the state has a buggy path
-    #     """
-    #     if depth > self.boundary:
-    #         return
-    #     for subpath in state.subpath:
-    #         print(subpath.get_status())
-    #         if subpath.get_status() == "Bug":
-    #             if self.bug_type == "NPD" or self.bug_type == "UAF":
-    #                 if not subpath.sink:
-    #                     continue
-    #                 src_line = state.var.line_number
-    #                 sink_line = subpath.sink.line_number
-    #                 if not self.ts_analyzer.check_control_reachability(state.function, src_line, sink_line):
-    #                     print(f"Unreachable: Function {state.function.function_name}. {src_line} -> {sink_line} Path: {state.function.file_name}")
-    #                     continue
-    #             # add path info to the bug trace
-    #             bug_trace = []
-    #             for path in path_trace:
-    #                 bug_trace.append(path)
-    #             bug_trace.append(PostPath(str(subpath), subpath.dependency, subpath.state.get_key(), "Bug", src_line = src_line, sink_line = sink_line, function_id = state.function.function_id, function_name = state.function.function_name, src_name = state.var.name))
-    #             bug_path_list.append(bug_trace)
-    #             continue
-
-    #         if subpath.get_status() == "Safe":
-    #             continue
-
-    #         if subpath.get_status() == "Unknown":
-    #             for (child_state, dependency, type, sink_line) in subpath.children:
-    #                 src_line = state.var.line_number
-    #                 if type == "pointer parameter":
-    #                     sink_line = 0
-    #                 else:
-    #                     reachability = self.ts_analyzer.check_control_reachability(state.function, src_line, sink_line)
-    #                     if not reachability:
-    #                         print(f"Unreachable: Function {state.function.function_name}. {src_line} -> {sink_line} Path: {state.function.file_name}")
-    #                         continue
-    #                 child_path = PostPath(str(subpath), dependency, subpath.state.get_key(), "Unknown", src_line = src_line, sink_line = sink_line, function_id = state.function.function_id, function_name = state.function.function_name, src_name = state.var.name)
-    #                 # add path info to the path trace
-    #                 path_trace.append(child_path)
-    #                 self.reach_validation(child_state, path_trace, bug_path_list, depth + 1)
-    #                 path_trace.pop()
-    #     return
 
 
     def validate_with_LLM(self, bug_trace:list[Trace]) -> Tuple[bool, dict]:

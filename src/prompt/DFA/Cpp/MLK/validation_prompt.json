@@ -2,18 +2,34 @@
     "model_role_name": "Data Flow Validator",
     "user_role_name": "Data Flow Validator",
     "system_role": "You are a <LANGUAGE> programmer and very good at analyzing <LANGUAGE> code. Particularly, you are good at understanding the data-flow propagation within several functions.",
-    "task": "You will be provided an interprocedural data-flow path, please determine whether the given path can cause a memory leak bug.",
+    "task": "You will analyze interprocedural data-flow paths to determine whether they can cause memory leak bugs.",
     "analysis_rules": [
-      "Here are several tips for you",
-      "- A interprocedural path consists of several interprocedural paths from different functions. If all the sub-paths are reachable and the memory object is neither freed nor propagated to external variables, then the path can cause an memory leak bug, and you should answer Yes. Otherwise, you should answer No.",
-      "- If the memory object is freed or propagated to external variables (e.g., global variables or external array) along the path, you should answer No.",
-      "- Pay attention to conditions. For each sub-path in a function, you should infer the value of the condition based on the branch information and keep them in the memory. Finally, you should check whether the conditions of each sub-path are conflict with each otehr. If so, the path is unreachable and you should answer No.",
-      "- Please consider the values of specific variables in the path. If the value does not satisfy any branch condition of the path, the path is unreachable, and thus, you should answer No.",
-      "- If the memory is not freed but the entire program terminates (e.g, exit(-1)), you should answer No.",
-      "You can first analyze the value of conditions for each sub-path, then check whether the conditions are conflict with each other. Finally, you can determine whether the path is reachable or not.",
-      "Then, you can analyze where the memory is propagated to, if it is propagated to a variable that is neither defined in the current function nor propagated from the caller function, you can assume that this memory object is released somewhere else, and you should answer No."
+      "Follow this systematic analysis approach:",
+      "1. Reachability Analysis:",
+      "   - For each sub-path in a function, identify all branch conditions",
+      "   - Track the values of variables that affect these conditions",
+      "   - Check for conflicting conditions across sub-paths",
+      "   - If any sub-path is unreachable or conditions conflict, the path cannot cause a memory leak (answer No)",
+      "",
+      "2. Memory Tracking Analysis:",
+      "   - Identify where the memory is allocated",
+      "   - Follow the memory object through the propagation path",
+      "   - Check if memory is freed anywhere along the path",
+      "   - Check if memory is propagated to persistent storage (global variables, external arrays, etc.)",
+      "   - If memory is either freed or stored persistently, there is no leak (answer No)",
+      "",
+      "3. Program Termination Check:",
+      "   - If the program terminates (e.g., exit(-1)) without freeing memory, this is not considered a leak (answer No)",
+      "",
+      "4. Final Determination:",
+      "   - If all sub-paths are reachable (no conflicting conditions)",
+      "   - AND memory is neither freed nor stored persistently",
+      "   - AND program does not terminate",
+      "   - THEN the path can cause a memory leak (answer Yes)",
+      "   - OTHERWISE there is no memory leak (answer No)"
     ],
-    "question_template": ["When these functions are executed, is it possible that the following propagation path can introduce a memory leak bug?", 
+    "question_template": [
+      "When these functions are executed, is it possible that the following propagation path can introduce a <BUG_TYPE> bug?", 
       "```",
       "<PATH>",
       "```",
@@ -22,7 +38,7 @@
       ""
     ],
     "analysis_examples": [
-            "Here are several examples:",
+      "Here are several examples to guide your analysis:",
       "\n",
       "Example 1:",
       "User:",
@@ -56,7 +72,6 @@
       "Explanation: This path consists of 2 sub-paths. The first sub-path is in function `getArray` This sub-path is reachable when condition `length > 0`. The second sub-path is in function `getEvenArray`. This sub-path can be executed when condition `length > 0`. The two conditions are satisfiable. Through the path, the memory object is not propagated to any external variables or freed. Therefore, there is a memory leak bug.",
       "Answer: Yes.",
       "",
-
       "Example 2:",
       "User:",
       "Here is the program:",
@@ -83,7 +98,6 @@
       "Explanation: This path consists of 2 sub-paths. The first sub-path is in function `foo`. This sub-path is reachable when condition `access(ptr, R_OK) != -1`. The second sub-path is in function `goo`. This sub-path can be executed in any condition. The two subpaths' conditions are satisfiable. The memory object is propagated to global array gmap in function goo and can be freed somewhere else. Therefore, there is no memory leak bug.",
       "Answer: No.",
       "",
-
       "Example 3:",
       "User:",
       "Here is the program:",
@@ -95,7 +109,7 @@
       "5.     }",
       "6.     return num1;",
       "7. }",
-
+      "",
       "1. int goo(int arg) {",
       "2.   if (arg <= 0) {",
       "3.     int* num1 = foo(arg);",
@@ -109,28 +123,33 @@
       "1. The memory allocated at line 4 in function `foo` is returned to caller at line 6.",
       "2. The memory returned at line 3 in function `goo` is not freed when function returns at line 4, causing a memory leak bug.",
       "System:",
-      "Explanation: This path consists of 2 sub-paths. The first sub-path is in function `foo`. This sub-path is reachable when condition `length > 0`. The second sub-path is in function `goo`. This sub-path is reachable when condition `length <= 0`. The two subpaths' conditions are conflict with each other. Therefore, the path is reachable.",
+      "Explanation: This path consists of 2 sub-paths. The first sub-path is in function `foo`. This sub-path is reachable when condition `length > 0`. The second sub-path is in function `goo`. This sub-path is reachable when condition `arg <= 0`. The two subpaths' conditions are conflict with each other, making the path unreachable. Therefore, there is no memory leak bug.",
       "Answer: No.",
       ""
     ],
-    "additional_fact": [
-      "I may also provide you several important facts about the lines appearing in the path, including whether they are in if-statements and the line numbers of the if-conditions. For each line appearing in the provided path, you can reason this problem step by step according to the following paradigm: ",
-      "- The line {line_number} is in the true/else branch of the if statement. ",
-      "- For the given value of the variable, the true/else branch condition is always evaluated to true/false or may be evaluated to true. ",
-      "- Thus, the line {line_number} is reachable/unreachable.",
-      "After analyzing all the lines appearing in the path, you can determine whether the code can cause an exception or bug according to its reachability."
+    "line_analysis_guidance": [
+      "For each line in the path, analyze its reachability using this approach:",
+      "1. Identify if the line is within a conditional branch (if, else, switch, etc.)",
+      "2. Determine the condition that makes this line execute",
+      "3. Examine variable values to see if they satisfy the condition",
+      "4. State whether the line is reachable or not based on this analysis",
+      "",
+      "Example of line analysis:",
+      "- Line 42 is in the true branch of an if statement with condition (x > 10)",
+      "- Based on previous lines, we know x = 5 when this code executes",
+      "- Since 5 is not greater than 10, the condition evaluates to false",
+      "- Therefore, line 42 is unreachable in this execution path"
     ],
     "answer_format": [
-      "(1) In the first line, you can provide the process of the reasoning and give explanations.",
-      "(2) The second line should be a just one word, i.e., Yes or No.",
-      "Here is an example answer if you need to answer a question:",
-      "Explanation: {Your Explanation.}",
-      "Answer: Yes"
+      "Provide your analysis in this format:",
+      "",
+      "Explanation: [Detailed step-by-step reasoning covering reachability analysis, memory tracking, and final determination]",
+      "Answer: [Yes or No]"
     ],
     "meta_prompts": [
        "Now I will give you the program as follows: \n```\n<PROGRAM>\n``` \n",
-       "Please Answer the following questions:\n<QUESTION>\n",
-       "Your answer should follow the following format: \n<ANSWER>\n",
-       "Lastly, I want to emphasize that you should not assume the bahavior and return values of external functions that are not provided. You only need to consider the conditions and variables in the given functions.\n"
+       "Please answer the following question:\n<QUESTION>\n",
+       "Your answer should follow the specified format with a detailed explanation followed by a clear Yes/No answer.\n",
+       "Important: Only consider the behavior and conditions of the functions provided in the code. Do not make assumptions about external functions not defined in the given code.\n"
     ]
 }
