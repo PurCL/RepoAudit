@@ -102,16 +102,20 @@ class BugScanAgent:
     def __retrieve_slice_inliner_inputs(self, slicescan_state: SliceScanState) -> List[SliceInlinerInput]:
         inputs = []
 
+        print("start to retrieve slice inliner inputs")
+
         root_function_ids = []
         for relevant_function_id in slicescan_state.relevant_functions:
             relevant_function = slicescan_state.relevant_functions[relevant_function_id]
+            print("relevenat function name: ", relevant_function.function_name)
             is_root_function = True
-            if relevant_function.function_id in self.ts_analyzer.function_caller_callee_map:
-                for caller_function_id in self.ts_analyzer.function_caller_callee_map[relevant_function.function_id]:
+            if relevant_function.function_id in self.ts_analyzer.function_callee_caller_map:
+                for caller_function_id in self.ts_analyzer.function_callee_caller_map[relevant_function.function_id]:
                     if caller_function_id in slicescan_state.relevant_functions:
                         is_root_function = False
                         break
             if is_root_function:
+                print("root function: ", self.ts_analyzer.function_env[relevant_function_id].function_name)
                 root_function_ids.append(relevant_function_id)
 
         for root_function_id in root_function_ids:
@@ -165,6 +169,11 @@ class BugScanAgent:
 
             # Obtain all the inliner instances
             slice_inliner_inputs: List[SliceInlinerInput] = self.__retrieve_slice_inliner_inputs(slice_scan_state)
+
+            print("#slice_inliner_inputs: ", len(slice_inliner_inputs))
+            for slice_inliner_input in slice_inliner_inputs:
+                print(slice_inliner_input.tree_str)
+
 
             # Inline each instance to obtain the abstraction of buggy code snippets (consisting of slices in the relevant functions)
             for slice_inliner_input in slice_inliner_inputs:
