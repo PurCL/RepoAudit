@@ -75,6 +75,13 @@ RepoAudit-Plus is a repo-level bug detector for general bugs. Currently it suppo
 The extracted source and sink lists are dumped in the directory `result/extract`. The detection results are dumped in the directory `result/detect-{model_name}`.
 
 
+## Result
+You can use webUI to quickly check the detection results.
+
+   ```sh
+   cd src/webUI
+   streamlit run Home.py
+   ```
 
 ## Architecture
 
