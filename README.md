@@ -76,7 +76,30 @@ The extracted source and sink lists are dumped in the directory `result/extract`
 
 
 ## Result
-You can use webUI to quickly check the detection results.
+### Buggy Trace Report Format
+
+**Key: Buggy trace**  
+Each key represents a unique buggy trace propagation path, detailing how a bug propagates through function calls and code execution. The structure is as follows:
+
+```
+{
+    Explanation: Detailed explanation of the propagation path.
+    Path: Array of steps along the trace, where each step is an object with:
+          {
+              source:      The source code fragment or operation (e.g., "return NULL;"),
+              src_line:    The corresponding line number in the source file,
+              function_name: The name of the function where the step occurs,
+              function_code: The full code of the function (providing context),
+              file_name:   The file path where the function is located
+          }
+    Vali_LLM:    The validation result produced by the LLM (e.g., "True" or "False"),
+    Vali_human:  The human validation result (typically empty until reviewed)
+}
+```
+
+### WebUI
+
+You can also use our webUI to quickly check the detection results.
 
    ```sh
    cd src/webUI
