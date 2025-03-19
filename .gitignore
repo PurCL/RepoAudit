@@ -10,7 +10,7 @@ __pycache__/
 *.pyc
 
 # Ignore all content in benchmark directory...
-benchmark/*
+benchmark/C/*
 
 log/
 # **/run_info.json

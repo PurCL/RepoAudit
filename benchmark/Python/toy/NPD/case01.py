@@ -2,25 +2,25 @@ class MyObject:
     def __init__(self, value):
         self.value = value
 
-    def foo(self):
+    def test1_foo(self):
         return 1
 
-def get_object(flag: bool):
+def test1_get_object(flag: bool):
     if flag:
         return MyObject("hello")
     else:
         return None
 
 
-def process_object(obj: MyObject):
+def test1_process_object(obj: MyObject):
     print(obj.value.upper(), "a", "d")
 
 
-def main():
-    obj = get_object(False)
-    obj.foo()
-    process_object(obj)
+def test1_main():
+    obj = test1_get_object(False)
+    obj.test1_foo()
+    test1_process_object(obj)
 
 
 if __name__ == "__main__":
-    main()
+    test1_main()
