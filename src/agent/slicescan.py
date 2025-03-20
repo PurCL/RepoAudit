@@ -85,16 +85,12 @@ class SliceScanAgent:
 
         if not self.is_backward:
             # forward slicing
-            print("hit 01")
-            print("output.ext_values: ", len(output.ext_values))
             for external_variable in output.ext_values:
                 ext_val_type = external_variable["type"]
             
                 if ext_val_type == "Return Value":
                     caller_functions = self.ts_analyzer.get_all_caller_functions(function)
                     for caller_function in caller_functions:
-                        print("hit 02")
-
                         # Forward slicing: Return back to caller function from the current function. 
                         new_slice_context = copy.deepcopy(slice_context)
                         is_CFL_reachable = new_slice_context.add_context(function_id, ContextLabel.RIGHT_PAR)
@@ -104,9 +100,8 @@ class SliceScanAgent:
                             continue
                         print("call edge: ", caller_function.function_name, " --> ", function.function_name)
 
-                        call_site_nodes = self.ts_analyzer.get_callsite_by_callee_name(caller_function, function.function_name)
+                        call_site_nodes = self.ts_analyzer.get_callsites_by_callee_name(caller_function, function.function_name)
                         for call_site_node in call_site_nodes:
-                            print("Point 01: call site added")
                             output_value = self.ts_analyzer.get_output_value_at_callsite(caller_function, call_site_node)
                             delta_worklist.append((new_slice_context, caller_function.function_id, set([output_value])))
 
@@ -120,8 +115,7 @@ class SliceScanAgent:
                     ]
                     for callee_function in callee_functions:
                         new_slice_context = copy.deepcopy(slice_context)
-                        print("hit 03")
-
+    
                         # Forward slicing: Step into the callee function from the current function
                         new_slice_context = copy.deepcopy(slice_context)
                         is_CFL_reachable = new_slice_context.add_context(callee_function.function_id, ContextLabel.LEFT_PAR)
@@ -134,7 +128,6 @@ class SliceScanAgent:
                         parameter_list = self.ts_analyzer.get_parameters_in_single_function(callee_function)
                         for parameter in parameter_list:
                             if parameter.index == index:
-                                print("Point 02: parameter added")
                                 delta_worklist.append((new_slice_context, callee_function.function_id, set([parameter])))
 
                 elif ext_val_type == "Parameter":
@@ -143,10 +136,8 @@ class SliceScanAgent:
                     # We need to consider the side-effect of p.
                     caller_functions = self.ts_analyzer.get_all_caller_functions(function)
                     index = external_variable["index"]
-                    print("hit 04")
 
                     for caller_function in caller_functions:
-                        print("hit 05")
                         new_slice_context = copy.deepcopy(slice_context)
 
                         # Forward slicing: Return back to caller function from the current function. 
@@ -158,13 +149,12 @@ class SliceScanAgent:
                             continue
                         print("call edge: ", caller_function.function_name, " --> ", function.function_name)
 
-                        call_site_nodes = self.ts_analyzer.get_callsite_by_callee_name(caller_function, function.function_name)
+                        call_site_nodes = self.ts_analyzer.get_callsites_by_callee_name(caller_function, function.function_name)
                         for call_site_node in call_site_nodes:
                             args = self.ts_analyzer.get_arguments_at_callsite(caller_function, call_site_node)
                             # TODO: For better precision (field-sensitivity), we can consider to transform the argument name to a specific access path
                             for arg in args:
                                 if arg.index == index:
-                                    print("Point 03: argument added")
                                     delta_worklist.append((new_slice_context, caller_function.function_id, set([arg])))
 
                 elif ext_val_type == "Global Variable":
@@ -183,7 +173,6 @@ class SliceScanAgent:
                         if function.function_name == callee_name
                     ]
                     for callee_function in callee_functions:
-                        print("hit 06")
                         # Backward slicing: Trace back to the callee function from the current function
                         new_slice_context = copy.deepcopy(slice_context)
                         is_CFL_reachable = new_slice_context.add_context(callee_function.function_id, ContextLabel.RIGHT_PAR)
@@ -195,15 +184,12 @@ class SliceScanAgent:
 
                         ret_values = self.ts_analyzer.get_return_values_in_single_function(callee_function)
                         for ret_value in ret_values:
-                            print("Point 04: return value added")
                             delta_worklist.append((new_slice_context, callee_function.function_id, set([ret_value])))
 
                 elif ext_val_type == "Parameter":
                     index = external_variable["index"]
                     caller_functions = self.ts_analyzer.get_all_caller_functions(function)
                     for caller_function in caller_functions:
-                        print("hit 07")
-
                         # Backward slicing: Trace back to the caller function from the current function
                         new_slice_context = copy.deepcopy(slice_context)
                         is_CFL_reachable = new_slice_context.add_context(function_id, ContextLabel.LEFT_PAR)
@@ -213,16 +199,14 @@ class SliceScanAgent:
                             continue
                         print("call edge: ", caller_function.function_name, " --> ", function.function_name)
 
-                        call_sites = self.ts_analyzer.get_callsite_by_callee_name(caller_function, function.function_name)
+                        call_sites = self.ts_analyzer.get_callsites_by_callee_name(caller_function, function.function_name)
                         for call_site in call_sites:
                             args = self.ts_analyzer.get_arguments_at_callsite(caller_function, call_site)
                             for arg in args:
                                 if arg.index == index:
-                                    print("Point 05: argument added")
                                     caller_function_file_content = self.ts_analyzer.fileContentDic[caller_function.file_name]
                                     callsite_str = caller_function_file_content[call_site.start_byte:call_site.end_byte]
                                     callsite_line_number = caller_function_file_content[:call_site.start_byte].count("\n") + 1 - caller_function.start_line_number
-                                    print("callsite: ", callsite_str, " at line ", callsite_line_number)
                                     delta_worklist.append((new_slice_context, caller_function.function_id, set([arg])))
 
                 elif ext_val_type == "Argument":
@@ -237,8 +221,6 @@ class SliceScanAgent:
                     ]
                     index = external_variable["index"]
                     for callee_function in callee_functions:
-                        print("hit 08")
-
                         # Backward slicing: Trace back to the callee function from the current function
                         new_slice_context = copy.deepcopy(slice_context)
                         is_CFL_reachable = new_slice_context.add_context(callee_function.function_id, ContextLabel.RIGHT_PAR)
@@ -252,7 +234,6 @@ class SliceScanAgent:
                         for parameter in parameters:
                             if parameter.index == index:
                                 # TODO: For better precision (field-sensitivity), we can consider to transform the parameter name to a specific access path
-                                print("Point 06: parameter added")
                                 delta_worklist.append((new_slice_context, callee_function.function_id, set([parameter])))
 
                 elif ext_val_type == "Global Variable":
@@ -269,7 +250,7 @@ class SliceScanAgent:
         worklist: List[Tuple[CallContext, int, Set[Value]]] = [] # The list of (slice_contxt, function_id, set of seed_value)
 
         # Initially, the call stack is empty.
-        initial_context = CallContext()
+        initial_context = CallContext(self.is_backward)
         worklist.append((initial_context, self.seed_function.function_id, self.seed_values))
 
         while True:
@@ -294,8 +275,6 @@ class SliceScanAgent:
             delta_worklist = self.__update_worklist(input, output, slice_context)
             print("length of delta_worklist: ", len(delta_worklist))
             print("length of worklist: ", len(worklist))
-
-            exit(1)
 
             for (delta_slice_context, delta_function_id, delta_seed_set) in delta_worklist:
                 delta_seed_value = list(delta_seed_set)[0]

@@ -146,6 +146,7 @@ class IntraSlicer(LLMTool):
         output_ext_values = []
         var_match = re.search(ext_values_pattern, response, re.DOTALL)
         if var_match:
+
             var_lines = var_match.group(1).splitlines()
             for line in var_lines:
                 match = re.match(var_pattern, line)

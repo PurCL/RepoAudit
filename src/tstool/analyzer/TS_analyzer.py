@@ -22,14 +22,16 @@ class ContextLabel(Enum):
     def __str__(self) -> str:
         return self.name
 
+
 class CallContext:
-    def __init__(self):
+    def __init__(self, is_backward: bool = True):
         self.context : List[Tuple[int, ContextLabel]] = []
         self.simplified_context : List[Tuple[int, ContextLabel]] = []
+        self.is_backward = is_backward
 
-    def add_context_at_end(self, function_id: int, label: ContextLabel) -> bool:
+    def add_context(self, function_id: int, label: ContextLabel) -> bool:
         """
-        Add a context entry to the context at the end of the context
+        Add a context entry to the context
         :param function_id: the function id
         :param label: the label of the context entry
         :ret True if the context after adding the new context pair is in the CFL reachable, False otherwise
@@ -40,61 +42,47 @@ class CallContext:
             self.context.append((function_id, label))
             return is_CFL_reachable
 
-        (top_function_id, top_label) = self.simplified_context[-1]
-        if top_label == label:
-            self.simplified_context.append((function_id, label))
-        elif top_label == ContextLabel.LEFT_PAR and label == ContextLabel.RIGHT_PAR:
-            if top_function_id == function_id:
-                self.simplified_context.pop()
+        if not self.is_backward:
+            (top_function_id, top_label) = self.simplified_context[-1]
+            if top_label == label:
+                self.simplified_context.append((function_id, label))
+            elif top_label == ContextLabel.LEFT_PAR and label == ContextLabel.RIGHT_PAR:
+                if top_function_id == function_id:
+                    self.simplified_context.pop()
+                else:
+                    is_CFL_reachable = False
             else:
-                is_CFL_reachable = False
+                # top_label == ContextLabel.RIGHT_PAR and label == ContextLabel.LEFT_PAR:
+                self.simplified_context.append((function_id, label))
+
+            if is_CFL_reachable:
+                self.context.append((function_id, label))
         else:
-            # top_label == ContextLabel.RIGHT_PAR and label == ContextLabel.LEFT_PAR:
-            self.simplified_context.append((function_id, label))
-
-        if is_CFL_reachable:
-            self.context.append((function_id, label))
-        return is_CFL_reachable
-    
-    
-    def add_context_at_beginning(self, function_id: int, label: ContextLabel) -> bool:
-        """
-        Add a context entry to the context at the end of the context
-        :param function_id: the function id
-        :param label: the label of the context entry
-        :ret True if the context after adding the new context pair is in the CFL reachable, False otherwise
-        """
-        is_CFL_reachable = True
-        if len(self.simplified_context) == 0:
-            self.simplified_context.append((function_id, label))
-            self.context.insert(0, (function_id, label))
-            return is_CFL_reachable
-
-        (bot_function_id, bot_label) = self.simplified_context[0]
-        if bot_label == label:
-            self.simplified_context.insert(0, (function_id, label))
-        elif bot_label == ContextLabel.LEFT_PAR and label == ContextLabel.RIGHT_PAR:
-            if bot_function_id == function_id:
-                self.simplified_context = self.simplified_context[1:]
+            (top_function_id, top_label) = self.simplified_context[-1]
+            if top_label == label:
+                self.simplified_context.append((function_id, label))
+            elif top_label == ContextLabel.RIGHT_PAR and label == ContextLabel.LEFT_PAR:
+                if top_function_id == function_id:
+                    self.simplified_context.pop()
+                else:
+                    is_CFL_reachable = False
             else:
-                is_CFL_reachable = False
-        else:
-            # bot_label == ContextLabel.RIGHT_PAR and label == ContextLabel.LEFT_PAR:
-            self.simplified_context.insert(0, (function_id, label))
+                # top_label == ContextLabel.LEFT_PAR and label == ContextLabel.RIGHT_PAR:
+                self.simplified_context.append((function_id, label))
 
-        if is_CFL_reachable:
-            self.context.insert(0, (function_id, label))
+            if is_CFL_reachable:
+                self.context.append((function_id, label))
         return is_CFL_reachable
 
     def __str__(self) -> str:
-        return f"CallContext(context={self.context})"
+        return f"CallContext(is_backward={self.is_backward}, context={self.context})"
     
     def __eq__(self, other: 'CallContext') -> bool:
-        return str(self.context) == str(other.context)
+        return str(self.context) == str(other.context) and self.is_backward == other.is_backward
 
     def __hash__(self) -> int:
         # Convert context list to tuple for hashing; assumes that context entries are immutable
-        return hash(str(self.context))
+        return hash((str(self.context), self.is_backward))
 
 class TSAnalyzer(ABC):
     """

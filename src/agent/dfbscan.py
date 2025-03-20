@@ -150,7 +150,7 @@ class DFBScanAgent:
                         worklist.append((end_value, end_function, depth + 1))
                 self.state.update_reachable_values_per_path(start_value, Set(output.reachable_values))
 
-            buggy_paths: List[List[Value]] = self.__collect_potential_buggy_paths(src_value, CallContext())
+            buggy_paths: List[List[Value]] = self.__collect_potential_buggy_paths(src_value, CallContext(False))
 
             for buggy_path in buggy_paths:
                 input = PathValidatorInput(buggy_path, {value: self.ts_analyzer.get_function_from_localvalue(value) for value in buggy_path})
