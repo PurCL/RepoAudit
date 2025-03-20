@@ -97,13 +97,13 @@ def main():
                         results = json.load(f)
                     st.session_state.analysis_results = results
             with col2:
-                if st.button("Show TP Results"):
+                if st.button("Show True Labeled Results"):
                     with open(result_path, 'r') as f:
                         all_results = json.load(f)
                         # Filter results to keep only TP items
                         tp_results = {}
                         for key, item in all_results.items():
-                            vali_result = item["Vali_human"] if item["Vali_human"] != "" else item["Vali_LLM"]
+                            vali_result = item["Vali_human"] if item["Vali_human"] != "" else "False"
                             if vali_result == "True":
                                 tp_results[key] = item
                     st.session_state.analysis_results = tp_results
@@ -130,14 +130,12 @@ def main():
                     explanations_markdown = explanations[0]
                 st.markdown("**Explanation:**")
                 st.markdown(explanations_markdown)
-
-                st.write("**LLM Validation Result:**", item["Vali_LLM"])
                 st.write("**Human Validation Result:**", item["Vali_human"])
 
                 # Add validation radio buttons
                 validation_key = f"validation_{key}"
                 if validation_key not in st.session_state.bug_validations:
-                    st.session_state.bug_validations[validation_key] = item["Vali_human"] if item["Vali_human"] != "" else item["Vali_LLM"]
+                    st.session_state.bug_validations[validation_key] = item["Vali_human"] if item["Vali_human"] != "" else "Unsure"
                 
                 st.write("**Bug Validation:**")
                 col1, col2 = st.columns(2)

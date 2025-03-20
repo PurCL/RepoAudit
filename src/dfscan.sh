@@ -1,7 +1,7 @@
 #!/bin/bash
 LANGUAGE=Cpp
 BUG_TYPE=UAF
-SCANNER=metascan
+SCANNER=DFscan
 PROJECT_NAME=toy
 
 python3 repoaudit.py \

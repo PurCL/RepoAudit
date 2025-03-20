@@ -136,21 +136,20 @@ class DFScanAgent:
                             self.vali_info[key] = vali_info
                             if self.vali_result[key] == "True":
                                 self.bug_num += 1
-                            self.bug_info[key] = {
-                                "Explanation": [path.explanation for path in bug_trace],
-                                "Path": [],
-                                "Vali_LLM": self.vali_result[key],
-                                "Vali_human": ""
-                            }
-                            for path in bug_trace:
-                                path_info = {
-                                    "source": path.src_name,
-                                    "src_line": path.src_line,
-                                    "function_name": path.function_name,
-                                    "function_code": path.function_code,
-                                    "file_name": path.file_name,
+                                self.bug_info[key] = {
+                                    "Explanation": [path.explanation for path in bug_trace],
+                                    "Path": [],
+                                    "Vali_human": ""
                                 }
-                                self.bug_info[key]["Path"].append(path_info)
+                                for path in bug_trace:
+                                    path_info = {
+                                        "source": path.src_name,
+                                        "src_line": path.src_line,
+                                        "function_name": path.function_name,
+                                        "function_code": path.function_code,
+                                        "file_name": path.file_name,
+                                    }
+                                    self.bug_info[key]["Path"].append(path_info)
 
             with open(f"{self.result_dir_path}/bug_info.json", "w") as f:
                 json.dump(self.bug_info, f, indent=4)
@@ -202,21 +201,20 @@ class DFScanAgent:
                             self.vali_info[key] = vali_info
                             if self.vali_result[key] == "True":
                                 self.bug_num += 1
-                            self.bug_info[key] = {
-                                "Explanation": [path.explanation for path in bug_trace],
-                                "Path": [],
-                                "Vali_LLM": self.vali_result[key],
-                                "Vali_human": ""
-                            }
-                            for path in bug_trace:
-                                path_info = {
-                                    "source": path.src_name,
-                                    "src_line": path.src_line,
-                                    "function_name": path.function_name,
-                                    "function_code": path.function_code,
-                                    "file_name": path.file_name,
+                                self.bug_info[key] = {
+                                    "Explanation": [path.explanation for path in bug_trace],
+                                    "Path": [],
+                                    "Vali_human": ""
                                 }
-                                self.bug_info[key]["Path"].append(path_info)
+                                for path in bug_trace:
+                                    path_info = {
+                                        "source": path.src_name,
+                                        "src_line": path.src_line,
+                                        "function_name": path.function_name,
+                                        "function_code": path.function_code,
+                                        "file_name": path.file_name,
+                                    }
+                                    self.bug_info[key]["Path"].append(path_info)
 
                 # Use lock to protect file writes
                 with lock:
