@@ -76,6 +76,12 @@
       "Now I will give you a target function: \n```\n<FUNCTION>\n``` \n\n",
       "Please answer the following question:\n<QUESTION>\n",
       "Your answer should strictly follow the following format: \n<ANSWER>\n",
-      "When you output the external variables, do not give any additional explanation. Please strictly follow the format provided."
+      "When you output the external variables, do not give any additional explanation. Please strictly follow the format provided in the above examples.",
+      "Formally, we should fill the contents into the holes XXX in the following template if you find a specific type of value as an external variable:",
+      "External Variables:",
+      "- Type: Output Value. Callee: XXX.",
+      "- Type: Parameter. Index: XXX.",
+      "- Type: Argument. Callee: XXX. Index: XXX.",
+      "- Type: Global Variable. Name: XXX."
     ]
 }

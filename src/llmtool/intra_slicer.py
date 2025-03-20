@@ -109,7 +109,7 @@ class IntraSlicer(LLMTool):
         prompt = prompt_template_dict["task"]
         prompt += "\n" + "\n".join(prompt_template_dict["analysis_rules"])
         prompt += "\n" + "\n".join(prompt_template_dict["analysis_examples"])
-        prompt += "\n" + "".join(prompt_template_dict["meta_prompts"])
+        prompt += "\n" + "\n".join(prompt_template_dict["meta_prompts"])
 
 
         question = (
