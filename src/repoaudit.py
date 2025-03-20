@@ -5,6 +5,12 @@ from agent.bugscan import *
 from agent.DFscan import *
 from agent.slicescan import *
 
+from tstool.analyzer.TS_analyzer import *
+from tstool.analyzer.Cpp_TS_analyzer import *
+from tstool.analyzer.Go_TS_analyzer import *
+from tstool.analyzer.Java_TS_analyzer import *
+from tstool.analyzer.Python_TS_analyzer import *
+
 class RepoAudit:
     def __init__(
         self,
@@ -23,7 +29,7 @@ class RepoAudit:
         """
         self.seed_spec_file = seed_spec_file
         self.project_path = project_path
-        self.language = language
+        self.language = language if language not in {"C", "Cpp"} else "Cpp"
         self.scanners = scanners
         self.bug_type = bug_type
         self.call_depth = call_depth
@@ -35,9 +41,7 @@ class RepoAudit:
         self.batch_scan_statistics = {}
 
         suffixs = []
-        if self.language == "C":
-            suffixs = ["c", "h"]
-        elif self.language == "Cpp":
+        if self.language == "Cpp":
             suffixs = ["cpp", "cc", "hpp", "c", "h"]
         elif self.language == "Go":
             suffixs = ["go"]
@@ -51,6 +55,17 @@ class RepoAudit:
         # Load all files with the specified suffix in the project path
         self.travese_files(project_path, suffixs)
 
+        if self.language == "Cpp":
+            self.ts_analyzer = Cpp_TSAnalyzer(self.code_in_files, self.language)
+        elif self.language == "Go":
+            self.ts_analyzer = Go_TSAnalyzer(self.code_in_files, self.language)
+        elif self.language == "Java":
+            self.ts_analyzer = Java_TSAnalyzer(self.code_in_files, self.language)
+        elif self.language == "Python":
+            self.ts_analyzer = Python_TSAnalyzer(self.code_in_files, self.language)
+        return
+
+
     def start_batch_scan(self) -> None:
         """
         Start the batch scan process.
@@ -61,7 +76,7 @@ class RepoAudit:
             metascan_pipeline = MetaScanAgent(
                 project_name,
                 self.language,
-                self.code_in_files,
+                self.ts_analyzer,
                 self.inference_model_name,
                 self.temperature
             )
@@ -73,7 +88,7 @@ class RepoAudit:
                 self.bug_type,
                 project_name,
                 self.language,
-                self.code_in_files,
+                self.ts_analyzer,
                 self.inference_model_name,
                 self.temperature,
                 self.call_depth,
@@ -86,7 +101,7 @@ class RepoAudit:
                 self.seed_spec_file,
                 project_name,
                 self.language,
-                self.code_in_files,
+                self.ts_analyzer,
                 self.inference_model_name,
                 self.temperature,
                 self.bug_type,
@@ -96,31 +111,18 @@ class RepoAudit:
             DFscan_agent.start_scan()
 
         if "slicescan" in self.scanners:
-                # def __init__(self,
-                #  seed_values: List[Value],
-                #  is_backward: bool,
-                #  project_name: str,
-                #  language: str,
-                #  code_in_files: Dict[str, str],
-                #  model_name: str,
-                #  temperature: float,
-                #  call_depth: int = 1,
-                #  max_workers: int = 1
-                #  ) -> None:
             slicescan_agent = SliceScanAgent(
                 [],
                 True,
                 project_name,
                 self.language,
-                self.code_in_files,
+                self.ts_analyzer,
                 self.inference_model_name,
                 self.temperature,
                 self.call_depth,
                 self.max_workers
             )
             slicescan_agent.start_scan()
-
-
             print(slicescan_agent.get_agent_result())
 
 

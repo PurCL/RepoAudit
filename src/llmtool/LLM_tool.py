@@ -57,6 +57,7 @@ class LLMTool(ABC):
             if output is not None:
                 break
         
+        print(response)
         self.total_query_num += single_query_num
         if output is not None:
             self.cache[input] = output

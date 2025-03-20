@@ -23,7 +23,7 @@ class SliceScanAgent:
                  is_backward: bool,
                  project_name: str,
                  language: str,
-                 code_in_projects: Dict[str, str],
+                 ts_analyzer: TSAnalyzer,
                  model_name: str,
                  temperature: float,
                  call_depth: int = 1,
@@ -34,7 +34,7 @@ class SliceScanAgent:
 
         self.project_name = project_name
         self.language = language if language not in {"C", "Cpp"} else "Cpp"
-        self.code_in_projects = code_in_projects
+        self.ts_analyzer = ts_analyzer
 
         self.model_name = model_name
         self.temperature = temperature
@@ -50,18 +50,6 @@ class SliceScanAgent:
         self.result_dir_path = f"{BASE_PATH}/result/slicescan-{self.model_name}/{self.project_name}/{time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())}"
         if not os.path.exists(self.result_dir_path):
             os.makedirs(self.result_dir_path)
-
-        if self.language == "Cpp":
-            self.ts_analyzer = Cpp_TSAnalyzer(self.code_in_projects, self.language)
-        elif self.language == "Go":
-            self.ts_analyzer = Go_TSAnalyzer(self.code_in_projects, self.language)
-        elif self.language == "Java":
-            self.ts_analyzer = Java_TSAnalyzer(self.code_in_projects, self.language)
-        elif self.language == "Python":
-            self.ts_analyzer = Python_TSAnalyzer(self.code_in_projects, self.language)
-        else:
-            print("Unsupported language")
-            exit(1)
 
         # # TODO: For demo testing
         # if len(self.seed_values) == 0:
@@ -97,12 +85,16 @@ class SliceScanAgent:
 
         if not self.is_backward:
             # forward slicing
+            print("hit 01")
+            print("output.ext_values: ", len(output.ext_values))
             for external_variable in output.ext_values:
                 ext_val_type = external_variable["type"]
             
                 if ext_val_type == "Return Value":
                     caller_functions = self.ts_analyzer.get_all_caller_functions(function)
                     for caller_function in caller_functions:
+                        print("hit 02")
+
                         # Forward slicing: Return back to caller function from the current function. 
                         new_slice_context = copy.deepcopy(slice_context)
                         is_CFL_reachable = new_slice_context.add_context(function_id, ContextLabel.RIGHT_PAR)
@@ -128,6 +120,7 @@ class SliceScanAgent:
                     ]
                     for callee_function in callee_functions:
                         new_slice_context = copy.deepcopy(slice_context)
+                        print("hit 03")
 
                         # Forward slicing: Step into the callee function from the current function
                         new_slice_context = copy.deepcopy(slice_context)
@@ -150,7 +143,10 @@ class SliceScanAgent:
                     # We need to consider the side-effect of p.
                     caller_functions = self.ts_analyzer.get_all_caller_functions(function)
                     index = external_variable["index"]
+                    print("hit 04")
+
                     for caller_function in caller_functions:
+                        print("hit 05")
                         new_slice_context = copy.deepcopy(slice_context)
 
                         # Forward slicing: Return back to caller function from the current function. 
@@ -187,6 +183,7 @@ class SliceScanAgent:
                         if function.function_name == callee_name
                     ]
                     for callee_function in callee_functions:
+                        print("hit 06")
                         # Backward slicing: Trace back to the callee function from the current function
                         new_slice_context = copy.deepcopy(slice_context)
                         is_CFL_reachable = new_slice_context.add_context(callee_function.function_id, ContextLabel.RIGHT_PAR)
@@ -205,6 +202,8 @@ class SliceScanAgent:
                     index = external_variable["index"]
                     caller_functions = self.ts_analyzer.get_all_caller_functions(function)
                     for caller_function in caller_functions:
+                        print("hit 07")
+
                         # Backward slicing: Trace back to the caller function from the current function
                         new_slice_context = copy.deepcopy(slice_context)
                         is_CFL_reachable = new_slice_context.add_context(function_id, ContextLabel.LEFT_PAR)
@@ -238,6 +237,8 @@ class SliceScanAgent:
                     ]
                     index = external_variable["index"]
                     for callee_function in callee_functions:
+                        print("hit 08")
+
                         # Backward slicing: Trace back to the callee function from the current function
                         new_slice_context = copy.deepcopy(slice_context)
                         is_CFL_reachable = new_slice_context.add_context(callee_function.function_id, ContextLabel.RIGHT_PAR)
@@ -268,7 +269,7 @@ class SliceScanAgent:
         worklist: List[Tuple[CallContext, int, Set[Value]]] = [] # The list of (slice_contxt, function_id, set of seed_value)
 
         # Initially, the call stack is empty.
-        initial_context = CallContext(self.is_backward)
+        initial_context = CallContext()
         worklist.append((initial_context, self.seed_function.function_id, self.seed_values))
 
         while True:
@@ -293,6 +294,8 @@ class SliceScanAgent:
             delta_worklist = self.__update_worklist(input, output, slice_context)
             print("length of delta_worklist: ", len(delta_worklist))
             print("length of worklist: ", len(worklist))
+
+            exit(1)
 
             for (delta_slice_context, delta_function_id, delta_seed_set) in delta_worklist:
                 delta_seed_value = list(delta_seed_set)[0]

@@ -17,28 +17,17 @@ class MetaScanAgent:
     def __init__(self,
                  project_name,
                  language,
-                 code_in_files,
+                 ts_analyzer,
                  inference_model_name,
                  temperature):
         self.project_name = project_name
         self.language = language
-        self.code_in_files = code_in_files
+        self.ts_analyzer = ts_analyzer
         self.inference_model_name = inference_model_name
         self.temperature = temperature
 
         self.detection_result = []
         self.buggy_traces = []
-        if self.language == "C" or self.language == "Cpp":
-            self.ts_analyzer = Cpp_TSAnalyzer(self.code_in_files, self.language)
-        elif self.language == "Go":
-            self.ts_analyzer = Go_TSAnalyzer(self.code_in_files, self.language)
-        elif self.language == "Java":
-            self.ts_analyzer = Java_TSAnalyzer(self.code_in_files, self.language)
-        elif self.language == "Python":
-            self.ts_analyzer = Python_TSAnalyzer(self.code_in_files, self.language)
-        else:
-            print("Unsupported language")
-            exit(1)
         self.model = LLM(self.inference_model_name, self.temperature)
 
     def start_scan(self):

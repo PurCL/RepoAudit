@@ -24,7 +24,7 @@ class BugScanAgent:
                  bug_type,
                  project_name,
                  language,
-                 code_in_files,
+                 ts_analyzer,
                  inference_model_name,
                  temperature,
                  call_depth,
@@ -35,7 +35,7 @@ class BugScanAgent:
 
         self.project_name = project_name
         self.language = language if language not in {"C", "Cpp"} else "Cpp"
-        self.code_in_files = code_in_files
+        self.ts_analyzer = ts_analyzer
 
         self.model_name = inference_model_name
         self.temperature = temperature
@@ -51,18 +51,6 @@ class BugScanAgent:
         self.result_dir_path = f"{BASE_PATH}/result/bugscan-{self.model_name}/{self.project_name}/{time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())}"
         if not os.path.exists(self.result_dir_path):
             os.makedirs(self.result_dir_path)
-
-        if self.language == "Cpp":
-            self.ts_analyzer = Cpp_TSAnalyzer(self.code_in_files, self.language)
-        elif self.language == "Go":
-            self.ts_analyzer = Go_TSAnalyzer(self.code_in_files, self.language)
-        elif self.language == "Java":
-            self.ts_analyzer = Java_TSAnalyzer(self.code_in_files, self.language)
-        elif self.language == "Python":
-            self.ts_analyzer = Python_TSAnalyzer(self.code_in_files, self.language)
-        else:
-            print("Unsupported language")
-            exit(1)
 
         # LLM tools used by BugScanAgent
         self.slice_inliner = SliceInliner(self.model_name, self.temperature, self.language, self.MAX_QUERY_NUM)
@@ -160,7 +148,7 @@ class BugScanAgent:
 
             # (Key Step I): Start a slicescan agent for each seed
             slice_scan_agent = SliceScanAgent([seed_value], is_backward, self.project_name, \
-                                              self.language, self.code_in_files, \
+                                              self.language, self.ts_analyzer, \
                                               self.model_name, self.temperature, self.call_depth, self.max_workers)
             self.SliceScanAgent.append(slice_scan_agent)
 
@@ -185,7 +173,8 @@ class BugScanAgent:
                 intra_detector_output: IntraDetectorOutput = self.intra_detector.invoke(intra_detector_input)
 
                 # Construct the bug report and update the state
-                explanation = "After the abstraction, we have the following code snippet:\n" \
+                explanation = "Call tree: \n" + slice_inliner_input.tree_str + "\n" \
+                                + "After the abstraction, we have the following code snippet:\n" \
                                 + slice_inliner_output.inlined_snippet + "\n" \
                                 + intra_detector_output.poc_str
                 bug_report = BugReport(self.bug_type, seed_value, slice_inliner_input.relevant_functions, explanation)

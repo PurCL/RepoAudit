@@ -55,18 +55,6 @@ class DFBScanAgent:
         if not os.path.exists(self.result_dir_path):
             os.makedirs(self.result_dir_path)
 
-        if self.language == "Cpp":
-            self.ts_analyzer = Cpp_TSAnalyzer(self.code_in_files, self.language)
-        elif self.language == "Go":
-            self.ts_analyzer = Go_TSAnalyzer(self.code_in_files, self.language)
-        elif self.language == "Java":
-            self.ts_analyzer = Java_TSAnalyzer(self.code_in_files, self.language)
-        elif self.language == "Python":
-            self.ts_analyzer = Python_TSAnalyzer(self.code_in_files, self.language)
-        else:
-            print("Unsupported language")
-            exit(1)
-
         # LLM tools used by DFBScanAgent
         self.intra_dfa = IntraDataFlowAnalyzer(self.model_name, self.temperature, self.language, self.MAX_QUERY_NUM)
         self.path_validator = PathValidator(self.model_name, self.temperature, self.language, self.MAX_QUERY_NUM)
