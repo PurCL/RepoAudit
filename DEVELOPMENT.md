@@ -22,6 +22,13 @@
     - Web UI (Jinyao)
 
 
+### Analyze
+
+- Global variables and class member values
+
+- Different data-flow propagation rules
+
+
 ### Doc
 
 - Quick Start
@@ -34,6 +41,9 @@
 
 - Add Multi-Modal Extension
 
+- Refactor the format of external values in slicing
+
+- Refactor the output/ret, para/arg conversion
 
 ## Maintenance
 

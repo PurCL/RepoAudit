@@ -37,7 +37,7 @@ for PROJECT in "${PROJECTS[@]}"; do
   --bug-type $BUG_TYPE \
   --global-temperature 0.0 \
   --scanners $SCANNER \
-  --boundary 3 \
+  --call-depth 3 \
   --max-workers 15 \
   --seed-spec-file ../result/extract/$BUG_TYPE/${LANGUAGE}_${PROJECT}/seed_result.json
 done

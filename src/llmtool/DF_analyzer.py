@@ -22,7 +22,7 @@ class DataflowAnalyzer(LLMTool):
             temperature, 
             language, 
             ts_analyzer,
-            boundary,
+            call_depth,
             bug_type
             ) -> None:
         self.bug_type = bug_type
@@ -30,7 +30,7 @@ class DataflowAnalyzer(LLMTool):
         super().__init__(model_name, temperature, language)
         self.cache: Dict[str, DFAState] = {}
         self.ts_analyzer = ts_analyzer
-        self.boundary = boundary
+        self.call_depth = call_depth
         self.total_input_token_cost = 0
         self.total_output_token_cost = 0
 
@@ -62,7 +62,7 @@ class DataflowAnalyzer(LLMTool):
         """
         Analyze the state
         """
-        if depth >= self.boundary:
+        if depth >= self.call_depth:
             return False
         
         key = str(state.var) + state.function.function_name
@@ -132,7 +132,7 @@ class DataflowAnalyzer(LLMTool):
                             continue 
                         caller_functions = self.ts_analyzer.get_all_caller_functions(state.function)
                         for caller_function in caller_functions:
-                            for callsite in self.ts_analyzer.get_callsite_by_callee_name(caller_function, state.function.function_name):
+                            for callsite in self.ts_analyzer.get_callsites_by_callee_name(caller_function, state.function.function_name):
                                 output_value = self.ts_analyzer.get_output_value_at_callsite(caller_function, callsite)
                                 caller_state = DFAState(output_value, caller_function)
                                 if (self.__analyze(caller_state, depth+1, info_list)):
@@ -150,7 +150,7 @@ class DataflowAnalyzer(LLMTool):
                         caller_functions = self.ts_analyzer.get_all_caller_functions(state.function)
                         for caller_function in caller_functions:
                             callee_name = state.function.function_name
-                            for callsite in self.ts_analyzer.get_callsite_by_callee_name(caller_function, callee_name):
+                            for callsite in self.ts_analyzer.get_callsites_by_callee_name(caller_function, callee_name):
                                 for arg in self.ts_analyzer.get_arguments_at_callsite(caller_function, callsite):
                                     if arg.index == index:
                                         caller_state = DFAState(arg, caller_function)

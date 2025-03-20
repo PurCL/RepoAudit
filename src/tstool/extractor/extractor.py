@@ -29,7 +29,7 @@ class Extractor(ABC):
 
         self.project_path = project_path
         self.suffix = set()
-        self.all_files = {}
+        self.code_in_files = {}
         self.seeds = []
 
         if language_setting == "C":
@@ -60,8 +60,8 @@ class Extractor(ABC):
         """
         Start the seed extraction process.
         """
-        pbar = tqdm(total=len(self.all_files), desc="Parsing files")
-        for file_name, file_code in self.all_files.items():
+        pbar = tqdm(total=len(self.code_in_files), desc="Parsing files")
+        for file_name, file_code in self.code_in_files.items():
             pbar.update(1)
             if 'test' in file_name or 'example' in file_name:
                 continue
@@ -84,7 +84,7 @@ class Extractor(ABC):
                     continue
                 with open(os.path.join(root, file), "r") as c_file:
                     c_file_content = c_file.read()
-                    self.all_files[os.path.join(root, file)] = c_file_content
+                    self.code_in_files[os.path.join(root, file)] = c_file_content
             for dir in dirs:
                 self.travese_files(os.path.join(root, dir), suffix) 
 

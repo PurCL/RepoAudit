@@ -63,13 +63,13 @@ class SliceScanAgent:
             print("Unsupported language")
             exit(1)
 
-        # TODO: For demo testing
-        if len(self.seed_values) == 0:
-            for function_id in self.ts_analyzer.function_env:
-                if self.ts_analyzer.function_env[function_id].function_name == "Exec":
-                    function = self.ts_analyzer.function_env[function_id]
-                    rets = self.ts_analyzer.get_return_values_in_single_function(function)
-                    self.seed_values = list(rets)
+        # # TODO: For demo testing
+        # if len(self.seed_values) == 0:
+        #     for function_id in self.ts_analyzer.function_env:
+        #         if self.ts_analyzer.function_env[function_id].function_name == "Exec":
+        #             function = self.ts_analyzer.function_env[function_id]
+        #             rets = self.ts_analyzer.get_return_values_in_single_function(function)
+        #             self.seed_values = list(rets)
         
         self.seed_function = self.ts_analyzer.get_function_from_localvalue(self.seed_values[0])
 
@@ -83,7 +83,7 @@ class SliceScanAgent:
     def __update_worklist(self, 
                         input: IntraSlicerInput, 
                         output: IntraSlicerOutput, 
-                        slice_context: SliceContext
+                        slice_context: CallContext
                         ) -> List[Tuple[int, Value]]:
         """
         Update the worklist based on the output of the intra-slicer
@@ -265,10 +265,10 @@ class SliceScanAgent:
 
     def start_scan(self):
         print("Start slice scanning...")
-        worklist: List[Tuple[SliceContext, int, Set[Value]]] = [] # The list of (slice_contxt, function_id, set of seed_value)
+        worklist: List[Tuple[CallContext, int, Set[Value]]] = [] # The list of (slice_contxt, function_id, set of seed_value)
 
         # Initially, the call stack is empty.
-        initial_context = SliceContext(self.is_backward)
+        initial_context = CallContext(self.is_backward)
         worklist.append((initial_context, self.seed_function.function_id, self.seed_values))
 
         while True:

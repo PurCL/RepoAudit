@@ -32,7 +32,7 @@ for PROJECT in "${PROJECTS[@]}"; do
   --global-temperature 0.0 \
   --scanners $SCANNER \
   --max-workers 10 \
-  --boundary 3 \
+  --call-depth 3 \
   --seed-spec-file ../result/extract/$BUG_TYPE/${LANGUAGE}_${PROJECT}/seed_result.json
 done
 

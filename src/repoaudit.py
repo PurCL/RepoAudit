@@ -15,7 +15,7 @@ class RepoAudit:
         temperature: float,
         scanners: list,
         bug_type: str,
-        boundary: int,
+        call_depth: int,
         max_workers: int
     ):
         """
@@ -26,10 +26,10 @@ class RepoAudit:
         self.language = language
         self.scanners = scanners
         self.bug_type = bug_type
-        self.boundary = boundary
+        self.call_depth = call_depth
         self.max_workers = max_workers
 
-        self.all_files = {}
+        self.code_in_files = {}
         self.inference_model_name = inference_model_name
         self.temperature = temperature
         self.batch_scan_statistics = {}
@@ -61,7 +61,7 @@ class RepoAudit:
             metascan_pipeline = MetaScanAgent(
                 project_name,
                 self.language,
-                self.all_files,
+                self.code_in_files,
                 self.inference_model_name,
                 self.temperature
             )
@@ -73,10 +73,10 @@ class RepoAudit:
                 self.bug_type,
                 project_name,
                 self.language,
-                self.all_files,
+                self.code_in_files,
                 self.inference_model_name,
                 self.temperature,
-                self.boundary,
+                self.call_depth,
                 self.max_workers
             )
             bugscan_agent.start_scan()
@@ -86,11 +86,11 @@ class RepoAudit:
                 self.seed_spec_file,
                 project_name,
                 self.language,
-                self.all_files,
+                self.code_in_files,
                 self.inference_model_name,
                 self.temperature,
                 self.bug_type,
-                self.boundary,
+                self.call_depth,
                 self.max_workers
             )
             DFscan_agent.start_scan()
@@ -101,7 +101,7 @@ class RepoAudit:
                 #  is_backward: bool,
                 #  project_name: str,
                 #  language: str,
-                #  code_in_projects: Dict[str, str],
+                #  code_in_files: Dict[str, str],
                 #  model_name: str,
                 #  temperature: float,
                 #  call_depth: int = 1,
@@ -112,10 +112,10 @@ class RepoAudit:
                 True,
                 project_name,
                 self.language,
-                self.all_files,
+                self.code_in_files,
                 self.inference_model_name,
                 self.temperature,
-                self.boundary,
+                self.call_depth,
                 self.max_workers
             )
             slicescan_agent.start_scan()
@@ -134,7 +134,7 @@ class RepoAudit:
                 try:
                     with open(file, "r") as c_file:
                         c_file_content = c_file.read()
-                        self.all_files[file] = c_file_content
+                        self.code_in_files[file] = c_file_content
                 except:
                     print(f"Error reading file {file}")
 
@@ -197,9 +197,9 @@ def run_dev_mode():
         help="Specify the seed spec file",
     )
     parser.add_argument(
-        "--boundary",
+        "--call-depth",
         type=int,
-        help="Specify the retrieval boundary",
+        help="Specify the retrieval call depth",
     )
     parser.add_argument(
         "--max-workers",
@@ -216,7 +216,7 @@ def run_dev_mode():
     scanners = args.scanners if args.scanners else []
     seed_spec = args.seed_spec_file
     bug_type = args.bug_type
-    boundary = args.boundary
+    call_depth = args.call_depth
     max_workers = args.max_workers
 
     print(seed_spec)
@@ -229,7 +229,7 @@ def run_dev_mode():
         global_temperature,
         scanners,
         bug_type,
-        boundary,
+        call_depth,
         max_workers
     )
     batch_scan.start_batch_scan()

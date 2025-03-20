@@ -1,6 +1,7 @@
 import sys
 from os import path
 from pathlib import Path
+import copy
 from typing import List, Tuple, Dict, Set
 import tree_sitter
 from tree_sitter import Language
@@ -14,6 +15,87 @@ from memory.syntactic.function import *
 from memory.syntactic.api import *
 from memory.syntactic.value import *
 
+class ContextLabel(Enum):
+    LEFT_PAR = -1
+    RIGHT_PAR = 1
+
+    def __str__(self) -> str:
+        return self.name
+
+class CallContext:
+    def __init__(self):
+        self.context : List[Tuple[int, ContextLabel]] = []
+        self.simplified_context : List[Tuple[int, ContextLabel]] = []
+
+    def add_context_at_end(self, function_id: int, label: ContextLabel) -> bool:
+        """
+        Add a context entry to the context at the end of the context
+        :param function_id: the function id
+        :param label: the label of the context entry
+        :ret True if the context after adding the new context pair is in the CFL reachable, False otherwise
+        """
+        is_CFL_reachable = True
+        if len(self.simplified_context) == 0:
+            self.simplified_context.append((function_id, label))
+            self.context.append((function_id, label))
+            return is_CFL_reachable
+
+        (top_function_id, top_label) = self.simplified_context[-1]
+        if top_label == label:
+            self.simplified_context.append((function_id, label))
+        elif top_label == ContextLabel.LEFT_PAR and label == ContextLabel.RIGHT_PAR:
+            if top_function_id == function_id:
+                self.simplified_context.pop()
+            else:
+                is_CFL_reachable = False
+        else:
+            # top_label == ContextLabel.RIGHT_PAR and label == ContextLabel.LEFT_PAR:
+            self.simplified_context.append((function_id, label))
+
+        if is_CFL_reachable:
+            self.context.append((function_id, label))
+        return is_CFL_reachable
+    
+    
+    def add_context_at_beginning(self, function_id: int, label: ContextLabel) -> bool:
+        """
+        Add a context entry to the context at the end of the context
+        :param function_id: the function id
+        :param label: the label of the context entry
+        :ret True if the context after adding the new context pair is in the CFL reachable, False otherwise
+        """
+        is_CFL_reachable = True
+        if len(self.simplified_context) == 0:
+            self.simplified_context.append((function_id, label))
+            self.context.insert(0, (function_id, label))
+            return is_CFL_reachable
+
+        (bot_function_id, bot_label) = self.simplified_context[0]
+        if bot_label == label:
+            self.simplified_context.insert(0, (function_id, label))
+        elif bot_label == ContextLabel.LEFT_PAR and label == ContextLabel.RIGHT_PAR:
+            if bot_function_id == function_id:
+                self.simplified_context = self.simplified_context[1:]
+            else:
+                is_CFL_reachable = False
+        else:
+            # bot_label == ContextLabel.RIGHT_PAR and label == ContextLabel.LEFT_PAR:
+            self.simplified_context.insert(0, (function_id, label))
+
+        if is_CFL_reachable:
+            self.context.insert(0, (function_id, label))
+        return is_CFL_reachable
+
+    def __str__(self) -> str:
+        return f"CallContext(context={self.context})"
+    
+    def __eq__(self, other: 'CallContext') -> bool:
+        return str(self.context) == str(other.context)
+
+    def __hash__(self) -> int:
+        # Convert context list to tuple for hashing; assumes that context entries are immutable
+        return hash(str(self.context))
+
 class TSAnalyzer(ABC):
     """
     TSAnalyzer class for retrieving necessary facts or functions for llmtools.
@@ -21,15 +103,15 @@ class TSAnalyzer(ABC):
 
     def __init__(
         self,
-        code_in_projects: Dict[str, str],
+        code_in_files: Dict[str, str],
         language_name: str,
     ) -> None:
         """
         Initialize TSAnalyzer with the project source code and language.
-        :param code_in_projects: A dictionary mapping file paths to source file contents.
+        :param code_in_files: A dictionary mapping file paths to source file contents.
         :param language: The programming language of the source code.
         """
-        self.code_in_projects = code_in_projects
+        self.code_in_files = code_in_files
         cwd = Path(__file__).resolve().parent.absolute()
         TSPATH = cwd / "../../../lib/build/"
         language_path = TSPATH / "my-languages.so"
@@ -81,10 +163,10 @@ class TSAnalyzer(ABC):
         """
         Parse all project files using tree-sitter.
         """
-        pbar = tqdm(total=len(self.code_in_projects), desc="Parsing files")
-        for file_path in self.code_in_projects:
+        pbar = tqdm(total=len(self.code_in_files), desc="Parsing files")
+        for file_path in self.code_in_files:
             pbar.update(1)
-            source_code = self.code_in_projects[file_path]
+            source_code = self.code_in_files[file_path]
             try:
                 tree = self.parser.parse(bytes(source_code, "utf8"))
             except Exception as e:
@@ -324,7 +406,7 @@ class TSAnalyzer(ABC):
         :return: A list of function ids of the callee functions.
         """
         file_name = current_function.file_name
-        source_code = self.code_in_projects[file_name]
+        source_code = self.code_in_files[file_name]
         callee_name = self.get_callee_name_at_call_site(call_site_node, source_code)
         arguments = self.get_arguments_at_callsite(current_function, call_site_node)
         temp_callee_ids = []
@@ -349,7 +431,7 @@ class TSAnalyzer(ABC):
         :return: A list of api ids of the callee apis.
         """
         file_name = current_function.file_name
-        source_code = self.code_in_projects[file_name]
+        source_code = self.code_in_files[file_name]
         callee_name = self.get_callee_name_at_call_site(call_site_node, source_code)
         arguments = self.get_arguments_at_callsite(current_function, call_site_node)
         callee_ids = []
@@ -362,7 +444,7 @@ class TSAnalyzer(ABC):
         return callee_ids
 
     @abstractmethod
-    def get_callsite_by_callee_name(self, current_function: Function, callee_name: str) -> List[tree_sitter.Node]:
+    def get_callsites_by_callee_name(self, current_function: Function, callee_name: str) -> List[tree_sitter.Node]:
         """
         Find the call site nodes by callee name.
         :param current_function: The function to be analyzed.
@@ -382,6 +464,30 @@ class TSAnalyzer(ABC):
         """
         pass
 
+    # TODO: error-prone
+    def get_arguments_by_parameter_in_call_context(self, para: Value, para_function: Function, call_context: CallContext) -> List[Tuple[Value, Function, CallContext]]:
+        """
+        Used in the backward analysis.
+        Get the arguments of the callee functions according to the parameter at a specific call site in the call context.
+        :param para: The target parameter.
+        :param para_function: The function containing the target parameter.
+        :param call_context: The call context.
+        :return: A list of tuples, each containing an argument, the callee function, and the call context.
+        """ 
+        arg_function_context_list = []
+        caller_function = self.get_all_caller_functions(para_function)
+        for caller_function in caller_function:
+            new_call_context = copy.deepcopy(call_context)
+            is_CFL_reachable = new_call_context.add_context_at_beginning(para_function.function_id, ContextLabel.LEFT_PAR)
+            
+            if not is_CFL_reachable:
+                continue
+            
+            for arg in caller_function.paras:
+                if arg.index == para.index:
+                    arg_function_context_list.insert(0, (arg, caller_function, new_call_context))
+        return arg_function_context_list
+    
     # Helper functions for parameters
     @abstractmethod
     def get_parameters_in_single_function(self, current_function: Function) -> Set[Value]:
@@ -392,6 +498,44 @@ class TSAnalyzer(ABC):
         """
         pass
 
+    # TODO: error-prone
+    def get_parameters_by_argument_in_call_context(self, arg: Value, arg_function: Function, call_context: CallContext) -> List[Tuple[Value, Function, CallContext]]:
+        """
+        Used in the forward analysis.
+        Get the parameters of the callee functions according to the argument at a specific call site in the call context.
+        :param arg: The target argument.
+        :param arg_function: The function containing the target argument.
+        :param call_context: The call context.
+        :return: A list of tuples, each containing a parameter, the callee function, and the call context.
+        """
+        para_function_context_list = []
+        
+        callee_functions = self.get_all_callee_functions(arg_function)
+        for callee_function in callee_functions:
+            is_called = False
+            call_sites = self.get_callsites_by_callee_name(arg_function, callee_function.function_name)
+            for call_site_node in call_sites:
+                file_content = self.code_in_files[arg_function.file_name]
+                call_site_lower_line_number = file_content[:call_site_node.start_byte].count("\n") + 1
+                call_site_upper_line_number = file_content[:call_site_node.end_byte].count("\n") + 1
+                arg_line_number_in_file = arg_function.start_line_number + arg.line_number - 1
+                if not (call_site_lower_line_number <= arg_line_number_in_file and arg_line_number_in_file <= call_site_upper_line_number):
+                    is_called = True
+            if not is_called:
+                continue
+                    
+            new_call_context = copy.deepcopy(call_context)
+            is_CFL_reachable = new_call_context.add_context_at_end(callee_function.function_id, ContextLabel.LEFT_PAR)
+
+            # violate CFL reachability and then skip
+            if not is_CFL_reachable:
+                continue
+            
+            for para in callee_function.paras:
+                if para.index == arg.index:
+                    para_function_context_list.append((para, callee_function, new_call_context))
+        return para_function_context_list
+
     # Helper functions for output values
     def get_output_value_at_callsite(self, current_function: Function, call_site_node: tree_sitter.Node) -> Value:
         """
@@ -400,12 +544,41 @@ class TSAnalyzer(ABC):
         :param call_site_node: The node of the call site.
         :return: The output value.
         """
-        file_code = self.code_in_projects[current_function.file_name]
+        file_code = self.code_in_files[current_function.file_name]
         name = file_code[call_site_node.start_byte:call_site_node.end_byte]
         line_number = file_code[:call_site_node.start_byte].count("\n") + 1
         output_value = Value(name, line_number, ValueLabel.OUT, current_function.file_name, -1)
         return output_value
         
+    # TODO: error-prone
+    def get_output_values_by_return_value_in_call_context(self, ret_function: Function, call_context: CallContext) -> List[Tuple[Value, Function, CallContext]]:
+        """
+        Used in the forward analysis.
+        Get the output values of the expressions of the callee function call according to the return value of a function in a call context.
+        :param ret_function: The function containing the target return value.
+        :param call_context: The call context.
+        :return: A list of tuples, each containing an output value, the callee function, and the call context.
+        """
+        output_value_function_context_list = []
+        caller_functions = self.get_all_caller_functions(ret_function)
+        for caller_function in caller_functions:
+            new_call_context = copy.deepcopy(call_context)
+            is_CFL_reachable = new_call_context.add_context_at_end(ret_function.function_id, ContextLabel.RIGHT_PAR)
+
+            if not is_CFL_reachable:
+                continue
+
+            if len(new_call_context.simplified_context) > 0:
+                top_context_id, top_context_label = new_call_context.simplified_context
+                if top_context_label == ContextLabel.LEFT_PAR:
+                    if top_context_id != caller_function.function_id:
+                        continue
+            
+            call_site_nodes = self.get_callsites_by_callee_name(caller_function, ret_function.function_name)
+            for call_site_node in call_site_nodes:
+                output_value = self.get_output_value_at_callsite(caller_function, call_site_node)
+                output_value_function_context_list.append((output_value, caller_function, new_call_context))
+        return output_value_function_context_list
 
     # Helper functions for return values
     @abstractmethod
@@ -416,6 +589,30 @@ class TSAnalyzer(ABC):
         :return: A set of return values as values
         """
         pass
+
+    # TODO: error-prone
+    def get_return_values_by_output_value_in_call_context(self, output_value: Value, output_value_function: Function, call_context: CallContext) -> List[Tuple[Value, Function, CallContext]]:
+        """
+        Used in the backward analysis.
+        Get the return values of the expressions of the callee function according to the output value of a function in a call context.
+        :param output_value: The target output value.
+        :param output_value_function: The function containing the target output value.
+        :param call_context: The call context.
+        :return: A list of tuples, each containing a return value, the callee function, and the call context.
+        """
+        ret_function_context_list = []
+        callee_functions = self.get_all_callee_functions(output_value_function)
+        for callee_function in callee_functions:
+            new_call_context = copy.deepcopy(call_context)
+            is_CFL_reachable = new_call_context.add_context_at_beginning(callee_function.function_id, ContextLabel.RIGHT_PAR)
+
+            if not is_CFL_reachable:
+                continue
+            
+            for ret in callee_function.retvals:
+                if ret.index == output_value.index:
+                    ret_function_context_list.append((ret, callee_function, new_call_context))
+        return ret_function_context_list
 
     # Control Flow Analysis
     @abstractmethod
@@ -523,9 +720,9 @@ class TSAnalyzer(ABC):
         """
         Get the content from a file at the specified line.
         """
-        if file_name not in self.code_in_projects:
+        if file_name not in self.code_in_files:
             return ""
-        file_lines = self.code_in_projects[file_name].split("\n")
+        file_lines = self.code_in_files[file_name].split("\n")
         if line_number > len(file_lines):
             return ""
         return file_lines[line_number - 1]

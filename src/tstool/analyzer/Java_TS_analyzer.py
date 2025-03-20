@@ -67,12 +67,12 @@ class Java_TSAnalyzer(TSAnalyzer):
             function_name = child_texts[0] if child_texts else ""
         return function_name
 
-    def get_callsite_by_callee_name(self, current_function: Function, callee_name: str) -> List[tree_sitter.Node]:
+    def get_callsites_by_callee_name(self, current_function: Function, callee_name: str) -> List[tree_sitter.Node]:
         """
         Find call site nodes for the given callee name.
         """
         results = []
-        file_content = self.code_in_projects[current_function.file_name]
+        file_content = self.code_in_files[current_function.file_name]
         call_site_nodes = find_nodes_by_type(current_function.parse_tree_root_node, "method_invocation")
         for call_site in call_site_nodes:
             if self.get_callee_name_at_call_site(call_site, file_content) == callee_name:
@@ -88,7 +88,7 @@ class Java_TSAnalyzer(TSAnalyzer):
         """
         arguments = set([])
         file_name = current_function.file_name
-        source_code = self.code_in_projects[file_name]
+        source_code = self.code_in_files[file_name]
         for sub_node in call_site_node.children:
             if sub_node.type == "argument_list":
                 arg_list = sub_node.children[1:-1]
@@ -105,7 +105,7 @@ class Java_TSAnalyzer(TSAnalyzer):
         :return: A set of parameters as values
         """
         paras = set()
-        file_content = self.code_in_projects[current_function.file_name]
+        file_content = self.code_in_files[current_function.file_name]
         parameters = find_nodes_by_type(current_function.parse_tree_root_node, "formal_parameter")
         index = 0
         for parameter_node in parameters:
@@ -123,7 +123,7 @@ class Java_TSAnalyzer(TSAnalyzer):
         :return: A set of return values
         """
         retvalues = set([])
-        file_content = self.code_in_projects[current_function.file_name]
+        file_content = self.code_in_files[current_function.file_name]
         retnodes = find_nodes_by_type(current_function.parse_tree_root_node, "return_statement")
         for retnode in retnodes:
             line_number = file_content[:retnode.start_byte].count("\n") + 1

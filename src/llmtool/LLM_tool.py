@@ -40,6 +40,7 @@ class LLMTool(ABC):
     def invoke(self, input: LLMToolInput) -> LLMToolOutput:
         print("LLM tool is invoked.")
         if input in self.cache:
+            print("Cache hit.")
             return self.cache[input]
         
         prompt = self._get_prompt(input)

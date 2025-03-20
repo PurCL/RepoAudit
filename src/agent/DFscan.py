@@ -34,32 +34,32 @@ class DFScanAgent:
                  seed_spec_file,
                  project_name,
                  language,
-                 all_files,
+                 code_in_files,
                  inference_model_name,
                  temperature,
                  bug_type,
-                 boundary,
+                 call_depth,
                  max_workers=1
                  ) -> None:
         self.seed_spec_file = seed_spec_file
         self.project_name = project_name
         self.language = language if language not in {"C", "Cpp"} else "Cpp"
-        self.all_files = all_files
+        self.code_in_files = code_in_files
         self.model_name = inference_model_name
         self.temperature = temperature
         self.bug_type = bug_type
-        self.boundary = boundary
+        self.call_depth = call_depth
         self.max_workers = max_workers
         
         self.detection_result = []
         if self.language == "Cpp":
-            self.ts_analyzer = Cpp_TSAnalyzer(self.all_files, self.language)
+            self.ts_analyzer = Cpp_TSAnalyzer(self.code_in_files, self.language)
         elif self.language == "Go":
-            self.ts_analyzer = Go_TSAnalyzer(self.all_files, self.language)
+            self.ts_analyzer = Go_TSAnalyzer(self.code_in_files, self.language)
         elif self.language == "Java":
-            self.ts_analyzer = Java_TSAnalyzer(self.all_files, self.language)
+            self.ts_analyzer = Java_TSAnalyzer(self.code_in_files, self.language)
         elif self.language == "Python":
-            self.ts_analyzer = Python_TSAnalyzer(self.all_files, self.language)
+            self.ts_analyzer = Python_TSAnalyzer(self.code_in_files, self.language)
         else:
             print("Unsupported language")
             exit(1)
@@ -69,7 +69,7 @@ class DFScanAgent:
             temperature,
             self.language, 
             self.ts_analyzer,
-            self.boundary,
+            self.call_depth,
             self.bug_type
         )
 
@@ -242,7 +242,7 @@ class DFScanAgent:
         """
         Postprocess the state, return true if the state has a buggy path
         """
-        if depth > self.boundary:
+        if depth > self.call_depth:
             return
         for subpath in state.subpath:
             print(subpath.get_status())
