@@ -1,7 +1,7 @@
 from memory.syntactic.function import *
 from memory.syntactic.value import *
 from typing import List, Tuple, Dict
-from memory.result.bug_report import *
+from memory.report.bug_report import *
     
 
 class DFBState:
