@@ -126,6 +126,18 @@ class RepoAudit:
             slicescan_agent.start_scan()
             print(slicescan_agent.get_agent_result())
 
+                # src_spec_file,
+                #  sink_spec_file,
+                #  is_reachable,
+                #  bug_type,
+                #  project_name,
+                #  language,
+                #  code_in_files,
+                #  inference_model_name,
+                #  temperature,
+                #  call_depth,
+                #  max_workers=1
+
         if "dfbscan" in self.scanners:
             dfbscan_agent = DFBScanAgent(
                 project_name,
