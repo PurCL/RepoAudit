@@ -1,11 +1,11 @@
 from tstool.analyzer.TS_analyzer import *
 from tstool.analyzer.Cpp_TS_analyzer import *
-from ..extractor import *
+from ..bugscan_extractor import *
 import tree_sitter
 import argparse
 
 
-class Cpp_BOF_Extractor(Extractor):
+class Cpp_BOF_Extractor(BugScanExtractor):
     def find_seeds(self, source_code: str, root_node: tree_sitter.Node, file_name: str) -> List[Tuple[Value, bool]]:
         """
         Extract the seeds that can cause the buffer overflow bugs from C/C++ programs.

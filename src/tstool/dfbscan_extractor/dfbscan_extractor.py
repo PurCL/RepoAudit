@@ -13,7 +13,7 @@ from abc import ABC, abstractmethod
 sys.path.append(path.dirname(path.dirname(path.dirname(path.abspath(__file__)))))
 
     
-class Extractor(ABC):
+class DFBScanExtractor(ABC):
     """
     Extractor class providing a common interface for source/sink extraction using tree-sitter.
     """
@@ -70,7 +70,7 @@ class Extractor(ABC):
             self.seeds.extend(self.find_seeds(file_code, root, file_name))
     
         with open(self.seed_path, 'w') as f:
-            json.dump([self.seed_to_str(seed) for seed in self.seeds], f, indent=4, sort_keys=True)
+            json.dump([str(seed) for seed in self.seeds], f, indent=4, sort_keys=True)
         return
     
 
@@ -99,11 +99,3 @@ class Extractor(ABC):
         :return: List of the pairs of seed values and traversal strategies. True for backward, False for forward.
         """
         pass
-
-
-    def seed_to_str(self, seed: Tuple[Value, bool]) -> str:
-        """
-        dump the seed to string. 1 for forward, 0 for backward.
-        """
-        return str(seed[0]) + " " + str(int(seed[1]))
-

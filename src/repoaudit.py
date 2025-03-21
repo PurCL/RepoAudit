@@ -4,6 +4,7 @@ from agent.metascan import *
 from agent.bugscan import *
 from agent.DFscan import *
 from agent.slicescan import *
+from agent.dfbscan import *
 
 from tstool.analyzer.TS_analyzer import *
 from tstool.analyzer.Cpp_TS_analyzer import *
@@ -124,6 +125,18 @@ class RepoAudit:
             )
             slicescan_agent.start_scan()
             print(slicescan_agent.get_agent_result())
+
+        if "dfbscan" in self.scanners:
+            dfbscan_agent = DFBScanAgent(
+                project_name,
+                self.language,
+                self.ts_analyzer,
+                self.inference_model_name,
+                self.temperature,
+                self.bug_type,
+                self.call_depth,
+                self.max_workers
+            )
 
 
 

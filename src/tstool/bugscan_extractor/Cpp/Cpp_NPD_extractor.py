@@ -1,10 +1,10 @@
 from tstool.analyzer.TS_analyzer import *
 from tstool.analyzer.Cpp_TS_analyzer import *
-from ..extractor import *
+from ..bugscan_extractor import *
 import tree_sitter
 import argparse
 
-class Cpp_NPD_Extractor(Extractor):
+class Cpp_NPD_Extractor(BugScanExtractor):
     def find_seeds(self, source_code: str, root_node: tree_sitter.Node, file_name: str) -> List[Tuple[Value, bool]]:
         """
         Extract the seeds that can cause the NPD bugs from the C/C++ programs.
@@ -42,7 +42,7 @@ class Cpp_NPD_Extractor(Extractor):
             if is_seed_node:
                 line_number = source_code[: node.start_byte].count("\n") + 1
                 name = source_code[node.start_byte: node.end_byte]
-                seeds.append(Value(name, line_number, ValueLabel.SRC, file_name))
+                seeds.append((Value(name, line_number, ValueLabel.NON_BUF_ACCESS_EXPR, file_name), False))
         return seeds
 
 

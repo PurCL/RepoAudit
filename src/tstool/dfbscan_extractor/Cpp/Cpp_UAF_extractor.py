@@ -4,7 +4,7 @@ from ..extractor import *
 import tree_sitter
 import argparse
 
-class Cpp_UAF_Extractor(Extractor):
+class Cpp_UAF_Extractor(DFBScanExtractor):
     def find_seeds(self, source_code: str, root_node: tree_sitter.Node, file_name: str) -> List[Tuple[Value, bool]]:
         """
         Extract the seeds that can cause the use-after-free bugs from the C/C++ programs.

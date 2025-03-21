@@ -4,46 +4,47 @@ from ..extractor import *
 import tree_sitter
 import argparse
 
-class Cpp_ML_Extractor(Extractor):
+class Cpp_NPD_Extractor(DFBScanExtractor):
     def find_seeds(self, source_code: str, root_node: tree_sitter.Node, file_name: str) -> List[Tuple[Value, bool]]:
         """
-        Extract the seeds that can cause the memory leak bugs from C/C++ programs.
+        Extract the seeds that can cause the NPD bugs from the C/C++ programs.
         :param source_code: Content of the source file.
         :param root_node: A node in the parsed syntax tree.
         :param file_path: Path of the source file.
         :return: List of the pairs of seed values and traversal strategies. True for backward, False for forward.
         """
-        nodes = find_nodes_by_type(root_node, "call_expression")
-        nodes.extend(find_nodes_by_type(root_node, "new_expression"))
+        nodes = find_nodes_by_type(root_node, "init_declarator")
+        nodes.extend(find_nodes_by_type(root_node, "assignment_expression"))
+        nodes.extend(find_nodes_by_type(root_node, "return_statement"))
+        nodes.extend(find_nodes_by_type(root_node, "call_expression"))
 
         """
-        Extract the seeds for Memory Leak Detection from the source code.
-        1. malloc, realloc, calloc
-        2. strdup, strndup
-        3. asprintf, vasprintf
-        4. new
-        5. getline
+        Extract the potential null values as seeds from the source code.
+        1. ptr = NULL;
+        2. return NULL;
+        3. (type)* ptr = NULL;
         """
-        mem_allocations = {"malloc", "calloc", "realloc", "strdup", "strndup", "asprintf", "vasprintf", "getline"}
-        spec_apis = {}          # specific user-defined APIs that allocate memory
+        spec_apis = {"malloc"}        # specific user-defined APIs that can return NULL
         seeds = []
         for node in nodes:
             is_seed_node = False
-            if node.type == "new_expression":
-                is_seed_node = True
             if node.type == "call_expression":
                 for child in node.children:
                     if child.type == "identifier":
                         name = source_code[child.start_byte : child.end_byte]
-                        if name in mem_allocations or name in spec_apis:
+                        if name in spec_apis:
                             is_seed_node = True
+            else:
+                for child in node.children:
+                    if child.type == "null":
+                        is_seed_node = True
 
             if is_seed_node:
                 line_number = source_code[: node.start_byte].count("\n") + 1
                 name = source_code[node.start_byte: node.end_byte]
-                seeds.append((Value(name, line_number, ValueLabel.NON_BUF_ACCESS_EXPR, file_name), False))
-        return seeds     
-    
+                seeds.append(Value(name, line_number, ValueLabel.SRC, file_name))
+        return seeds
+
 
 def start_extract():
     parser = argparse.ArgumentParser()
@@ -70,8 +71,8 @@ def start_extract():
     language_setting = args.language
     seed_path = args.seed_path
     
-    ml_extractor = Cpp_ML_Extractor(project_path, language_setting, seed_path) 
-    ml_extractor.run()
+    npd_extractor = Cpp_NPD_Extractor(project_path, language_setting, seed_path) 
+    npd_extractor.run() 
 
 
 if __name__ == "__main__":
