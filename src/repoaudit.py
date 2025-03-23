@@ -3,7 +3,6 @@ import glob
 import sys
 from agent.metascan import *
 from agent.bugscan import *
-from agent.DFscan import *
 from agent.slicescan import *
 from agent.dfbscan import *
 
@@ -14,6 +13,22 @@ from tstool.analyzer.Java_TS_analyzer import *
 from tstool.analyzer.Python_TS_analyzer import *
 
 from typing import List
+
+
+default_bugscan_checkers = {
+    "Cpp": ["BOF", "MLK", "NPD", "UAF"],
+    "Go": ["BOF", "NPD"],
+    "Java": ["NPD"],
+    "Python": ["NPD"]
+}
+
+# TODO
+default_dfbscan_checkers = {
+    "Cpp": ["MLK", "NPD", "UAF"],
+    "Go": ["BOF", "NPD"],
+    "Java": ["NPD"],
+    "Python": ["NPD"]
+}
 
 class RepoAudit:
     def __init__(
@@ -26,10 +41,10 @@ class RepoAudit:
         # argument format check
         self.args = args
         is_input_valid, error_messages = self.validate_inputs()
-
+    
         if not is_input_valid:
             print("\n".join(error_messages))
-            return
+            exit(1)
         
         self.project_path = args.project_path
         self.language = args.language
@@ -149,6 +164,8 @@ class RepoAudit:
                 err_messages.append("Error: --model-name is required for bugscan.")
             if not self.args.bug_type:
                 err_messages.append("Error: --bug-type is required for bugscan.")
+            if self.args.bug_type not in default_bugscan_checkers[self.args.language]:
+                err_messages.append("Error: Invalid bug type provided.")
         elif self.args.scan_type == "slicescan":
             if not self.args.is_backward:
                 err_messages.append("Error: --is-backward is required for slicescan.")
@@ -161,6 +178,8 @@ class RepoAudit:
                 err_messages.append("Error: --bug-type is required for dfbscan.")
             if not self.args.is_reachable:
                 err_messages.append("Error: --is-reachable is required for dfbscan.")
+            if self.args.bug_type not in default_dfbscan_checkers[self.args.language]:
+                err_messages.append("Error: Invalid bug type provided.")
         else:
             err_messages.append("Error: Unknown scan type provided.")
         return (len(err_messages) == 0, err_messages)

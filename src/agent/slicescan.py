@@ -33,6 +33,8 @@ class SliceScanAgent:
         self.is_backward = is_backward
 
         self.project_path = project_path
+        self.project_name = project_path.split("/")[-1]
+
         self.language = language if language not in {"C", "Cpp"} else "Cpp"
         self.ts_analyzer = ts_analyzer
 
@@ -43,11 +45,11 @@ class SliceScanAgent:
         self.max_workers = max_workers
         self.MAX_QUERY_NUM = 5
 
-        self.log_dir_path = f"{BASE_PATH}/log/slicescan-{self.model_name}/{self.project_path}/{time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())}"
+        self.log_dir_path = f"{BASE_PATH}/log/slicescan-{self.model_name}/{self.language}-{self.project_name}/{time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())}"
         if not os.path.exists(self.log_dir_path):
             os.makedirs(self.log_dir_path)
 
-        self.result_dir_path = f"{BASE_PATH}/result/slicescan-{self.model_name}/{self.project_path}/{time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())}"
+        self.result_dir_path = f"{BASE_PATH}/result/slicescan-{self.model_name}/{self.language}-{self.project_name}/{time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())}"
         if not os.path.exists(self.result_dir_path):
             os.makedirs(self.result_dir_path)
 

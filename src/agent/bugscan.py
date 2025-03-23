@@ -46,6 +46,7 @@ class BugScanAgent:
         self.bug_type = bug_type
 
         self.project_path = project_path
+        self.project_name = project_path.split("/")[-1]
         self.language = language if language not in {"C", "Cpp"} else "Cpp"
         self.ts_analyzer = ts_analyzer
 
@@ -56,11 +57,11 @@ class BugScanAgent:
         self.max_workers = max_workers
         self.MAX_QUERY_NUM = 5
 
-        self.log_dir_path = f"{BASE_PATH}/log/bugscan-{self.model_name}/{self.project_path}/{time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())}"
+        self.log_dir_path = f"{BASE_PATH}/log/bugscan-{self.model_name}/{self.language}-{self.project_name}/{time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())}"
         if not os.path.exists(self.log_dir_path):
             os.makedirs(self.log_dir_path)
 
-        self.result_dir_path = f"{BASE_PATH}/result/bugscan-{self.model_name}/{self.project_path}/{time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())}"
+        self.result_dir_path = f"{BASE_PATH}/result/bugscan-{self.model_name}/{self.language}-{self.project_name}/{time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())}"
         if not os.path.exists(self.result_dir_path):
             os.makedirs(self.result_dir_path)
 
@@ -96,6 +97,7 @@ class BugScanAgent:
         elif self.language == "Python":
             if self.bug_type == "NPD":
                 return Python_NPD_Extractor(self.ts_analyzer)
+        # TODO: otherwise, sythesize the extractor
         return None
 
 

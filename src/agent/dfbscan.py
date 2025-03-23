@@ -43,11 +43,12 @@ class DFBScanAgent:
         self.max_workers = max_workers
         self.MAX_QUERY_NUM = 5
 
-        self.log_dir_path = f"{BASE_PATH}/log/dfbscan-{self.model_name}/{self.project_path}/{time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())}"
+        self.project_name = project_path.split("/")[-1]
+        self.log_dir_path = f"{BASE_PATH}/log/dfbscan-{self.model_name}/{self.language}-{self.project_name}/{time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())}"
         if not os.path.exists(self.log_dir_path):
             os.makedirs(self.log_dir_path)
 
-        self.result_dir_path = f"{BASE_PATH}/result/dfbscan-{self.model_name}/{self.project_path}/{time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())}"
+        self.result_dir_path = f"{BASE_PATH}/result/dfbscan-{self.model_name}/{self.language}-{self.project_name}/{time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())}"
         if not os.path.exists(self.result_dir_path):
             os.makedirs(self.result_dir_path)
 

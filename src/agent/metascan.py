@@ -19,6 +19,7 @@ class MetaScanAgent:
                  language,
                  ts_analyzer) -> None:
         self.project_path = project_path
+        self.project_name = project_path.split("/")[-1]
         self.language = language
         self.ts_analyzer = ts_analyzer
         return
@@ -29,8 +30,9 @@ class MetaScanAgent:
         Start the detection process.
         """
         log_dir_path = str(
-            Path(__file__).resolve().parent.parent.parent / ("result/metascan/" + self.project_path)
+            Path(__file__).resolve().parent.parent.parent / f"result/metascan/{self.language}-{self.project_name}"
         )
+
         if not os.path.exists(log_dir_path):
             os.makedirs(log_dir_path)
 
