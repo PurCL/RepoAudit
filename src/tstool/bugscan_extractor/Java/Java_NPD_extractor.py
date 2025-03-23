@@ -20,35 +20,3 @@ class Java_NPD_Extractor(BugScanExtractor):
             line_number = source_code[: node.start_byte].count("\n") + 1
             seeds.append((Value(source_code[node.start_byte:node.end_byte], line_number, ValueLabel.NON_BUF_ACCESS_EXPR, file_name), False))
         return seeds
-    
-
-def start_extract():
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--project-path",
-        type=str,
-        help="Specify the project path",
-    )
-    parser.add_argument(
-        "--language",
-        choices=[
-            "Java"
-        ],
-        help="Specify the language",
-    )
-    parser.add_argument(
-        "--seed-path",
-        type=str,
-        help="Specify the seed path",
-    )
-    args = parser.parse_args()
-    project_path = args.project_path
-    language_setting = args.language
-    seed_path = args.seed_path
-    
-    bof_extractor = Java_NPD_Extractor(project_path, language_setting, seed_path) 
-    bof_extractor.run()
-
-
-if __name__ == "__main__":
-    start_extract()

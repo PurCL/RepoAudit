@@ -73,36 +73,3 @@ class Cpp_ML_Extractor(DFBScanExtractor):
                 name = source_code[node.start_byte: node.end_byte]
                 sinks.append(Value(name, line_number, ValueLabel.SINK))
         return sinks     
-    
-
-def start_extract():
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--project-path",
-        type=str,
-        help="Specify the project path",
-    )
-    parser.add_argument(
-        "--language",
-        choices=[
-            "C",
-            "Cpp",
-        ],
-        help="Specify the language",
-    )
-    parser.add_argument(
-        "--seed-path",
-        type=str,
-        help="Specify the seed path",
-    )
-    args = parser.parse_args()
-    project_path = args.project_path
-    language_setting = args.language
-    seed_path = args.seed_path
-    
-    ml_extractor = Cpp_ML_Extractor(project_path, language_setting, seed_path) 
-    ml_extractor.run()
-
-
-if __name__ == "__main__":
-    start_extract()

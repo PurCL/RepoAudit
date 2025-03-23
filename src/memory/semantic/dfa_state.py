@@ -13,7 +13,7 @@ class ExecutionPath:
     def __init__(self, lines:str, state, status: str):
         self.lines = lines
         self.state = state
-        self.children: List[(DFAState, str, str, int)] = []   # (state, dependency, type, propagation line)
+        self.children: List[(DFAState, str)] = []   # (state, dependency)
         self.dependency = ""
         self.sink:Value = None
         self.set_status(status)
@@ -29,11 +29,14 @@ class ExecutionPath:
     def get_status(self) -> str:
         return self.status.name
     
-    def add_child(self, state, dependency: str, type: str, sink_line: int):
+    def add_child(self, state, dependency: str, propagation_line: int):
         """
-        Add a child function to the path, type = "caller" or "callee"
+        Add a child state to the path (can be the caller or callee function of the current state)
+        :param state: the child state
+        :param dependency: the dependency of the src and child state
+        :param propagation_line: the line number of the propagation
         """
-        self.children.append((state, dependency, type, sink_line))
+        self.children.append((state, dependency, propagation_line))
 
     def __str__(self) -> str:
         return f"<Lines: {self.lines}, Source: `{self.state.var.name}`,  Function: `{self.state.function.function_name}`, Status: {self.get_status()}. File: {self.state.function.file_path}>"

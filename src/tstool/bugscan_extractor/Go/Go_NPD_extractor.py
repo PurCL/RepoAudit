@@ -34,35 +34,3 @@ class Go_NPD_Extractor(BugScanExtractor):
             name = source_code[node.start_byte: node.end_byte]
             seeds.append((Value(name, line_number, ValueLabel.NON_BUF_ACCESS_EXPR, file_name), False))
         return seeds
-    
-
-def start_extract():
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--project-path",
-        type=str,
-        help="Specify the project path",
-    )
-    parser.add_argument(
-        "--language",
-        choices=[
-            "Go"
-        ],
-        help="Specify the language",
-    )
-    parser.add_argument(
-        "--seed-path",
-        type=str,
-        help="Specify the seed path",
-    )
-    args = parser.parse_args()
-    project_path = args.project_path
-    language_setting = args.language
-    seed_path = args.seed_path
-    
-    bof_extractor = Go_NPD_Extractor(project_path, language_setting, seed_path) 
-    bof_extractor.run()
-
-
-if __name__ == "__main__":
-    start_extract()
