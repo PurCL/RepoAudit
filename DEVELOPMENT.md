@@ -28,9 +28,9 @@
 
 - Different data-flow propagation rules
 
-- Refactor the format of external values in slicing (o3-mini can not produce them in the given format)
-
 - Refactor the output/ret, para/arg conversion
+
+- Parallelization
 
 
 ### Doc

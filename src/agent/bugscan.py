@@ -74,6 +74,8 @@ class BugScanAgent:
 
         self.seeds: List[Tuple[Value, bool]] = self.__obtain_extractor().extract_all()
         self.state = BugScanState(self.seeds)
+
+        self.file_lock = threading.Lock()
         return
     
     def __obtain_extractor(self) -> BugScanExtractor:
@@ -148,7 +150,7 @@ class BugScanAgent:
         return inputs
 
 
-    def start_scan(self) -> None:
+    def start_scan_squential(self) -> None:
         print("Start bug scanning...")
 
         # Analyze each seed value, which is potential buggy point or root cause
@@ -190,104 +192,73 @@ class BugScanAgent:
             bug_report_dict = {bug_report_id: bug.to_dict() for bug_report_id, bug in self.state.bug_reports.items()}
             with open(self.result_dir_path + "/detect_info.json", 'w') as bug_info_file:
                 json.dump(bug_report_dict, bug_info_file, indent=4)
+        return
+    
+    def start_scan(self) -> None:
+        print("Start bug scanning...")
+    
+        # Process each seed in parallel
+        with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
+            futures = [
+                executor.submit(self.__process_seed, seed_value, is_backward)
+                for (seed_value, is_backward) in self.seeds
+            ]
+            for future in as_completed(futures):
+                try:
+                    future.result()
+                except Exception as e:
+                    print("Error processing seed:", e)
+        return
 
-        # def sequential():
-        #     # Start to analyze each seed
-        #     for (seed_value, is_backward) in seeds:
-        #         seed_function = self.ts_analyzer.get_function_from_localvalue(seed_value)
-        #         if seed_function == None:
-        #             continue
-                
-        #         # Construct an analysis state and retrieve callers/callees during forward/backward slicing
-        #         seed_state = BugScanState(seed_value, seed_function)
-        #         if is_backward:
-        #             flag = self.forward_slicing_analyzer.analyze(seed_state, 0)
-        #         else:
-        #             flag = self.backward_slicing_analyzer.analyze(seed_state, 0)
+    def __process_seed(self, seed_value: Value, is_backward: bool) -> None:
+        seed_function = self.ts_analyzer.get_function_from_localvalue(seed_value)
+        if seed_function is None:
+            return
 
-        #         # flag: whether the LLM format is valid or not.
-        #         # Slices are generated if flag is True.
-        #         if not flag:
-        #             continue
+        # (Key Step I): Start a slicescan agent for the seed.
+        slice_scan_agent = SliceScanAgent(
+            [seed_value],
+            is_backward,
+            self.project_path,
+            self.language,
+            self.ts_analyzer,
+            self.model_name,
+            self.temperature,
+            self.call_depth,
+            self.max_workers
+        )
+        self.SliceScanAgent.append(slice_scan_agent)
 
-        #         # Detect the bugs upon slices using LLM (inlining enabled)
-        #         key = seed_state.get_key()
-        #         if is_backward:
-        #             self.run_info[key] = self.forward_slicing_analyzer.result_list
-        #         else:
-        #             self.run_info[key] = self.backward_slicing_analyzer.result_list
-        #         answer, poc = self.detect_with_llm(seed_state)
-                
-        #         # For DEBUG
-        #         print("====================================")
-        #         print("Is Bug: ", answer)
-        #         print("PoC: ", poc)
-        #         print("===============================================")
+        slice_scan_agent.start_scan()
+        slice_scan_state = slice_scan_agent.get_agent_state()
 
-        #         # Dump bug reports
-        #         with open(self.result_dir_path + "/slicing_info.json", 'w') as run_info_file:
-        #             json.dump(self.run_info, run_info_file, indent=4)
+        # Obtain all the inliner instances.
+        slice_inliner_inputs: List[SliceInlinerInput] = self.__retrieve_slice_inliner_inputs(slice_scan_state)
 
-        #         with open(self.result_dir_path + "/detect_info.json", 'w') as bug_info_file:
-        #             json.dump(self.bug_info, bug_info_file, indent=4)
-        
+        # (Key Step II & III): Inline each instance and run intra detection to generate bug reports.
+        for slice_inliner_input in slice_inliner_inputs:
+            # Inline the slices.
+            slice_inliner_output: SliceInlinerOutput = self.slice_inliner.invoke(slice_inliner_input)
 
-        # def parallel(n):
-        #     lock = threading.Lock()
-            
-        #     def worker(seed):
-        #         (seed_value, is_forward) = seed
-        #         seed_function = self.ts_analyzer.get_function_from_localvalue(seed_value)
-        #         if seed_function is None:
-        #             return
+            # Detect bugs upon the inlined slices.
+            intra_detector_input = IntraDetectorInput(seed_value.name, slice_inliner_output.inlined_snippet)
+            intra_detector_output: IntraDetectorOutput = self.intra_detector.invoke(intra_detector_input)
 
-        #         # Construct an analysis state and retrieve callers/callees during forward/backward slicing
-        #         seed_state = BugScanState(seed_value, seed_function)
-        #         if is_forward:
-        #             flag = self.forward_slicing_analyzer.analyze(seed_state, 0)
-        #         else:
-        #             flag = self.backward_slicing_analyzer.analyze(seed_state, 0)
+            # Construct the bug report and update the state.
+            explanation = (
+                "Call tree: \n" + slice_inliner_input.tree_str + "\n" +
+                "After the abstraction, we have the following code snippet:\n" +
+                slice_inliner_output.inlined_snippet + "\n" +
+                intra_detector_output.poc_str
+            )
+            bug_report = BugReport(self.bug_type, seed_value, slice_inliner_input.relevant_functions, explanation)
+            self.state.update_state(bug_report)
 
-        #         # flag: whether the LLM format is valid or not.
-        #         # Slices are generated if flag is True.
-        #         if not flag:
-        #             return
-
-        #         # Detect the bugs upon slices using LLM (inlining enabled)
-        #         key = seed_state.get_key()
-        #         if is_forward:
-        #             self.run_info[key] = self.forward_slicing_analyzer.result_list
-        #         else:
-        #             self.run_info[key] = self.backward_slicing_analyzer.result_list
-        #         answer, poc = self.detect_with_llm(seed_state)
-
-        #         # For DEBUG
-        #         print("====================================")
-        #         print("Is Bug: ", answer)
-        #         print("PoC: ", poc)
-        #         print("===============================================")
-
-        #         # Use lock to protect file writes
-        #         with lock:
-        #             with open(self.result_dir_path + "/slicing_info.json", 'w') as run_info_file:
-        #                 json.dump(self.run_info, run_info_file, indent=4)
-        #             with open(self.result_dir_path + "/detect_info.json", 'w') as bug_info_file:
-        #                 json.dump(self.bug_info, bug_info_file, indent=4)
-
-        #     # Process at most n src concurrently
-        #     with ThreadPoolExecutor(max_workers=n) as executor:
-        #         futures = [executor.submit(worker, seed) for seed in seeds]
-        #         for future in as_completed(futures):
-        #             # Could log exceptions here if needed
-        #             try:
-        #                 future.result()
-        #             except Exception as e:
-        #                 print(f"Error processing src: {e}")
-        
-        # if self.max_workers == 1:
-        #     sequential()
-        # else:
-        #     parallel(self.max_workers)
+        # Write to detect_info.json for the current seed. Use lock to protect the file during writes.
+        with self.file_lock:
+            bug_report_dict = {bug_report_id: bug.to_dict() for bug_report_id, bug in self.state.bug_reports.items()}
+            with open(self.result_dir_path + "/detect_info.json", 'w') as bug_info_file:
+                json.dump(bug_report_dict, bug_info_file, indent=4)
         
     def get_agent_result(self) -> BugScanState:
         return self.state

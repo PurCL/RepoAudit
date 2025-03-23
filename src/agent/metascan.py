@@ -25,7 +25,7 @@ class MetaScanAgent:
         return
 
 
-    def start_scan(self):
+    def start_scan(self) -> None:
         """
         Start the detection process.
         """

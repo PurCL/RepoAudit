@@ -67,6 +67,7 @@ class SliceScanAgent:
         self.intra_slicer = IntraSlicer(self.model_name, self.temperature, self.language, self.MAX_QUERY_NUM)
 
         self.state = SliceScanState(self.seed_function, self.seed_values, self.call_depth, self.is_backward)
+        self.worklist_lock = threading.Lock()
         return
 
 
@@ -247,7 +248,8 @@ class SliceScanAgent:
         return delta_worklist
 
 
-    def start_scan(self):
+    # TOBE deprecated
+    def start_scan_squential(self) -> None:
         print("Start slice scanning...")
         worklist: List[Tuple[CallContext, int, Set[Value]]] = [] # The list of (slice_contxt, function_id, set of seed_value)
 
@@ -292,105 +294,65 @@ class SliceScanAgent:
                         break
                 if not is_mergeable:
                     worklist.append((delta_slice_context, delta_function_id, delta_seed_set))
+        return
 
-        # def sequential():
-        #     # Start to analyze each seed
-        #     for (seed_value, is_forward) in seeds:
-        #         seed_function = self.ts_analyzer.get_function_from_localvalue(seed_value)
-        #         if seed_function == None:
-        #             continue
-                
-        #         # Construct an analysis state and retrieve callers/callees during forward/backward slicing
-        #         seed_state = BugScanState(seed_value, seed_function)
-        #         if is_forward:
-        #             flag = self.forward_slicing_analyzer.analyze(seed_state, 0)
-        #         else:
-        #             flag = self.backward_slicing_analyzer.analyze(seed_state, 0)
+    def __process_item(self, item: Tuple[CallContext, int, Set[Value]]) -> List[Tuple[CallContext, int, Set[Value]]]:
+        """
+        Process one worklist item and return the delta worklist.
+        """
+        slice_context, function_id, seed_set = item
 
-        #         # flag: whether the LLM format is valid or not.
-        #         # Slices are generated if flag is True.
-        #         if not flag:
-        #             continue
+        # If call depth exceeds allowed limit, skip processing.
+        if len(slice_context.context) > self.state.call_depth:
+            print("The call depth is reached. Skipping slicing for function_id:", function_id)
+            return []
 
-        #         # Detect the bugs upon slices using LLM (inlining enabled)
-        #         key = seed_state.get_key()
-        #         if is_forward:
-        #             self.run_info[key] = self.forward_slicing_analyzer.result_list
-        #         else:
-        #             self.run_info[key] = self.backward_slicing_analyzer.result_list
-        #         answer, poc = self.detect_with_llm(seed_state)
-                
-        #         # For DEBUG
-        #         print("====================================")
-        #         print("Is Bug: ", answer)
-        #         print("PoC: ", poc)
-        #         print("===============================================")
+        input_data = IntraSlicerInput(self.ts_analyzer.function_env[function_id], seed_set, self.is_backward)
+        output = self.intra_slicer.invoke(input_data)
+        self.state.update_intra_slices_in_state(slice_context, self.ts_analyzer.function_env[function_id], seed_set, output.slice)
 
-        #         # Dump bug reports
-        #         with open(self.result_dir_path + "/slicing_info.json", 'w') as run_info_file:
-        #             json.dump(self.run_info, run_info_file, indent=4)
+        delta_worklist = self.__update_worklist(input_data, output, slice_context)
+        return delta_worklist
 
-        #         with open(self.result_dir_path + "/detect_info.json", 'w') as bug_info_file:
-        #             json.dump(self.bug_info, bug_info_file, indent=4)
-        
+    def start_scan(self) -> None:
+        print("Start slice scanning in parallel...")
+        # worklist: list of tuples (CallContext, function_id, set of seed values)
+        worklist: List[Tuple[CallContext, int, Set[Value]]] = []
+        initial_context = CallContext(self.is_backward)
+        worklist.append((initial_context, self.seed_function.function_id, self.seed_values))
 
-        # def parallel(n):
-        #     lock = threading.Lock()
-            
-        #     def worker(seed):
-        #         (seed_value, is_forward) = seed
-        #         seed_function = self.ts_analyzer.get_function_from_localvalue(seed_value)
-        #         if seed_function is None:
-        #             return
+        with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
+            while worklist:
+                print("==================================================")
+                print("Current worklist size:", len(worklist))
+                print("==================================================")
+                futures = [executor.submit(self.__process_item, item) for item in worklist]
+                # Clear worklist for the next iteration
+                worklist = []
 
-        #         # Construct an analysis state and retrieve callers/callees during forward/backward slicing
-        #         seed_state = BugScanState(seed_value, seed_function)
-        #         if is_forward:
-        #             flag = self.forward_slicing_analyzer.analyze(seed_state, 0)
-        #         else:
-        #             flag = self.backward_slicing_analyzer.analyze(seed_state, 0)
+                for future in as_completed(futures):
+                    try:
+                        delta_items = future.result()
+                    except Exception as e:
+                        print("Error processing an item:", e)
+                        continue
 
-        #         # flag: whether the LLM format is valid or not.
-        #         # Slices are generated if flag is True.
-        #         if not flag:
-        #             return
-
-        #         # Detect the bugs upon slices using LLM (inlining enabled)
-        #         key = seed_state.get_key()
-        #         if is_forward:
-        #             self.run_info[key] = self.forward_slicing_analyzer.result_list
-        #         else:
-        #             self.run_info[key] = self.backward_slicing_analyzer.result_list
-        #         answer, poc = self.detect_with_llm(seed_state)
-
-        #         # For DEBUG
-        #         print("====================================")
-        #         print("Is Bug: ", answer)
-        #         print("PoC: ", poc)
-        #         print("===============================================")
-
-        #         # Use lock to protect file writes
-        #         with lock:
-        #             with open(self.result_dir_path + "/slicing_info.json", 'w') as run_info_file:
-        #                 json.dump(self.run_info, run_info_file, indent=4)
-        #             with open(self.result_dir_path + "/detect_info.json", 'w') as bug_info_file:
-        #                 json.dump(self.bug_info, bug_info_file, indent=4)
-
-        #     # Process at most n src concurrently
-        #     with ThreadPoolExecutor(max_workers=n) as executor:
-        #         futures = [executor.submit(worker, seed) for seed in seeds]
-        #         for future in as_completed(futures):
-        #             # Could log exceptions here if needed
-        #             try:
-        #                 future.result()
-        #             except Exception as e:
-        #                 print(f"Error processing src: {e}")
-        
-        # if self.max_workers == 1:
-        #     sequential()
-        # else:
-        #     parallel(self.max_workers)
-
+                    # Protect the merging of new delta items into the worklist.
+                    with self.worklist_lock:
+                        for (delta_slice_context, delta_function_id, delta_seed_set) in delta_items:
+                            delta_seed_value = list(delta_seed_set)[0]
+                            is_mergeable = False
+                            for i, (wl_slice_context, wl_function_id, wl_seed_set) in enumerate(worklist):
+                                if delta_slice_context == wl_slice_context and delta_function_id == wl_function_id:
+                                    wl_seed_value = list(wl_seed_set)[0]
+                                    if (delta_seed_value.label == ValueLabel.RET and wl_seed_value.label == ValueLabel.RET) \
+                                        or (delta_seed_value.line_number == wl_seed_value.line_number):
+                                        wl_seed_set.update(delta_seed_set)
+                                        is_mergeable = True
+                                        break
+                            if not is_mergeable:
+                                worklist.append((delta_slice_context, delta_function_id, delta_seed_set))
+        return
 
     def get_agent_state(self) -> SliceScanState:
         return self.state

@@ -62,7 +62,6 @@ class DFBScanAgent:
         return
         
 
-    
     def __load_value_from_file(self) -> Tuple[List[Value], List[Value]]:
         """
         :return: two lists of values, indicating the sources or sinks in the data-flow bug detection
