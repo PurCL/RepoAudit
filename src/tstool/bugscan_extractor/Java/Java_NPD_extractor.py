@@ -9,14 +9,11 @@ from tqdm import tqdm
 
 
 class Java_NPD_Extractor(BugScanExtractor):
-    def find_seeds(self, source_code: str, root_node: tree_sitter.Node, file_name: str) -> List[Tuple[Value, bool]]:
-        """
-        Extract the seeds that can cause the NPE from the Java programs.
-        :param source_code: Content of the source file.
-        :param root_node: A node in the parsed syntax tree.
-        :param file_path: Path of the source file.
-        :return: List of the pairs of seed values and traversal strategies. True for backward, False for forward.
-        """
+    def find_seeds(self, function: Function) -> List[Tuple[Value, bool]]:
+        root_node = function.parse_tree_root_node
+        source_code = self.ts_analyzer.code_in_files[function.file_path]
+        file_name = function.file_path
+        
         null_value_nodes = find_nodes_by_type(root_node, "null_literal")
         seeds = []
         for node in null_value_nodes:

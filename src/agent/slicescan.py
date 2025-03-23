@@ -21,7 +21,7 @@ class SliceScanAgent:
     def __init__(self,
                  seed_values: List[Value],
                  is_backward: bool,
-                 project_name: str,
+                 project_path: str,
                  language: str,
                  ts_analyzer: TSAnalyzer,
                  model_name: str,
@@ -32,7 +32,7 @@ class SliceScanAgent:
         self.seed_values = seed_values
         self.is_backward = is_backward
 
-        self.project_name = project_name
+        self.project_path = project_path
         self.language = language if language not in {"C", "Cpp"} else "Cpp"
         self.ts_analyzer = ts_analyzer
 
@@ -43,11 +43,11 @@ class SliceScanAgent:
         self.max_workers = max_workers
         self.MAX_QUERY_NUM = 5
 
-        self.log_dir_path = f"{BASE_PATH}/log/slicescan-{self.model_name}/{self.project_name}/{time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())}"
+        self.log_dir_path = f"{BASE_PATH}/log/slicescan-{self.model_name}/{self.project_path}/{time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())}"
         if not os.path.exists(self.log_dir_path):
             os.makedirs(self.log_dir_path)
 
-        self.result_dir_path = f"{BASE_PATH}/result/slicescan-{self.model_name}/{self.project_name}/{time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())}"
+        self.result_dir_path = f"{BASE_PATH}/result/slicescan-{self.model_name}/{self.project_path}/{time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())}"
         if not os.path.exists(self.result_dir_path):
             os.makedirs(self.result_dir_path)
 
@@ -204,7 +204,7 @@ class SliceScanAgent:
                             args = self.ts_analyzer.get_arguments_at_callsite(caller_function, call_site)
                             for arg in args:
                                 if arg.index == index:
-                                    caller_function_file_content = self.ts_analyzer.fileContentDic[caller_function.file_name]
+                                    caller_function_file_content = self.ts_analyzer.fileContentDic[caller_function.file_path]
                                     callsite_str = caller_function_file_content[call_site.start_byte:call_site.end_byte]
                                     callsite_line_number = caller_function_file_content[:call_site.start_byte].count("\n") + 1 - caller_function.start_line_number
                                     delta_worklist.append((new_slice_context, caller_function.function_id, set([arg])))

@@ -36,7 +36,7 @@ class ExecutionPath:
         self.children.append((state, dependency, type, sink_line))
 
     def __str__(self) -> str:
-        return f"<Lines: {self.lines}, Source: `{self.state.var.name}`,  Function: `{self.state.function.function_name}`, Status: {self.get_status()}. File: {self.state.function.file_name}>"
+        return f"<Lines: {self.lines}, Source: `{self.state.var.name}`,  Function: `{self.state.function.function_name}`, Status: {self.get_status()}. File: {self.state.function.file_path}>"
 
 
 class DFAState:

@@ -9,7 +9,7 @@ class Function:
         start_line_number: int,
         end_line_number: int,
         function_node: tree_sitter.Node,
-        file_name: str
+        file_path: str
     ) -> None:
         """
         Record basic facts of the function.
@@ -21,7 +21,7 @@ class Function:
         self.function_code = function_code
         self.start_line_number = start_line_number
         self.end_line_number = end_line_number
-        self.file_name = file_name
+        self.file_path = file_path
         self.lined_code = self.attach_line_number()  # code with line number attached
 
         # Attention: the parse tree is in the context of the whole file
@@ -39,7 +39,7 @@ class Function:
 
 
     def __hash__(self) -> int:
-        return hash((self.function_name, self.function_code, self.file_name, self.start_line_number, self.end_line_number))
+        return hash((self.function_name, self.function_code, self.file_path, self.start_line_number, self.end_line_number))
 
 
     def file_line2function_line(self, file_line: int) -> int:

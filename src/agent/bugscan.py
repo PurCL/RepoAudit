@@ -2,53 +2,65 @@ import json
 import os
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
+
+from llmtool.LLM_utils import *
+from llmtool.slice_inliner import *
+from llmtool.intra_detector import *
+
 from tstool.analyzer.TS_analyzer import *
 from tstool.analyzer.Cpp_TS_analyzer import *
 from tstool.analyzer.Go_TS_analyzer import *
 from tstool.analyzer.Java_TS_analyzer import *
 from tstool.analyzer.Python_TS_analyzer import *
-from llmtool.LLM_utils import *
+
+from tstool.bugscan_extractor.bugscan_extractor import *
+from tstool.bugscan_extractor.Cpp.Cpp_BOF_extractor import *
+from tstool.bugscan_extractor.Cpp.Cpp_MLK_extractor import *
+from tstool.bugscan_extractor.Cpp.Cpp_NPD_extractor import *
+from tstool.bugscan_extractor.Cpp.Cpp_UAF_extractor import *
+from tstool.bugscan_extractor.Go.Go_BOF_extractor import *
+from tstool.bugscan_extractor.Go.Go_NPD_extractor import *
+from tstool.bugscan_extractor.Java.Java_NPD_extractor import *
+from tstool.bugscan_extractor.Python.Python_NPD_extractor import *
+
+from agent.slicescan import *
 from memory.semantic.bugscan_state import *
 from memory.syntactic.function import *
 from memory.syntactic.value import *
-from agent.slicescan import *
-from llmtool.slice_inliner import *
-from llmtool.intra_detector import *
+
 from pathlib import Path
 BASE_PATH = Path(__file__).resolve().parents[2]
 
 
 class BugScanAgent:
     def __init__(self,
-                 seed_spec_file,
                  bug_type,
-                 project_name,
+                 project_path,
                  language,
                  ts_analyzer,
-                 inference_model_name,
+                 model_name,
                  temperature,
                  call_depth,
                  max_workers=1
                  ) -> None:
-        self.seed_spec_file = seed_spec_file
         self.bug_type = bug_type
 
-        self.project_name = project_name
+        self.project_path = project_path
         self.language = language if language not in {"C", "Cpp"} else "Cpp"
         self.ts_analyzer = ts_analyzer
 
-        self.model_name = inference_model_name
+        self.model_name = model_name
         self.temperature = temperature
         
         self.call_depth = call_depth
         self.max_workers = max_workers
         self.MAX_QUERY_NUM = 5
 
-        self.log_dir_path = f"{BASE_PATH}/log/bugscan-{self.model_name}/{self.project_name}/{time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())}"
+        self.log_dir_path = f"{BASE_PATH}/log/bugscan-{self.model_name}/{self.project_path}/{time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())}"
         if not os.path.exists(self.log_dir_path):
             os.makedirs(self.log_dir_path)
 
-        self.result_dir_path = f"{BASE_PATH}/result/bugscan-{self.model_name}/{self.project_name}/{time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())}"
+        self.result_dir_path = f"{BASE_PATH}/result/bugscan-{self.model_name}/{self.project_path}/{time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())}"
         if not os.path.exists(self.result_dir_path):
             os.makedirs(self.result_dir_path)
 
@@ -59,34 +71,34 @@ class BugScanAgent:
         # LLM Agent instances created by BugScanAgent
         self.SliceScanAgent: List[SliceScanAgent] = []
 
-        self.seeds = self.__load_seed_from_file()
+        self.seeds: List[Tuple[Value, bool]] = self.__obtain_extractor().extract_all()
         self.state = BugScanState(self.seeds)
         return
     
+    def __obtain_extractor(self) -> BugScanExtractor:
+        if self.language == "Cpp":
+            if self.bug_type == "BOF":
+                return Cpp_BOF_Extractor(self.ts_analyzer)
+            elif self.bug_type == "MLK":
+                return Cpp_MLK_Extractor(self.ts_analyzer)
+            elif self.bug_type == "NPD":
+                return Cpp_NPD_Extractor(self.ts_analyzer)
+            elif self.bug_type == "UAF":
+                return Cpp_UAF_Extractor(self.ts_analyzer)
+        elif self.language == "Go":
+            if self.bug_type == "BOF":
+                return Go_BOF_Extractor(self.ts_analyzer)
+            elif self.bug_type == "NPD":
+                return Go_NPD_Extractor(self.ts_analyzer)
+        elif self.language == "Java":
+            if self.bug_type == "NPD":
+                return Java_NPD_Extractor(self.ts_analyzer)
+        elif self.language == "Python":
+            if self.bug_type == "NPD":
+                return Python_NPD_Extractor(self.ts_analyzer)
+        return None
 
-    def __load_seed_from_file(self) -> List[Tuple[Value, bool]]:
-        """
-        :return: a list of seed-bool pairs, indicating the seed value and the direction of slicing
-        """
-        seeds = []
-        with open (self.seed_spec_file, "r") as f:
-            seed_spec = json.load(f)
-        for seed_str in seed_spec:
-            try:
-                if seed_str.strip("\n").endswith(" 1"):
-                    is_backward = True
-                    seed_value = Value.from_str_to_value(seed_str.replace("\n", "").strip(" 1"))
-                elif seed_str.strip("\n").endswith(" 0"):
-                    is_backward = False
-                    seed_value = Value.from_str_to_value(seed_str.replace("\n", "").strip(" 0"))
-            except:
-                print(f"Error parsing seed: {seed_str}")
-                print("Skip this seed")
-                continue
-            seeds.append((seed_value, is_backward))
-        return seeds
-    
-    
+
     def __retrieve_slice_inliner_inputs(self, slicescan_state: SliceScanState) -> List[SliceInlinerInput]:
         inputs = []
 
@@ -144,7 +156,7 @@ class BugScanAgent:
                 continue
 
             # (Key Step I): Start a slicescan agent for each seed
-            slice_scan_agent = SliceScanAgent([seed_value], is_backward, self.project_name, \
+            slice_scan_agent = SliceScanAgent([seed_value], is_backward, self.project_path, \
                                               self.language, self.ts_analyzer, \
                                               self.model_name, self.temperature, self.call_depth, self.max_workers)
             self.SliceScanAgent.append(slice_scan_agent)

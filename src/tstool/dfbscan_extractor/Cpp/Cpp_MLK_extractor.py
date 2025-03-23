@@ -5,14 +5,11 @@ import tree_sitter
 import argparse
 
 class Cpp_ML_Extractor(DFBScanExtractor):
-    def find_seeds(self, source_code: str, root_node: tree_sitter.Node, file_name: str) -> List[Tuple]:
-        """
-        Extract the seeds that can cause the memory leak bugs from C/C++ programs.
-        :param source_code: Content of the source file.
-        :param root_node: A node in the parsed syntax tree.
-        :param file_path: Path of the source file.
-        :return: List of source values
-        """
+    def find_sources(self, function: Function) -> List[Value]:
+        root_node = function.parse_tree_root_node
+        source_code = self.ts_analyzer.code_in_files[function.file_path]
+        file_name = function.file_path
+
         nodes = find_nodes_by_type(root_node, "call_expression")
         nodes.extend(find_nodes_by_type(root_node, "new_expression"))
 
@@ -41,8 +38,41 @@ class Cpp_ML_Extractor(DFBScanExtractor):
             if is_seed_node:
                 line_number = source_code[: node.start_byte].count("\n") + 1
                 name = source_code[node.start_byte: node.end_byte]
-                seeds.append(Value(name, line_number, ValueLabel.SRC, file_name))
-        return seeds     
+                seeds.append(Value(name, line_number, ValueLabel.SRC))
+        return seeds
+
+    def find_sinks(self, source_code: str, root_node: tree_sitter.Node) -> List[Value]:
+        """
+        Extract the sinks that can cause the memory leak bugs from C/C++ programs.
+        :param source_code: Content of the source file.
+        :param root_node: A node in the parsed syntax tree.
+        :param file_path: Path of the source file.
+        :return: List of sink values
+        """
+        nodes = find_nodes_by_type(root_node, "call_expression")
+
+        """
+        Extract the sinks for Memory Leak Detection from the source code.
+        1. free
+        """
+        mem_deallocations = {"free"}
+        spec_apis = {}          # specific user-defined APIs that deallocate memory
+        sinks = []
+        for node in nodes:
+            is_sink_node = False
+            self.ts_analyzer.get_arguments_at_callsite
+            find_nodes_by_type(node, "argument")
+            for child in node.children:
+                if child.type == "identifier":
+                    name = source_code[child.start_byte : child.end_byte]
+                    if name in mem_deallocations or name in spec_apis:
+                        is_sink_node = True
+
+            if is_sink_node:
+                line_number = source_code[: node.start_byte].count("\n") + 1
+                name = source_code[node.start_byte: node.end_byte]
+                sinks.append(Value(name, line_number, ValueLabel.SINK))
+        return sinks     
     
 
 def start_extract():

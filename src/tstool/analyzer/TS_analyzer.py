@@ -393,7 +393,7 @@ class TSAnalyzer(ABC):
         :param call_site_node: The node of the call site.
         :return: A list of function ids of the callee functions.
         """
-        file_name = current_function.file_name
+        file_name = current_function.file_path
         source_code = self.code_in_files[file_name]
         callee_name = self.get_callee_name_at_call_site(call_site_node, source_code)
         arguments = self.get_arguments_at_callsite(current_function, call_site_node)
@@ -418,7 +418,7 @@ class TSAnalyzer(ABC):
         :param call_site_node: The node of the call site.
         :return: A list of api ids of the callee apis.
         """
-        file_name = current_function.file_name
+        file_name = current_function.file_path
         source_code = self.code_in_files[file_name]
         callee_name = self.get_callee_name_at_call_site(call_site_node, source_code)
         arguments = self.get_arguments_at_callsite(current_function, call_site_node)
@@ -503,7 +503,7 @@ class TSAnalyzer(ABC):
             is_called = False
             call_sites = self.get_callsites_by_callee_name(arg_function, callee_function.function_name)
             for call_site_node in call_sites:
-                file_content = self.code_in_files[arg_function.file_name]
+                file_content = self.code_in_files[arg_function.file_path]
                 call_site_lower_line_number = file_content[:call_site_node.start_byte].count("\n") + 1
                 call_site_upper_line_number = file_content[:call_site_node.end_byte].count("\n") + 1
                 arg_line_number_in_file = arg_function.start_line_number + arg.line_number - 1
@@ -532,10 +532,10 @@ class TSAnalyzer(ABC):
         :param call_site_node: The node of the call site.
         :return: The output value.
         """
-        file_code = self.code_in_files[current_function.file_name]
+        file_code = self.code_in_files[current_function.file_path]
         name = file_code[call_site_node.start_byte:call_site_node.end_byte]
         line_number = file_code[:call_site_node.start_byte].count("\n") + 1
-        output_value = Value(name, line_number, ValueLabel.OUT, current_function.file_name, -1)
+        output_value = Value(name, line_number, ValueLabel.OUT, current_function.file_path, -1)
         return output_value
         
     # TODO: error-prone
@@ -699,7 +699,7 @@ class TSAnalyzer(ABC):
         """
         file_name = value.file
         for function_id, function in self.function_env.items():
-            if function.file_name == file_name:
+            if function.file_path == file_name:
                 if function.start_line_number <= value.line_number <= function.end_line_number:
                     return function
         return None

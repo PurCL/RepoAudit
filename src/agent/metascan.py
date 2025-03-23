@@ -15,27 +15,21 @@ class MetaScanAgent:
     Used for testing llmtools :)
     """
     def __init__(self,
-                 project_name,
+                 project_path,
                  language,
-                 ts_analyzer,
-                 inference_model_name,
-                 temperature):
-        self.project_name = project_name
+                 ts_analyzer) -> None:
+        self.project_path = project_path
         self.language = language
         self.ts_analyzer = ts_analyzer
-        self.inference_model_name = inference_model_name
-        self.temperature = temperature
+        return
 
-        self.detection_result = []
-        self.buggy_traces = []
-        self.model = LLM(self.inference_model_name, self.temperature)
 
     def start_scan(self):
         """
         Start the detection process.
         """
         log_dir_path = str(
-            Path(__file__).resolve().parent.parent.parent / ("result/metascan/" + self.project_name)
+            Path(__file__).resolve().parent.parent.parent / ("result/metascan/" + self.project_path)
         )
         if not os.path.exists(log_dir_path):
             os.makedirs(log_dir_path)
@@ -57,7 +51,7 @@ class MetaScanAgent:
             function_meta_data["call_sites"] = []
             for call_site in function.function_call_site_nodes:
                 call_site_info = {}
-                file_content = self.ts_analyzer.fileContentDic[function.file_name]
+                file_content = self.ts_analyzer.fileContentDic[function.file_path]
                 call_site_info["callee_id"] = self.ts_analyzer.get_callee_function_ids_at_callsite(function, call_site)
                 call_site_info["args"] = [str(arg) for arg in self.ts_analyzer.get_arguments_at_callsite(function, call_site)]
                 call_site_info["call_site_start_line"] = file_content[:call_site.start_byte].count("\n") + 1

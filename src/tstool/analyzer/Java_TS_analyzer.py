@@ -72,7 +72,7 @@ class Java_TSAnalyzer(TSAnalyzer):
         Find call site nodes for the given callee name.
         """
         results = []
-        file_content = self.code_in_files[current_function.file_name]
+        file_content = self.code_in_files[current_function.file_path]
         call_site_nodes = find_nodes_by_type(current_function.parse_tree_root_node, "method_invocation")
         for call_site in call_site_nodes:
             if self.get_callee_name_at_call_site(call_site, file_content) == callee_name:
@@ -87,7 +87,7 @@ class Java_TSAnalyzer(TSAnalyzer):
         :return: the arguments
         """
         arguments = set([])
-        file_name = current_function.file_name
+        file_name = current_function.file_path
         source_code = self.code_in_files[file_name]
         for sub_node in call_site_node.children:
             if sub_node.type == "argument_list":
@@ -105,14 +105,14 @@ class Java_TSAnalyzer(TSAnalyzer):
         :return: A set of parameters as values
         """
         paras = set()
-        file_content = self.code_in_files[current_function.file_name]
+        file_content = self.code_in_files[current_function.file_path]
         parameters = find_nodes_by_type(current_function.parse_tree_root_node, "formal_parameter")
         index = 0
         for parameter_node in parameters:
             for sub_node in find_nodes_by_type(parameter_node, "identifier"):
                 parameter_name = file_content[sub_node.start_byte:sub_node.end_byte]
                 line_number = file_content[:sub_node.start_byte].count("\n") + 1
-                paras.add(Value(parameter_name, line_number, ValueLabel.PARA, current_function.file_name, index))
+                paras.add(Value(parameter_name, line_number, ValueLabel.PARA, current_function.file_path, index))
                 index += 1
         return paras
 
@@ -123,13 +123,13 @@ class Java_TSAnalyzer(TSAnalyzer):
         :return: A set of return values
         """
         retvalues = set([])
-        file_content = self.code_in_files[current_function.file_name]
+        file_content = self.code_in_files[current_function.file_path]
         retnodes = find_nodes_by_type(current_function.parse_tree_root_node, "return_statement")
         for retnode in retnodes:
             line_number = file_content[:retnode.start_byte].count("\n") + 1
             restmts_str = file_content[retnode.start_byte:retnode.end_byte]
             returned_value = restmts_str.replace("return", "").strip()
-            retvalues.add(Value(returned_value, line_number, ValueLabel.RET, current_function.file_name, 0))
+            retvalues.add(Value(returned_value, line_number, ValueLabel.RET, current_function.file_path, 0))
         return retvalues
 
     def get_if_statements(self, function: Function, source_code: str) -> Dict[Tuple, Tuple]:

@@ -32,20 +32,20 @@ class PostPath:
 class DFScanAgent:
     def __init__(self,
                  seed_spec_file,
-                 project_name,
+                 project_path,
                  language,
                  code_in_files,
-                 inference_model_name,
+                 model_name,
                  temperature,
                  bug_type,
                  call_depth,
                  max_workers=1
                  ) -> None:
         self.seed_spec_file = seed_spec_file
-        self.project_name = project_name
+        self.project_path = project_path
         self.language = language if language not in {"C", "Cpp"} else "Cpp"
         self.code_in_files = code_in_files
-        self.model_name = inference_model_name
+        self.model_name = model_name
         self.temperature = temperature
         self.bug_type = bug_type
         self.call_depth = call_depth
@@ -86,14 +86,14 @@ class DFScanAgent:
         self.vali_result = {}
         self.bug_num = 0
 
-        self.result_dir_path = f"{BASE_PATH}/result/DFscan-{self.model_name}/{self.bug_type}/{self.project_name}/{time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())}"
+        self.result_dir_path = f"{BASE_PATH}/result/DFscan-{self.model_name}/{self.bug_type}/{self.project_path}/{time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())}"
         if not os.path.exists(self.result_dir_path):
             os.makedirs(self.result_dir_path)
     
 
     def start_scan(self):
         log_dir_path = str(
-            Path(__file__).resolve().parent.parent.parent / (f"log/DF/scan{self.bug_type}/{self.project_name}-{time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())}")
+            Path(__file__).resolve().parent.parent.parent / (f"log/DF/scan{self.bug_type}/{self.project_path}-{time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())}")
         )
         if not os.path.exists(log_dir_path):
             os.makedirs(log_dir_path)
@@ -253,7 +253,7 @@ class DFScanAgent:
                     src_line = state.var.line_number
                     sink_line = subpath.sink.line_number
                     if not self.ts_analyzer.check_control_reachability(state.function, src_line, sink_line):
-                        print(f"Unreachable: Function {state.function.function_name}. {src_line} -> {sink_line} Path: {state.function.file_name}")
+                        print(f"Unreachable: Function {state.function.function_name}. {src_line} -> {sink_line} Path: {state.function.file_path}")
                         continue
                 # add path info to the bug trace
                 bug_trace = []
@@ -274,7 +274,7 @@ class DFScanAgent:
                     else:
                         reachability = self.ts_analyzer.check_control_reachability(state.function, src_line, sink_line)
                         if not reachability:
-                            print(f"Unreachable: Function {state.function.function_name}. {src_line} -> {sink_line} Path: {state.function.file_name}")
+                            print(f"Unreachable: Function {state.function.function_name}. {src_line} -> {sink_line} Path: {state.function.file_path}")
                             continue
                     child_path = PostPath(str(subpath), dependency, subpath.state.get_key(), "Unknown", src_line = src_line, sink_line = sink_line, function_id = state.function.function_id, function_name = state.function.function_name, src_name = state.var.name)
                     # add path info to the path trace

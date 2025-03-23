@@ -19,39 +19,35 @@ BASE_PATH = Path(__file__).resolve().parents[2]
 
 class DFBScanAgent:
     def __init__(self,
-                 src_spec_file,
-                 sink_spec_file,
-                 is_reachable,
                  bug_type,
-                 project_name,
+                 is_reachable,
+                 project_path,
                  language,
-                 code_in_files,
-                 inference_model_name,
+                 ts_analyzer,
+                 model_name,
                  temperature,
                  call_depth,
                  max_workers=1
                  ) -> None:
-        self.src_spec_file = src_spec_file
-        self.sink_spec_file = sink_spec_file
-        self.is_reachable = is_reachable
         self.bug_type = bug_type
-
-        self.project_name = project_name
+        self.is_reachable = is_reachable
+        
+        self.project_path = project_path
         self.language = language if language not in {"C", "Cpp"} else "Cpp"
-        self.code_in_files = code_in_files
+        self.ts_analyzer = ts_analyzer
 
-        self.model_name = inference_model_name
+        self.model_name = model_name
         self.temperature = temperature
         
         self.call_depth = call_depth
         self.max_workers = max_workers
         self.MAX_QUERY_NUM = 5
 
-        self.log_dir_path = f"{BASE_PATH}/log/dfbscan-{self.model_name}/{self.project_name}/{time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())}"
+        self.log_dir_path = f"{BASE_PATH}/log/dfbscan-{self.model_name}/{self.project_path}/{time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())}"
         if not os.path.exists(self.log_dir_path):
             os.makedirs(self.log_dir_path)
 
-        self.result_dir_path = f"{BASE_PATH}/result/dfbscan-{self.model_name}/{self.project_name}/{time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())}"
+        self.result_dir_path = f"{BASE_PATH}/result/dfbscan-{self.model_name}/{self.project_path}/{time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())}"
         if not os.path.exists(self.result_dir_path):
             os.makedirs(self.result_dir_path)
 
@@ -59,6 +55,7 @@ class DFBScanAgent:
         self.intra_dfa = IntraDataFlowAnalyzer(self.model_name, self.temperature, self.language, self.MAX_QUERY_NUM)
         self.path_validator = PathValidator(self.model_name, self.temperature, self.language, self.MAX_QUERY_NUM)
 
+        # TODO
         self.src_values, self.sink_values = self.__load_value_from_file()
         self.state = DFBState(self.src_values, self.sink_values)
         return

@@ -85,7 +85,7 @@ class Go_TSAnalyzer(TSAnalyzer):
         Find the call site nodes by the callee name.
         """
         results = []
-        file_content = self.code_in_files[current_function.file_name]
+        file_content = self.code_in_files[current_function.file_path]
         call_site_nodes = find_nodes_by_type(current_function.parse_tree_root_node, "call_expression")
         for call_site in call_site_nodes:
             if self.get_callee_name_at_call_site(call_site, file_content) == callee_name:
@@ -100,7 +100,7 @@ class Go_TSAnalyzer(TSAnalyzer):
         :return: the arguments
         """
         arguments = set([])
-        file_name = current_function.file_name
+        file_name = current_function.file_path
         source_code = self.code_in_files[file_name]
         for sub_node in call_site_node.children:
             if sub_node.type == "argument_list":
@@ -117,7 +117,7 @@ class Go_TSAnalyzer(TSAnalyzer):
         :param current_function: The function to be analyzed.
         :return: A set of parameters as values
         """
-        file_content = self.code_in_files[current_function.file_name]
+        file_content = self.code_in_files[current_function.file_path]
         paras = set([])
         parameter_list_nodes = []
         for sub_node in current_function.parse_tree_root_node.children:
@@ -132,7 +132,7 @@ class Go_TSAnalyzer(TSAnalyzer):
                     if sub_sub_node.type in "identifier":
                         parameter_name = file_content[sub_sub_node.start_byte:sub_sub_node.end_byte]
                         line_number = file_content[:sub_sub_node.start_byte].count("\n") + 1
-                        paras.add(Value(parameter_name, line_number, ValueLabel.PARA, current_function.file_name, index))
+                        paras.add(Value(parameter_name, line_number, ValueLabel.PARA, current_function.file_path, index))
                         break
                 index += 1
         return paras
@@ -144,7 +144,7 @@ class Go_TSAnalyzer(TSAnalyzer):
         :return: A set of return values
         """
         retvalues = set([])
-        file_content = self.code_in_files[current_function.file_name]
+        file_content = self.code_in_files[current_function.file_path]
         retnodes = find_nodes_by_type(current_function.parse_tree_root_node, "return_statement")
         for retnode in retnodes:
             line_number = file_content[:retnode.start_byte].count("\n") + 1
@@ -154,10 +154,10 @@ class Go_TSAnalyzer(TSAnalyzer):
                 expression_list_index = sub_node_types.index("expression_list")
                 for expression_node in retnode.children[expression_list_index].children:
                     if expression_node.type != ",":
-                        retvalues.add(Value(file_content[expression_node.start_byte:expression_node.end_byte], line_number, ValueLabel.RET, current_function.file_name, index))
+                        retvalues.add(Value(file_content[expression_node.start_byte:expression_node.end_byte], line_number, ValueLabel.RET, current_function.file_path, index))
                         index += 1
             else:
-                retvalues.add(Value("nil", line_number, ValueLabel.RET, current_function.file_name, 0))
+                retvalues.add(Value("nil", line_number, ValueLabel.RET, current_function.file_path, 0))
         return retvalues
 
     def get_if_statements(self, function: Function, source_code: str) -> Dict[Tuple, Tuple]:

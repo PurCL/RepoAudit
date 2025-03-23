@@ -95,7 +95,7 @@ class DataflowAnalyzer(LLMTool):
                         print(f"Bug line error: {path_info}")
                         continue
                     current_path.dependency = path_info["bug_info"]["dependency"]
-                    current_path.sink = Value(path_info["bug_info"]["operation"], bug_line, ValueLabel.SINK, state.function.file_name)
+                    current_path.sink = Value(path_info["bug_info"]["operation"], bug_line, ValueLabel.SINK, state.function.file_path)
                     
             if status == "Unknown":
                 for propagation_info in path_info["propagation_info"]:
@@ -350,7 +350,7 @@ class DataflowAnalyzer(LLMTool):
             for node in nodes:
                 line_number = source_code[: node.start_byte].count("\n") + 1
                 name = source_code[node.start_byte : node.end_byte]
-                lines.append(Value(name, line_number, ValueLabel.SINK, function.file_name))
+                lines.append(Value(name, line_number, ValueLabel.SINK, function.file_path))
         if bug_type == "NPD":
             nodes.extend(find_nodes_by_type(function_node, "pointer_expression"))
             nodes.extend(find_nodes_by_type(function_node, "field_expression"))
@@ -360,7 +360,7 @@ class DataflowAnalyzer(LLMTool):
                     continue
                 line_number = source_code[: node.start_byte].count("\n") + 1
                 name = source_code[node.start_byte : node.end_byte]
-                lines.append(Value(name, line_number, ValueLabel.SINK, function.file_name))
+                lines.append(Value(name, line_number, ValueLabel.SINK, function.file_path))
         if bug_type == "UAF":
             nodes.extend(find_nodes_by_type(function_node, "pointer_expression"))
             nodes.extend(find_nodes_by_type(function_node, "field_expression"))
@@ -370,7 +370,7 @@ class DataflowAnalyzer(LLMTool):
                     continue
                 line_number = source_code[: node.start_byte].count("\n") + 1
                 name = source_code[node.start_byte : node.end_byte]
-                lines.append(Value(name, line_number, ValueLabel.SINK, function.file_name))
+                lines.append(Value(name, line_number, ValueLabel.SINK, function.file_path))
         return lines
 
     def construct_key_points_prompt(self, function:Function) -> str:

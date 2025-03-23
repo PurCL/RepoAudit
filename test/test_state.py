@@ -12,7 +12,7 @@ class TestState(unittest.TestCase):
     def setUp(self):
         # Create LocalValue and Function instances
         for i in range(1, 5):
-            function = Function(function_id=i, function_name=f"test_function{i}", function_code="", start_line_number=1, end_line_number=10, function_node=None, file_name="test_file.py")
+            function = Function(function_id=i, function_name=f"test_function{i}", function_code="", start_line_number=1, end_line_number=10, function_node=None, file_path="test_file.py")
             local_value = Value(name=f"test_var{i}", line_number=i, v_label=ValueLabel.SRC, file="test_file.py")
             setattr(self, f"state{i}", BugScanState(local_value, function))
 
