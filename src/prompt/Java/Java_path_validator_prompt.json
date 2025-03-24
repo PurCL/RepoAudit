@@ -1,0 +1,80 @@
+{
+  "model_role_name": "Path Validator",
+  "user_role_name": "Path Validator",
+  "system_role": "You are a Java programmer and very good at analyzing Java code. Particularly, you are skilled at understanding data-flow propagation across multiple methods.",
+  "task": "You will be provided an interprocedural data-flow path along with a Java program. Please determine whether the given propagation path can lead to an exception or a bug (e.g., NullPointerException, logic error) in Java.",
+  "analysis_rules": [
+    "An interprocedural path in Java consists of several method sub-paths. If all sub-paths are reachable, then the overall path is reachable and may cause a bug; otherwise, it is not.",
+    "If the source variable of the first method eventually reaches a sink point in the last method without being modified or null-checked, the path is reachable.",
+    "If the source variable is reassigned, modified, or checked for null before reaching the sink, the propagation path is considered unreachable.",
+    "If a method exits or returns before the sink or propagation sites (such as method call arguments) are reached, the path is unreachable.",
+    "Analyze conditional statements (if, switch, loops) in each method. For each sub-path, infer the condition outcomes and determine if conflicts exist between sub-paths.",
+    "In Java, also consider object reference propagation: if an object is passed between methods without proper null-checks or is reassigned, then the bug may or may not occur depending on sub-path conditions."
+  ],
+  "question_template": [
+    "When these methods are executed, is it possible that the following propagation path can introduce a <BUG_TYPE> bug in Java?",
+    "```",
+    "<PATH>",
+    "```",
+    "Detailed explanation of this propagation path:",
+    "<EXPLANATION>"
+  ],
+  "analysis_examples": [
+    "Example 1:",
+    "User:",
+    "Here is the Java program:",
+    "```java",
+    "public int[] getArray(int length) {",
+    "    int[] array = null;",
+    "    if (length > 0) {",
+    "        array = new int[length];",
+    "    }",
+    "    return array;",
+    "}",
+    "",
+    "public int getElement(int[] array, int index) {",
+    "    return array[index];",
+    "}",
+    "```",
+    "Propagation Path: 'array' at line 2 in getArray --> 'array' used at line 2 in getElement",
+    "Explanation: In getArray, if length <= 0, array remains null and is returned. In getElement, if array is null then accessing array[index] will cause a NullPointerException. However, if length > 0, array is non-null. The conditions conflict if length must be both <= 0 and > 0 to occur simultaneously. Therefore, the path is unreachable.",
+    "Answer: No",
+    "",
+    "Example 2:",
+    "User:",
+    "Here is the Java program:",
+    "```java",
+    "public Object foo(Object obj) {",
+    "    if (obj == null) {",
+    "        return null;",
+    "    }",
+    "    return obj;",
+    "}",
+    "",
+    "public void bar() {",
+    "    Object myObj = foo(null);",
+    "    myObj.toString();",
+    "}",
+    "```",
+    "Propagation Path: 'obj' at parameter in foo --> returned by foo --> used in bar causing a method call on null",
+    "Explanation: The method foo returns null when the input is null. In bar, null is assigned to myObj, which then leads to a method call on a null reference, causing a NullPointerException. Since there is no conflicting condition, the propagation path is reachable.",
+    "Answer: Yes"
+  ],
+  "additional_fact": [
+    "Additional facts may include whether specific lines occur within conditional branches (true/else) or loops.",
+    "For each line in the provided path, deduce if it is in the true branch or the fall-through branch, and determine its reachability accordingly."
+  ],
+  "answer_format": [
+    "(1) On the first line, provide your detailed step-by-step reasoning for the propagation analysis.",
+    "(2) On the next line, output a single word: Yes or No.",
+    "Example:",
+    "Explanation: {Your detailed reasoning}",
+    "Answer: Yes"
+  ],
+  "meta_prompts": [
+    "Now I will give you the Java program as follows:\n```\n<PROGRAM>\n``` \n",
+    "Please answer the following question:\n<QUESTION>\n",
+    "Your answer should follow the following format:\n<ANSWER>\n",
+    "Note: Do not assume the behavior of external libraries or methods not provided. Only analyze the given Java code."
+  ]
+}

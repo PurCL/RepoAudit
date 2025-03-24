@@ -149,7 +149,7 @@ class BugScanAgent:
             inputs.append(input)
         return inputs
 
-
+    # TOBE deprecated
     def start_scan_squential(self) -> None:
         print("Start bug scanning...")
 

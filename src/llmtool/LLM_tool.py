@@ -53,7 +53,7 @@ class LLMTool(ABC):
             response, input_token_cost, output_token_cost = self.model.infer(prompt, True)
             self.input_token_cost += input_token_cost
             self.output_token_cost += output_token_cost
-            output = self._parse_response(response)
+            output = self._parse_response(response, input)
             if output is not None:
                 break
         
@@ -68,5 +68,5 @@ class LLMTool(ABC):
         pass
 
     @abstractmethod
-    def _parse_response(self, response: str) -> LLMToolOutput:
+    def _parse_response(self, response: str, input: LLMToolInput = None) -> LLMToolOutput:
         pass

@@ -27,7 +27,7 @@ class DFBScanExtractor(ABC):
         return
         
 
-    def run(self):
+    def extract_all(self):
         """
         Start the source/sink extraction process.
         """
@@ -39,13 +39,13 @@ class DFBScanExtractor(ABC):
                 continue
             file_content = self.ts_analyzer.code_in_files[function.file_path]
             function_root_node = function.parse_tree_root_node
-            self.sources.extend(self.find_sources(file_content, function_root_node, function.file_path))
-            self.sinks.extend(self.find_sinks(file_content, function_root_node, function.file_path))
-        return
+            self.sources.extend(self.extract_sources(function))
+            self.sinks.extend(self.extract_sinks(function))
+        return self.sources, self.sinks
     
 
     @abstractmethod
-    def find_sources(self, function: Function) -> List[Value]:
+    def extract_sources(self, function: Function) -> List[Value]:
         """
         Extract the source values that can cause the bugs from the source code.
         :param function: Function object.
@@ -54,7 +54,7 @@ class DFBScanExtractor(ABC):
         pass
 
     @abstractmethod
-    def find_sinks(self, function: Function) -> List[Value]:
+    def extract_sinks(self, function: Function) -> List[Value]:
         """
         Extract the sink values that can cause the bugs from the source code.
         :param function: Function object.

@@ -45,7 +45,7 @@ class IntraDetector(LLMTool):
         """
         super().__init__(model_name, temperature, language, max_query_num)
         self.bug_type = bug_type
-        self.inline_prompt_file = f"{BASE_PATH}/prompt/detection/{language}/{language}_{bug_type}_prompt.json"
+        self.inline_prompt_file = f"{BASE_PATH}/prompt/{language}/{language}_{bug_type}_prompt.json"
         return
 
     def _get_prompt(self, input: IntraDetectorInput) -> str:
@@ -64,7 +64,7 @@ class IntraDetector(LLMTool):
         prompt = prompt.replace("<SEED_NAME>", input.buggy_construct_str)
         return prompt
 
-    def _parse_response(self, response: str) -> IntraDetectorOutput:
+    def _parse_response(self, response: str, input: IntraDetectorInput) -> IntraDetectorOutput:
         """
         :param response: the string response from the model
         :return: the output of intra-procedural detector

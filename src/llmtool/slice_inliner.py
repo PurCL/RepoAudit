@@ -77,7 +77,7 @@ class SliceInliner(LLMTool):
         :param max_query_num: the maximum number of queries if the model fails
         """
         super().__init__(model_name, temperature, language, max_query_num)
-        self.inline_prompt_file = f"{BASE_PATH}/prompt/llmtool/{language}/{language}_inline_prompt.json"
+        self.inline_prompt_file = f"{BASE_PATH}/prompt/{language}/{language}_inline_prompt.json"
         return
 
     def _get_prompt(self, input: SliceInlinerInput) -> str:
@@ -108,7 +108,7 @@ class SliceInliner(LLMTool):
         prompt += "\n" + call_tree_prompt
         return prompt
 
-    def _parse_response(self, response: str) -> SliceInlinerOutput:
+    def _parse_response(self, response: str, input: SliceInlinerInput) -> SliceInlinerOutput:
         """
         :param response: the string response from the model
         :return: the output of slice inliner

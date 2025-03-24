@@ -35,7 +35,7 @@ class PathValidator(LLMTool):
         :param max_query_num: the maximum number of queries if the model fails
         """
         super().__init__(model_name, temperature, language, max_query_num)
-        self.path_valid_prompt_file = f"{BASE_PATH}/prompt/llmtool/{language}/{language}_path_valid_prompt.json"
+        self.path_valid_prompt_file = f"{BASE_PATH}/prompt/{language}/{language}_path_validator_prompt.json"
         return
 
     def _get_prompt(self, input: PathValidatorInput) -> str:
@@ -49,7 +49,7 @@ class PathValidator(LLMTool):
         # TODO
         return prompt
 
-    def _parse_response(self, response: str) -> PathValidatorOutput:
+    def _parse_response(self, response: str, input: PathValidatorInput) -> PathValidatorOutput:
         answer_match = re.search(r'Answer:\s*(\w+)', response)
         poc_match = re.search(r'PoC:\s*(.*)', response, re.DOTALL)
 

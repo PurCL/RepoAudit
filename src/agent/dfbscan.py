@@ -2,17 +2,27 @@ import json
 import os
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
+
 from tstool.analyzer.TS_analyzer import *
 from tstool.analyzer.Cpp_TS_analyzer import *
 from tstool.analyzer.Go_TS_analyzer import *
 from tstool.analyzer.Java_TS_analyzer import *
 from tstool.analyzer.Python_TS_analyzer import *
+
+from tstool.dfbscan_extractor.dfbscan_extractor import *
+from tstool.dfbscan_extractor.Cpp.Cpp_MLK_extractor import *
+from tstool.dfbscan_extractor.Cpp.Cpp_NPD_extractor import *
+from tstool.dfbscan_extractor.Cpp.Cpp_UAF_extractor import *
+from tstool.dfbscan_extractor.Java.Java_NPD_extractor import *
+
 from llmtool.LLM_utils import *
 from llmtool.intra_dfa import *
 from llmtool.path_validator import *
+
 from memory.semantic.dfb_state import *
 from memory.syntactic.function import *
 from memory.syntactic.value import *
+
 from pathlib import Path
 BASE_PATH = Path(__file__).resolve().parents[2]
 
@@ -56,30 +66,28 @@ class DFBScanAgent:
         self.intra_dfa = IntraDataFlowAnalyzer(self.model_name, self.temperature, self.language, self.MAX_QUERY_NUM)
         self.path_validator = PathValidator(self.model_name, self.temperature, self.language, self.MAX_QUERY_NUM)
 
-        # TODO
-        self.src_values, self.sink_values = self.__load_value_from_file()
+        self.src_values, self.sink_values = self.__obtain_extractor().extract_all()
         self.state = DFBState(self.src_values, self.sink_values)
         return
         
 
-    def __load_value_from_file(self) -> Tuple[List[Value], List[Value]]:
-        """
-        :return: two lists of values, indicating the sources or sinks in the data-flow bug detection
-        """
-        srcs = []
-        sinks = []
-        with open(self.src_spec_file, "r") as f:
-            src_spec = json.load(f)
-        for src_str in src_spec:
-            src = Value.from_str_to_value(src_str.replace("\n", ""))
-            srcs.append(src)
-        
-        with open(self.sink_spec_file, "r") as f:
-            sink_spec = json.load(f)
-        for sink_str in sink_spec:
-            sink = Value.from_str_to_value(sink_str.replace("\n", ""))
-            sinks.append(sink)
-        return srcs, sinks
+    def __obtain_extractor(self) -> DFBScanExtractor:
+        if self.language == "Cpp":
+            if self.bug_type == "MLK":
+                return Cpp_MLK_Extractor(self.ts_analyzer)
+            elif self.bug_type == "NPD":
+                return Cpp_NPD_Extractor(self.ts_analyzer)
+            elif self.bug_type == "UAF":
+                return Cpp_UAF_Extractor(self.ts_analyzer)
+        elif self.language == "Java":
+            if self.bug_type == "NPD":
+                return Java_NPD_Extractor(self.ts_analyzer)
+        elif self.language == "Python":
+            pass
+        elif self.language == "Go":
+            pass
+        # TODO: otherwise, sythesize the extractor
+        return None
     
 
     def __collect_potential_buggy_paths(self, 
@@ -137,7 +145,22 @@ class DFBScanAgent:
                 (start_value, start_function, depth) = worklist.pop(0)
                 if depth > self.call_depth:
                     continue
-                input = IntraDataFlowAnalyzerInput(start_value, start_function)
+
+                # construct the input for intra-procedural data-flow analysis
+                sinks_in_function = self.__obtain_extractor().extract_sinks(start_function)
+                sink_values = [(sink.name, sink.line_number - start_function.start_line_number + 1) for sink in sinks_in_function]
+
+                call_statements = []
+                for call_site_node in start_function.function_call_site_nodes:
+                    file_content = self.ts_analyzer.code_in_files[start_function.file_path]
+                    call_site_line_number = file_content[: call_site_node.start_byte].count("\n") + 1
+                    call_site_name = file_content[call_site_node.start_byte: call_site_node.end_byte]
+                    call_statements.append((call_site_name, call_site_line_number))
+
+                ret_values = [(ret.name, ret.line_number - start_function.start_line_number + 1) for ret in start_function.retvals]
+                input = IntraDataFlowAnalyzerInput(start_function, start_value, sink_values, call_statements, ret_values)
+            
+                # invoke the intra-procedural data-flow analysis
                 output = self.intra_dfa.invoke(input)
                 for end_values in output.reachable_values:
                     for end_value in end_values:
