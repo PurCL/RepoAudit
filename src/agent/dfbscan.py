@@ -110,25 +110,70 @@ class DFBScanAgent:
 
         for value in output.reachable_values[path_index]:
             if value.label == ValueLabel.ARG:
-                para_callee_context_list = self.ts_analyzer.get_parameters_by_argument_in_call_context(value, function, call_context)
-                for (para_value, callee_function, new_call_context) in para_callee_context_list:
-                    delta_worklist.append((para_value, callee_function, new_call_context))
-                    self.state.update_external_value_match((value, call_context), set({(para_value, new_call_context)}))
+                callee_functions = self.ts_analyzer.get_all_callee_functions(function)
+                for callee_function in callee_functions:
+                    is_called = False
+                    call_sites = self.ts_analyzer.get_callsites_by_callee_name(function, callee_function.function_name)
+                    for call_site_node in call_sites:
+                        file_content = self.ts_analyzer.code_in_files[function.file_path]
+                        call_site_lower_line_number = file_content[:call_site_node.start_byte].count("\n") + 1
+                        call_site_upper_line_number = file_content[:call_site_node.end_byte].count("\n") + 1
+                        arg_line_number_in_file = function.start_line_number + value.line_number - 1
+                        if not (call_site_lower_line_number <= arg_line_number_in_file and arg_line_number_in_file <= call_site_upper_line_number):
+                            is_called = True
+                    if not is_called:
+                        continue
+                            
+                    new_call_context = copy.deepcopy(call_context)
+                    is_CFL_reachable = new_call_context.add_and_check_context(callee_function.function_id, ContextLabel.LEFT_PAR)
+
+                    # violate CFL reachability and then skip
+                    if not is_CFL_reachable:
+                        continue
+                    
+                    for para in callee_function.paras:
+                        if para.index == value.index:
+                            delta_worklist.append((para, callee_function, new_call_context))
+                            self.state.update_external_value_match((value, call_context), set({(para, new_call_context)}))
                     
             if value.label == ValueLabel.PARA:
                 # Consider side-effect. 
                 # Example: the parameter *p is used in the function: p->f = null; 
                 # We need to consider the side-effect of p.
-                args_caller_context_list = self.ts_analyzer.get_arguments_by_parameter_in_call_context(value, function, call_context)
-                for (arg_value, caller_function, new_call_context) in args_caller_context_list:
-                    delta_worklist.append((para_value, callee_function, new_call_context))
-                    self.state.update_external_value_match((value, call_context), set({(para_value, new_call_context)}))
+                caller_function = self.ts_analyzer.get_all_caller_functions(function)
+                for caller_function in caller_function:
+                    new_call_context = copy.deepcopy(call_context)
+                    is_CFL_reachable_para = new_call_context.add_and_check_context(function.function_id, ContextLabel.RIGHT_PAR)
+                    is_CFL_reachable_arg = new_call_context.check_context(caller_function.function_id, ContextLabel.RIGHT_PAR)
+                    
+                    if not is_CFL_reachable_para or not is_CFL_reachable_arg:
+                        continue
 
+                    call_site_nodes = self.ts_analyzer.get_callsites_by_callee_name(caller_function, function.function_name)
+                    for call_site_node in call_site_nodes:
+                        args = self.ts_analyzer.get_arguments_at_callsite(caller_function, call_site_node)
+                        for arg in args:
+                            if arg.index == value.index:
+                                delta_worklist.append((arg, caller_function, new_call_context))
+                                self.state.update_external_value_match((value, call_context), set({(arg, new_call_context)}))
+                    
             if value.label == ValueLabel.RET:
-                outputs_callee_context_list = self.ts_analyzer.get_output_values_by_return_value_in_call_context(function, call_context)
-                for (output_value, caller_function, new_call_context) in outputs_callee_context_list:
-                    delta_worklist.append((output_value, caller_function, new_call_context))
-                    self.state.update_external_value_match((value, call_context), set({(output_value, new_call_context)}))
+                caller_functions = self.ts_analyzer.get_all_caller_functions(function)
+                print("The number of caller functions: ", len(caller_functions))
+                for caller_function in caller_functions:
+                    new_call_context = copy.deepcopy(call_context)
+                    is_CFL_reachable_return = new_call_context.add_and_check_context(function.function_id, ContextLabel.RIGHT_PAR)
+                    is_CFL_reachable_output = new_call_context.check_context(caller_function.function_id, ContextLabel.RIGHT_PAR)
+
+                    if not is_CFL_reachable_return or not is_CFL_reachable_output:
+                        continue
+
+                    call_site_nodes = self.ts_analyzer.get_callsites_by_callee_name(caller_function, function.function_name)
+                    for call_site_node in call_site_nodes:
+                        output_value = self.ts_analyzer.get_output_value_at_callsite(caller_function, call_site_node)
+                        delta_worklist.append((output_value, caller_function, new_call_context))
+                        self.state.update_external_value_match((value, call_context), set({(output_value, new_call_context)}))
+ 
             if value.label == ValueLabel.SINK:
                 # No need to continue the exploration
                 pass

@@ -96,11 +96,15 @@ class SliceScanAgent:
                     for caller_function in caller_functions:
                         # Forward slicing: Return back to caller function from the current function. 
                         new_slice_context = copy.deepcopy(slice_context)
-                        is_CFL_reachable = new_slice_context.add_and_check_context(function_id, ContextLabel.RIGHT_PAR)
+                        is_CFL_reachable_return = new_slice_context.add_and_check_context(function_id, ContextLabel.RIGHT_PAR)
+
+                        # Forward slicing: Check whether the caller function is valid or not
+                        is_CFL_reachable_output = new_slice_context.check_context(caller_function.function_id, ContextLabel.RIGHT_PAR)
 
                         # violate CFL reachability and then skip
-                        if not is_CFL_reachable:
+                        if not is_CFL_reachable_return or not is_CFL_reachable_output:
                             continue
+
                         print("call edge: ", caller_function.function_name, " --> ", function.function_name)
 
                         call_site_nodes = self.ts_analyzer.get_callsites_by_callee_name(caller_function, function.function_name)
@@ -145,10 +149,13 @@ class SliceScanAgent:
 
                         # Forward slicing: Return back to caller function from the current function. 
                         new_slice_context = copy.deepcopy(slice_context)
-                        is_CFL_reachable = new_slice_context.add_and_check_context(function_id, ContextLabel.RIGHT_PAR)
+                        is_CFL_reachable_parameter = new_slice_context.add_and_check_context(function_id, ContextLabel.RIGHT_PAR)
+
+                        # Forward slicing: Check whether the caller function is valid or not
+                        is_CFL_reachable_argument = new_slice_context.check_context(caller_function.function_id, ContextLabel.RIGHT_PAR)
 
                         # violate CFL reachability and then skip
-                        if not is_CFL_reachable:
+                        if not is_CFL_reachable_parameter or not is_CFL_reachable_argument:
                             continue
                         print("call edge: ", caller_function.function_name, " --> ", function.function_name)
 
@@ -195,10 +202,11 @@ class SliceScanAgent:
                     for caller_function in caller_functions:
                         # Backward slicing: Trace back to the caller function from the current function
                         new_slice_context = copy.deepcopy(slice_context)
-                        is_CFL_reachable = new_slice_context.add_and_check_context(function_id, ContextLabel.LEFT_PAR)
+                        is_CFL_reachable_parameter = new_slice_context.add_and_check_context(function_id, ContextLabel.LEFT_PAR)
+                        is_CFL_reachable_argument = new_slice_context.check_context(caller_function.function_id, ContextLabel.LEFT_PAR)
 
                         # violate CFL reachability and then skip
-                        if not is_CFL_reachable:
+                        if not is_CFL_reachable_parameter or not is_CFL_reachable_argument:
                             continue
                         print("call edge: ", caller_function.function_name, " --> ", function.function_name)
 
