@@ -89,47 +89,74 @@ class DFBScanAgent:
         # TODO: otherwise, sythesize the extractor
         return None
     
+    def __update_worklist(self, 
+                        input: IntraDataFlowAnalyzerInput, 
+                        output: IntraDataFlowAnalyzerOutput, 
+                        call_context: CallContext,
+                        path_index: int,
+                        ) -> List[Tuple[Value, Function, CallContext]]:
+        """
+        Update the worklist based on the output of intra-procedural data-flow analysis.
+        :param input: The input of intra-procedural data-flow analysis
+        :param output: The output of intra-procedural data-flow analysis
+        :param call_context: The call context of the current function
+        :return: The updated worklist
+        """
+        delta_worklist = []  # The list of (value, function, call_context) tuples
+        function_id = input.function.function_id
+        function = self.ts_analyzer.function_env[function_id]
+
+        for value in output.reachable_values[path_index]:
+            if value.label == ValueLabel.ARG:
+                para_callee_context_list = self.ts_analyzer.get_parameters_by_argument_in_call_context(value, function, call_context)
+                for (para_value, callee_function, new_call_context) in para_callee_context_list:
+                    delta_worklist.append((para_value, callee_function, new_call_context))
+                    self.state.update_external_value_match((value, call_context), set({(para_value, new_call_context)}))
+                    
+            if value.label == ValueLabel.PARA:
+                # Consider side-effect. 
+                # Example: the parameter *p is used in the function: p->f = null; 
+                # We need to consider the side-effect of p.
+                args_caller_context_list = self.ts_analyzer.get_arguments_by_parameter_in_call_context(value, function, call_context)
+                for (arg_value, caller_function, new_call_context) in args_caller_context_list:
+                    delta_worklist.append((para_value, callee_function, new_call_context))
+                    self.state.update_external_value_match((value, call_context), set({(para_value, new_call_context)}))
+
+            if value.label == ValueLabel.RET:
+                outputs_callee_context_list = self.ts_analyzer.get_output_values_by_return_value_in_call_context(function, call_context)
+                for (output_value, caller_function, new_call_context) in outputs_callee_context_list:
+                    delta_worklist.append((output_value, caller_function, new_call_context))
+                    self.state.update_external_value_match((value, call_context), set({(output_value, new_call_context)}))
+            if value.label == ValueLabel.SINK:
+                # No need to continue the exploration
+                pass
+        return delta_worklist
 
     def __collect_potential_buggy_paths(self, 
-                                        current_value: Value, 
-                                        call_context: CallContext,
+                                        current_value_with_context: Tuple[Value, CallContext],
                                         path_with_unknown_status: List[Value] = [],
                                         paths_with_buggy_status: List[List[Value]] = []) -> List[List[Value]]:
-        if current_value not in self.reachable_values_per_path:
+        (current_value, call_context) = current_value_with_context
+        if current_value_with_context not in self.state.reachable_values_per_path:
             # source must reach sink, e.g., memory leak
             if self.is_reachable:
                 paths_with_buggy_status.append(path_with_unknown_status)
             return paths_with_buggy_status
         
-        reachable_values_paths: List[Set[Value]] = self.reachable_values_per_path[current_value]
+        reachable_values_paths: List[Set[Tuple[Value, CallContext]]] = self.state.reachable_values_per_path[current_value_with_context]
 
-        for value in reachable_values_paths:
-            if value.label == ValueLabel.SINK:
-                # source must not reach sink, e.g., null pointer dereference
-                if not self.is_reachable:
-                    paths_with_buggy_status.append(path_with_unknown_status + [value])
-            elif value.label in {ValueLabel.PARA, ValueLabel.RET, ValueLabel.ARG, ValueLabel.OUT}:
-                current_function = self.ts_analyzer.get_function_from_localvalue(value)
-
-                if value.label == ValueLabel.PARA:
-                    # TODO: convert the value from para to arg. Model side-effect
-                    pass
-                if value.label == ValueLabel.RET:
-                    # convert the value from return to output value
-                    output_function_context_list = self.ts_analyzer.get_output_values_by_return_value_in_call_context(current_function, call_context)
-                    for (output_value, caller_function, new_context) in output_function_context_list:
-                        self.__collect_potential_buggy_paths(output_value, new_context, path_with_unknown_status + [value, output_value], paths_with_buggy_status)
-                if value.label == ValueLabel.ARG:
-                    # convert the value from arg to para
-                    para_function_context_list = self.ts_analyzer.get_parameters_by_argument_in_call_context(value, current_function, call_context)
-                    for (para_value, callee_function, new_context) in para_function_context_list:
-                        self.__collect_potential_buggy_paths(para_value, new_context, path_with_unknown_status + [value, para_value], paths_with_buggy_status)
-                    pass
-                if value.label == ValueLabel.OUT:
-                    # TODO: convert the value from output value to return
-                    pass
+        for i in range(len(reachable_values_paths)):
+            for (value, ctx) in reachable_values_paths[i]:
+                if value.label == ValueLabel.SINK:
+                    # source must not reach sink, e.g., null pointer dereference
+                    if not self.is_reachable:
+                        paths_with_buggy_status.append(path_with_unknown_status + [value])
+                elif value.label in {ValueLabel.PARA, ValueLabel.RET, ValueLabel.ARG, ValueLabel.OUT}:
+                    if (value, ctx) in self.state.external_value_match:
+                        for (value_next, ctx_next) in self.state.external_value_match:
+                            self.__collect_potential_buggy_paths((value_next, ctx_next), path_with_unknown_status + [value, value_next], paths_with_buggy_status)
         return paths_with_buggy_status
-
+    
 
     def start_scan(self) -> None:
         print("Start data-flow bug scanning...")
@@ -139,11 +166,12 @@ class DFBScanAgent:
             src_function = self.ts_analyzer.get_function_from_localvalue(src_value)
             if src_function is None:
                 continue
+            initial_context = CallContext(False)
         
-            worklist.append((src_value, src_function, 0))
+            worklist.append((src_value, src_function, initial_context))
             while len(worklist) > 0:
-                (start_value, start_function, depth) = worklist.pop(0)
-                if depth > self.call_depth:
+                (start_value, start_function, call_context) = worklist.pop(0)
+                if len(call_context.context) > self.call_depth:
                     continue
 
                 # construct the input for intra-procedural data-flow analysis
@@ -162,15 +190,25 @@ class DFBScanAgent:
             
                 # invoke the intra-procedural data-flow analysis
                 output = self.intra_dfa.invoke(input)
-                for end_values in output.reachable_values:
-                    for end_value in end_values:
-                        end_function = self.ts_analyzer.get_function_from_localvalue(end_value)
-                        if end_function is None:
-                            continue
-                        worklist.append((end_value, end_function, depth + 1))
-                self.state.update_reachable_values_per_path(start_value, Set(output.reachable_values))
+                for path_index in range(len(output.reachable_values)):
+                    reachable_values_in_single_path = set([])
+                    for value in output.reachable_values[path_index]:
+                        reachable_values_in_single_path.add((value, call_context))
+                    self.state.update_reachable_values_per_path((start_value, call_context), reachable_values_in_single_path)
 
-            buggy_paths: List[List[Value]] = self.__collect_potential_buggy_paths(src_value, CallContext(False))
+                    delta_worklist = self.__update_worklist(input, output, call_context, path_index)
+                    print("delta_worklist: ", len(delta_worklist))
+                    print("worklist: ", len(worklist))
+                    worklist.extend(delta_worklist)
+                    print("new worklist: ", len(worklist))
+
+            # Output tht reachable values per path
+            self.state.print_reachable_values_per_path()
+            self.state.print_external_value_match()
+            exit(0)
+
+            buggy_paths: List[List[Value]] = self.__collect_potential_buggy_paths((src_value, CallContext(False)))
+            
 
             for buggy_path in buggy_paths:
                 input = PathValidatorInput(buggy_path, {value: self.ts_analyzer.get_function_from_localvalue(value) for value in buggy_path})

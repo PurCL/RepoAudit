@@ -2,6 +2,7 @@ from memory.syntactic.function import *
 from memory.syntactic.value import *
 from typing import List, Tuple, Dict
 from memory.report.bug_report import *
+from tstool.analyzer.TS_analyzer import *
     
 
 class DFBState:
@@ -9,21 +10,31 @@ class DFBState:
         self.src_values = src_values
         self.sink_values = sink_values
 
-        self.reachable_values_per_path: Dict[Value, List[Set[Value]]] = {}
+        self.reachable_values_per_path: Dict[Tuple[Value, CallContext], List[Set[Tuple[Value, CallContext]]]] = {}
+        self.external_value_match: Dict[Tuple[Value, CallContext], Set[Tuple[Value, CallContext]]] = {}
+
         self.bug_reports: dict[Value, List[BugReport]] = {}
         self.total_bug_count = 0
         return
     
 
-    def update_reachable_values_per_path(self, value: Value, path: List[Value]) -> None:
+    def update_reachable_values_per_path(self, start: Tuple[Value, CallContext], ends: Set[Tuple[Value, CallContext]]) -> None:
         """
         Update the reachable values per path
-        :param value: the value
-        :param path: the path
         """
-        if value not in self.reachable_values_per_path:
-            self.reachable_values_per_path[value] = []
-        self.reachable_values_per_path[value].append(set(path))
+        if start not in self.reachable_values_per_path:
+            self.reachable_values_per_path[start] = []
+        self.reachable_values_per_path[start].append(ends)
+        return
+    
+    
+    def update_external_value_match(self, external_start: Tuple[Value, CallContext], external_ends: Set[Tuple[Value, CallContext]]) -> None:
+        """
+        Update the external value match
+        """
+        if external_start not in self.external_value_match:
+            self.external_value_match[external_start] = set()
+        self.external_value_match[external_start].update(external_ends)
         return
 
     def update_bug_reports(self, value: Value, bug_report: BugReport) -> None:
@@ -36,4 +47,38 @@ class DFBState:
             self.bug_reports[value] = []
         self.bug_reports[value].append(bug_report)
         self.total_bug_count += 1
+        return
+    
+    def print_reachable_values_per_path(self) -> None:
+        """
+        Print the reachable values per path
+        """
+        print("=====================================")
+        print("Reachable Values Per Path:")
+        print("=====================================")
+        for (start_value, start_context), ends in self.reachable_values_per_path.items():
+            print("-------------------------------------")
+            print(f"Start: {str(start_value)}, {str(start_context)}")
+            for i in range(len(ends)):
+                for (value, ctx) in ends[i]:
+                    print(f"  End: {value}, {str(ctx)}")
+            print("-------------------------------------")
+        print("=====================================\n")
+        return
+    
+    def print_external_value_match(self) -> None:
+        """
+        Print the external value match.
+        """
+        print("=====================================")
+        print("External Value Match:")
+        print("=====================================")
+        for start, ends in self.external_value_match.items():
+            print("-------------------------------------")
+            print(f"Start: {start[0]}, {str(start[1])}")
+            for end in ends:
+                # end is a tuple of (Value, CallContext)
+                print(f"  End: {end[0]}, {str(end[1])}")
+            print("-------------------------------------")
+        print("=====================================\n")
         return

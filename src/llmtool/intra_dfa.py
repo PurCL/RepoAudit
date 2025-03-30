@@ -157,5 +157,4 @@ class IntraDataFlowAnalyzer(LLMTool):
 
         output = IntraDataFlowAnalyzerOutput(reachable_values)
         print(output.reachable_values)
-        exit(0)
         return output

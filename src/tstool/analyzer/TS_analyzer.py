@@ -466,7 +466,7 @@ class TSAnalyzer(ABC):
         caller_function = self.get_all_caller_functions(para_function)
         for caller_function in caller_function:
             new_call_context = copy.deepcopy(call_context)
-            is_CFL_reachable = new_call_context.add_context_at_beginning(para_function.function_id, ContextLabel.LEFT_PAR)
+            is_CFL_reachable = new_call_context.add_context(para_function.function_id, ContextLabel.LEFT_PAR)
             
             if not is_CFL_reachable:
                 continue
@@ -513,7 +513,7 @@ class TSAnalyzer(ABC):
                 continue
                     
             new_call_context = copy.deepcopy(call_context)
-            is_CFL_reachable = new_call_context.add_context_at_end(callee_function.function_id, ContextLabel.LEFT_PAR)
+            is_CFL_reachable = new_call_context.add_context(callee_function.function_id, ContextLabel.LEFT_PAR)
 
             # violate CFL reachability and then skip
             if not is_CFL_reachable:
@@ -551,13 +551,13 @@ class TSAnalyzer(ABC):
         caller_functions = self.get_all_caller_functions(ret_function)
         for caller_function in caller_functions:
             new_call_context = copy.deepcopy(call_context)
-            is_CFL_reachable = new_call_context.add_context_at_end(ret_function.function_id, ContextLabel.RIGHT_PAR)
+            is_CFL_reachable = new_call_context.add_context(ret_function.function_id, ContextLabel.RIGHT_PAR)
 
             if not is_CFL_reachable:
                 continue
 
             if len(new_call_context.simplified_context) > 0:
-                top_context_id, top_context_label = new_call_context.simplified_context
+                top_context_id, top_context_label = new_call_context.simplified_context[-1]
                 if top_context_label == ContextLabel.LEFT_PAR:
                     if top_context_id != caller_function.function_id:
                         continue
@@ -592,7 +592,7 @@ class TSAnalyzer(ABC):
         callee_functions = self.get_all_callee_functions(output_value_function)
         for callee_function in callee_functions:
             new_call_context = copy.deepcopy(call_context)
-            is_CFL_reachable = new_call_context.add_context_at_beginning(callee_function.function_id, ContextLabel.RIGHT_PAR)
+            is_CFL_reachable = new_call_context.add_context(callee_function.function_id, ContextLabel.RIGHT_PAR)
 
             if not is_CFL_reachable:
                 continue
