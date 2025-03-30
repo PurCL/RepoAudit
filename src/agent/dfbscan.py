@@ -134,28 +134,25 @@ class DFBScanAgent:
 
     def __collect_potential_buggy_paths(self, 
                                         current_value_with_context: Tuple[Value, CallContext],
-                                        path_with_unknown_status: List[Value] = [],
-                                        paths_with_buggy_status: List[List[Value]] = []) -> List[List[Value]]:
+                                        path_with_unknown_status: List[Value] = []) -> None:
         (current_value, call_context) = current_value_with_context
         if current_value_with_context not in self.state.reachable_values_per_path:
-            # source must reach sink, e.g., memory leak
-            if self.is_reachable:
-                paths_with_buggy_status.append(path_with_unknown_status)
-            return paths_with_buggy_status
+            if not self.is_reachable:
+                self.state.update_potential_buggy_paths(path_with_unknown_status)
+            return
         
         reachable_values_paths: List[Set[Tuple[Value, CallContext]]] = self.state.reachable_values_per_path[current_value_with_context]
-
         for i in range(len(reachable_values_paths)):
             for (value, ctx) in reachable_values_paths[i]:
                 if value.label == ValueLabel.SINK:
                     # source must not reach sink, e.g., null pointer dereference
-                    if not self.is_reachable:
-                        paths_with_buggy_status.append(path_with_unknown_status + [value])
+                    if self.is_reachable:
+                        self.state.update_potential_buggy_paths(path_with_unknown_status + [value])
                 elif value.label in {ValueLabel.PARA, ValueLabel.RET, ValueLabel.ARG, ValueLabel.OUT}:
                     if (value, ctx) in self.state.external_value_match:
-                        for (value_next, ctx_next) in self.state.external_value_match:
-                            self.__collect_potential_buggy_paths((value_next, ctx_next), path_with_unknown_status + [value, value_next], paths_with_buggy_status)
-        return paths_with_buggy_status
+                        for (value_next, ctx_next) in self.state.external_value_match[(value, ctx)]:
+                            self.__collect_potential_buggy_paths((value_next, ctx_next), path_with_unknown_status + [value, value_next])
+        return
     
 
     def start_scan(self) -> None:
@@ -205,18 +202,17 @@ class DFBScanAgent:
             # Output tht reachable values per path
             self.state.print_reachable_values_per_path()
             self.state.print_external_value_match()
-            exit(0)
 
-            buggy_paths: List[List[Value]] = self.__collect_potential_buggy_paths((src_value, CallContext(False)))
-            
+            self.__collect_potential_buggy_paths((src_value, CallContext(False)))
+            self.state.print_potential_buggy_paths()
 
-            for buggy_path in buggy_paths:
+            for buggy_path in self.state.potential_buggy_paths.values():
                 input = PathValidatorInput(buggy_path, {value: self.ts_analyzer.get_function_from_localvalue(value) for value in buggy_path})
                 output: PathValidatorOutput = self.path_validator.invoke(input)
                 if output.is_reachable:
                     print(f"Potential bug found: {output.poc_str}")
 
-                    relevant_functions = []
+                    relevant_functions = {}
                     for value in buggy_path:
                         function = self.ts_analyzer.get_function_from_localvalue(value)
                         if function is not None:
@@ -226,7 +222,16 @@ class DFBScanAgent:
                     self.state.update_bug_reports(src_value, bug_report)
             
             # Dump bug reports
-            bug_report_dict = {bug_report_id: bug.to_dict() for bug_report_id, bug in self.state.bug_reports.items()}
+
+            self.bug_reports: dict[Value, List[BugReport]] = {}
+
+            # bug_report_dict = {bug_report_id: bug.to_dict() for bug_report_id, bug in self.state.bug_reports.items()}
+            
+            bug_report_dict = {
+                str(value): [bug.to_dict() for bug in bug_list]
+                for value, bug_list in self.state.bug_reports.items()
+            }
+            
             with open(self.result_dir_path + "/detect_info.json", 'w') as bug_info_file:
                 json.dump(bug_report_dict, bug_info_file, indent=4)
         return

@@ -39,14 +39,30 @@ class PathValidator(LLMTool):
         return
 
     def _get_prompt(self, input: PathValidatorInput) -> str:
-        with open(self.dfa_prompt_file, "r") as f:
+        with open(self.path_valid_prompt_file, "r") as f:
             prompt_template_dict = json.load(f)
         prompt = prompt_template_dict["task"]
         prompt += "\n" + "\n".join(prompt_template_dict["analysis_rules"])
         prompt += "\n" + "".join(prompt_template_dict["meta_prompts"])
-        prompt = prompt.replace("<ANSWER>", "\n".join(prompt_template_dict["answer_format"]))
-        prompt = prompt.replace("<QUESTION>", prompt_template_dict["question_template"])
-        # TODO
+        prompt = prompt.replace("<ANSWER>", "\n".join(prompt_template_dict["answer_format"])).replace(
+                                "<QUESTION>", "\n".join(prompt_template_dict["question_template"]))
+        
+        value_lines = []
+        for value in input.values:
+            value_line = " - " + str(value)
+            function = input.values_to_functions.get(value)
+            if function is None:
+                continue
+            value_line += " in the function " + function.function_name + " at the line " + str(value.line_number - function.start_line_number + 1)
+            value_lines.append(value_line)
+        prompt = prompt.replace("<PATH>", "\n".join(value_lines))
+
+        program = "\n".join(["```\n" + func.lined_code + "\n```\n" for func in input.values_to_functions.values()])
+        prompt = prompt.replace("<PROGRAM>", program)
+        
+        print("Prompt of path validator:")
+        print(prompt)
+
         return prompt
 
     def _parse_response(self, response: str, input: PathValidatorInput) -> PathValidatorOutput:

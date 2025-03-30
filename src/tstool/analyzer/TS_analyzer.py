@@ -78,11 +78,11 @@ class CallContext:
         return f"CallContext(is_backward={self.is_backward}, context={self.context})"
     
     def __eq__(self, other: 'CallContext') -> bool:
-        return str(self.context) == str(other.context) and self.is_backward == other.is_backward
+        return self.__str__() == other.__str__()
 
     def __hash__(self) -> int:
         # Convert context list to tuple for hashing; assumes that context entries are immutable
-        return hash((str(self.context), self.is_backward))
+        return hash(self.__str__())
 
 class TSAnalyzer(ABC):
     """

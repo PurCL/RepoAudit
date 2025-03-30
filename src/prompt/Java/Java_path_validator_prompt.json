@@ -5,11 +5,9 @@
   "task": "You will be provided an interprocedural data-flow path along with a Java program. Please determine whether the given propagation path can lead to an exception or a bug (e.g., NullPointerException, logic error) in Java.",
   "analysis_rules": [
     "An interprocedural path in Java consists of several method sub-paths. If all sub-paths are reachable, then the overall path is reachable and may cause a bug; otherwise, it is not.",
-    "If the source variable of the first method eventually reaches a sink point in the last method without being modified or null-checked, the path is reachable.",
-    "If the source variable is reassigned, modified, or checked for null before reaching the sink, the propagation path is considered unreachable.",
+    "If the source variable of the first method eventually reaches a sink point in the last method, the path is reachable.",
     "If a method exits or returns before the sink or propagation sites (such as method call arguments) are reached, the path is unreachable.",
-    "Analyze conditional statements (if, switch, loops) in each method. For each sub-path, infer the condition outcomes and determine if conflicts exist between sub-paths.",
-    "In Java, also consider object reference propagation: if an object is passed between methods without proper null-checks or is reassigned, then the bug may or may not occur depending on sub-path conditions."
+    "Analyze conditional statements (if, switch, loops) in each method. For each sub-path, infer the condition outcomes and determine if conflicts exist between sub-paths."
   ],
   "question_template": [
     "When these methods are executed, is it possible that the following propagation path can introduce a <BUG_TYPE> bug in Java?",

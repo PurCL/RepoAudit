@@ -12,7 +12,8 @@ class DFBState:
 
         self.reachable_values_per_path: Dict[Tuple[Value, CallContext], List[Set[Tuple[Value, CallContext]]]] = {}
         self.external_value_match: Dict[Tuple[Value, CallContext], Set[Tuple[Value, CallContext]]] = {}
-
+        
+        self.potential_buggy_paths: Dict[str, List[Value]] = {}
         self.bug_reports: dict[Value, List[BugReport]] = {}
         self.total_bug_count = 0
         return
@@ -35,6 +36,14 @@ class DFBState:
         if external_start not in self.external_value_match:
             self.external_value_match[external_start] = set()
         self.external_value_match[external_start].update(external_ends)
+        return
+    
+    def update_potential_buggy_paths(self, path: List[Value]) -> None:
+        """
+        Update the buggy paths
+        """
+        path_str = str(path)
+        self.potential_buggy_paths[path_str] = path
         return
 
     def update_bug_reports(self, value: Value, bug_report: BugReport) -> None:
@@ -60,8 +69,11 @@ class DFBState:
             print("-------------------------------------")
             print(f"Start: {str(start_value)}, {str(start_context)}")
             for i in range(len(ends)):
+                print("--------------------------")
+                print(f"  Path {i + 1}:")
                 for (value, ctx) in ends[i]:
                     print(f"  End: {value}, {str(ctx)}")
+                print("--------------------------")
             print("-------------------------------------")
         print("=====================================\n")
         return
@@ -79,6 +91,24 @@ class DFBState:
             for end in ends:
                 # end is a tuple of (Value, CallContext)
                 print(f"  End: {end[0]}, {str(end[1])}")
+            print("-------------------------------------")
+        print("=====================================\n")
+        return
+
+    def print_potential_buggy_paths(self) -> None:
+        """
+        Print the potential buggy paths
+        """
+        print("=====================================")
+        print("Potential Buggy Paths:")
+        print("=====================================")
+        path_id = 0
+        for path_str, path in self.potential_buggy_paths.items():
+            print("-------------------------------------")
+            print(f"Path ID: {path_id}")
+            path_id += 1
+            for value in path:
+                print(f"  Value: {value}")
             print("-------------------------------------")
         print("=====================================\n")
         return

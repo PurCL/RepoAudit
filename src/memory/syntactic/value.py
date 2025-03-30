@@ -84,12 +84,15 @@ class Value:
             + str(self.label)
             + ")"
         )
+    
+    def __eq__(self, other: 'Value') -> bool:
+        return self.__str__() == other.__str__()
 
     def __repr__(self) -> str:
         return self.__str__()
     
     def __hash__(self) -> int:
-        return hash((self.name, self.line_number, self.label, self.file, self.index))
+        return hash(self.__str__())
     
     @classmethod
     def from_str_to_value(cls, s: str) -> "Value":
