@@ -150,7 +150,7 @@ class BugScanAgent:
         return inputs
 
     # TOBE deprecated
-    def start_scan_squential(self) -> None:
+    def start_scan_sequential(self) -> None:
         print("Start bug scanning...")
 
         # Analyze each seed value, which is potential buggy point or root cause
@@ -192,6 +192,10 @@ class BugScanAgent:
             bug_report_dict = {bug_report_id: bug.to_dict() for bug_report_id, bug in self.state.bug_reports.items()}
             with open(self.result_dir_path + "/detect_info.json", 'w') as bug_info_file:
                 json.dump(bug_report_dict, bug_info_file, indent=4)
+
+            total_bug_number = len(self.state.bug_reports)
+            print(f"{total_bug_number} bug(s) was/were detected in total.")
+            print(f"The bug report(s) has/have been dumped to {self.result_dir_path}/detect_info.json")
         return
     
     def start_scan(self) -> None:
@@ -208,6 +212,11 @@ class BugScanAgent:
                     future.result()
                 except Exception as e:
                     print("Error processing seed:", e)
+
+        # Final summary
+        total_bug_number = len(self.state.bug_reports)
+        print(f"{total_bug_number} bug(s) was/were detected in total.")
+        print(f"The bug report(s) has/have been dumped to {self.result_dir_path}/detect_info.json")
         return
 
     def __process_seed(self, seed_value: Value, is_backward: bool) -> None:

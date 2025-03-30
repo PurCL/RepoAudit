@@ -96,7 +96,7 @@ class SliceScanAgent:
                     for caller_function in caller_functions:
                         # Forward slicing: Return back to caller function from the current function. 
                         new_slice_context = copy.deepcopy(slice_context)
-                        is_CFL_reachable = new_slice_context.add_context(function_id, ContextLabel.RIGHT_PAR)
+                        is_CFL_reachable = new_slice_context.add_and_check_context(function_id, ContextLabel.RIGHT_PAR)
 
                         # violate CFL reachability and then skip
                         if not is_CFL_reachable:
@@ -121,7 +121,7 @@ class SliceScanAgent:
     
                         # Forward slicing: Step into the callee function from the current function
                         new_slice_context = copy.deepcopy(slice_context)
-                        is_CFL_reachable = new_slice_context.add_context(callee_function.function_id, ContextLabel.LEFT_PAR)
+                        is_CFL_reachable = new_slice_context.add_and_check_context(callee_function.function_id, ContextLabel.LEFT_PAR)
 
                         # violate CFL reachability and then skip
                         if not is_CFL_reachable:
@@ -145,7 +145,7 @@ class SliceScanAgent:
 
                         # Forward slicing: Return back to caller function from the current function. 
                         new_slice_context = copy.deepcopy(slice_context)
-                        is_CFL_reachable = new_slice_context.add_context(function_id, ContextLabel.RIGHT_PAR)
+                        is_CFL_reachable = new_slice_context.add_and_check_context(function_id, ContextLabel.RIGHT_PAR)
 
                         # violate CFL reachability and then skip
                         if not is_CFL_reachable:
@@ -178,7 +178,7 @@ class SliceScanAgent:
                     for callee_function in callee_functions:
                         # Backward slicing: Trace back to the callee function from the current function
                         new_slice_context = copy.deepcopy(slice_context)
-                        is_CFL_reachable = new_slice_context.add_context(callee_function.function_id, ContextLabel.RIGHT_PAR)
+                        is_CFL_reachable = new_slice_context.add_and_check_context(callee_function.function_id, ContextLabel.RIGHT_PAR)
 
                         # violate CFL reachability and then skip
                         if not is_CFL_reachable:
@@ -195,7 +195,7 @@ class SliceScanAgent:
                     for caller_function in caller_functions:
                         # Backward slicing: Trace back to the caller function from the current function
                         new_slice_context = copy.deepcopy(slice_context)
-                        is_CFL_reachable = new_slice_context.add_context(function_id, ContextLabel.LEFT_PAR)
+                        is_CFL_reachable = new_slice_context.add_and_check_context(function_id, ContextLabel.LEFT_PAR)
 
                         # violate CFL reachability and then skip
                         if not is_CFL_reachable:
@@ -226,7 +226,7 @@ class SliceScanAgent:
                     for callee_function in callee_functions:
                         # Backward slicing: Trace back to the callee function from the current function
                         new_slice_context = copy.deepcopy(slice_context)
-                        is_CFL_reachable = new_slice_context.add_context(callee_function.function_id, ContextLabel.RIGHT_PAR)
+                        is_CFL_reachable = new_slice_context.add_and_check_context(callee_function.function_id, ContextLabel.RIGHT_PAR)
 
                         # violate CFL reachability and then skip
                         if not is_CFL_reachable:
@@ -249,7 +249,7 @@ class SliceScanAgent:
 
 
     # TOBE deprecated
-    def start_scan_squential(self) -> None:
+    def start_scan_sequential(self) -> None:
         print("Start slice scanning...")
         worklist: List[Tuple[CallContext, int, Set[Value]]] = [] # The list of (slice_contxt, function_id, set of seed_value)
 

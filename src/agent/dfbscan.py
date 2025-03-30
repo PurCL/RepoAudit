@@ -68,6 +68,8 @@ class DFBScanAgent:
 
         self.src_values, self.sink_values = self.__obtain_extractor().extract_all()
         self.state = DFBState(self.src_values, self.sink_values)
+
+        self.file_lock = threading.Lock()
         return
         
 
@@ -154,8 +156,8 @@ class DFBScanAgent:
                             self.__collect_potential_buggy_paths((value_next, ctx_next), path_with_unknown_status + [value, value_next])
         return
     
-
-    def start_scan(self) -> None:
+    # TOBE deprecated
+    def start_scan_sequential(self) -> None:
         print("Start data-flow bug scanning...")
 
         for src_value in self.src_values:
@@ -210,8 +212,6 @@ class DFBScanAgent:
                 input = PathValidatorInput(buggy_path, {value: self.ts_analyzer.get_function_from_localvalue(value) for value in buggy_path})
                 output: PathValidatorOutput = self.path_validator.invoke(input)
                 if output.is_reachable:
-                    print(f"Potential bug found: {output.poc_str}")
-
                     relevant_functions = {}
                     for value in buggy_path:
                         function = self.ts_analyzer.get_function_from_localvalue(value)
@@ -225,8 +225,102 @@ class DFBScanAgent:
 
             self.bug_reports: dict[Value, List[BugReport]] = {}
 
-            # bug_report_dict = {bug_report_id: bug.to_dict() for bug_report_id, bug in self.state.bug_reports.items()}
+            bug_report_dict = {
+                str(value): [bug.to_dict() for bug in bug_list]
+                for value, bug_list in self.state.bug_reports.items()
+            }
             
+            with open(self.result_dir_path + "/detect_info.json", 'w') as bug_info_file:
+                json.dump(bug_report_dict, bug_info_file, indent=4)
+
+            total_bug_number = sum(len(bug_list) for bug_list in self.state.bug_reports.values())
+            print(f"{total_bug_number} bug(s) was/were detected in total.")
+            print("The bug report(s) has/have been dumped to: ", self.result_dir_path + "/detect_info.json")
+        return
+    
+    def start_scan(self) -> None:
+        print("Start data-flow bug scanning in parallel...")
+
+        # Process each source value in parallel
+        with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
+            futures = [
+                executor.submit(self.__process_src_value, src_value)
+                for src_value in self.src_values
+            ]
+            for future in as_completed(futures):
+                try:
+                    future.result()
+                except Exception as e:
+                    print("Error processing source value:", e)
+
+        # Final summary
+        total_bug_number = sum(len(bug_list) for bug_list in self.state.bug_reports.values())
+        print(f"{total_bug_number} bug(s) was/were detected in total.")
+        print(f"The bug report(s) has/have been dumped to {self.result_dir_path}/detect_info.json")
+        return
+
+    def __process_src_value(self, src_value: Value) -> None:
+        worklist = []
+        src_function = self.ts_analyzer.get_function_from_localvalue(src_value)
+        if src_function is None:
+            return
+        initial_context = CallContext(False)
+
+        worklist.append((src_value, src_function, initial_context))
+        while len(worklist) > 0:
+            (start_value, start_function, call_context) = worklist.pop(0)
+            if len(call_context.context) > self.call_depth:
+                continue
+
+            # Construct the input for intra-procedural data-flow analysis
+            sinks_in_function = self.__obtain_extractor().extract_sinks(start_function)
+            sink_values = [(sink.name, sink.line_number - start_function.start_line_number + 1) for sink in sinks_in_function]
+
+            call_statements = []
+            for call_site_node in start_function.function_call_site_nodes:
+                file_content = self.ts_analyzer.code_in_files[start_function.file_path]
+                call_site_line_number = file_content[: call_site_node.start_byte].count("\n") + 1
+                call_site_name = file_content[call_site_node.start_byte: call_site_node.end_byte]
+                call_statements.append((call_site_name, call_site_line_number))
+
+            ret_values = [(ret.name, ret.line_number - start_function.start_line_number + 1) for ret in start_function.retvals]
+            input = IntraDataFlowAnalyzerInput(start_function, start_value, sink_values, call_statements, ret_values)
+
+            # Invoke the intra-procedural data-flow analysis
+            output = self.intra_dfa.invoke(input)
+            for path_index in range(len(output.reachable_values)):
+                reachable_values_in_single_path = set([])
+                for value in output.reachable_values[path_index]:
+                    reachable_values_in_single_path.add((value, call_context))
+                self.state.update_reachable_values_per_path((start_value, call_context), reachable_values_in_single_path)
+
+                delta_worklist = self.__update_worklist(input, output, call_context, path_index)
+                worklist.extend(delta_worklist)
+
+        # Collect potential buggy paths
+        self.__collect_potential_buggy_paths((src_value, CallContext(False)))
+
+        # Validate buggy paths and generate bug reports
+        for buggy_path in self.state.potential_buggy_paths.values():
+            input = PathValidatorInput(buggy_path, {value: self.ts_analyzer.get_function_from_localvalue(value) for value in buggy_path})
+            output: PathValidatorOutput = self.path_validator.invoke(input)
+            if output.is_reachable:
+                relevant_functions = {}
+                for value in buggy_path:
+                    function = self.ts_analyzer.get_function_from_localvalue(value)
+                    if function is not None:
+                        relevant_functions[function.function_id] = function
+
+                bug_report = BugReport(self.bug_type, src_value, relevant_functions, output.poc_str)
+                self.state.update_bug_reports(src_value, bug_report)
+
+        # Dump bug reports for the current seed
+        bug_report_dict = {
+            str(value): [bug.to_dict() for bug in bug_list]
+            for value, bug_list in self.state.bug_reports.items()
+        }
+        result_path = os.path.join(self.result_dir_path, "detect_info.json")
+        with self.file_lock:  # Ensure thread-safe file writing
             bug_report_dict = {
                 str(value): [bug.to_dict() for bug in bug_list]
                 for value, bug_list in self.state.bug_reports.items()

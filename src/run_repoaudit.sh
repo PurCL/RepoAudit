@@ -13,7 +13,7 @@ case "$SCAN_TYPE" in
     bugscan)
         python3 repoaudit.py \
           --language Java \
-          --model-name o3-mini \
+          --model-name claude-3.7 \
           --project-path ../benchmark/Java/toy/toy_NPD_single \
           --bug-type NPD \
           --temperature 0.0 \

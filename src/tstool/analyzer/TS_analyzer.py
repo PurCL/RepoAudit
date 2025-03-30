@@ -29,7 +29,7 @@ class CallContext:
         self.simplified_context : List[Tuple[int, ContextLabel]] = []
         self.is_backward = is_backward
 
-    def add_context(self, function_id: int, label: ContextLabel) -> bool:
+    def add_and_check_context(self, function_id: int, label: ContextLabel) -> bool:
         """
         Add a context entry to the context
         :param function_id: the function id
@@ -37,42 +37,62 @@ class CallContext:
         :ret True if the context after adding the new context pair is in the CFL reachable, False otherwise
         """
         is_CFL_reachable = True
+        
+        # Handle empty context case
         if len(self.simplified_context) == 0:
             self.simplified_context.append((function_id, label))
             self.context.append((function_id, label))
             return is_CFL_reachable
-
-        if not self.is_backward:
-            (top_function_id, top_label) = self.simplified_context[-1]
-            if top_label == label:
-                self.simplified_context.append((function_id, label))
-            elif top_label == ContextLabel.LEFT_PAR and label == ContextLabel.RIGHT_PAR:
-                if top_function_id == function_id:
-                    self.simplified_context.pop()
-                else:
-                    is_CFL_reachable = False
+        
+        # Get the top element from the context stack
+        (top_function_id, top_label) = self.simplified_context[-1]
+        
+        # Determine which labels to match based on analysis direction
+        first_label = ContextLabel.LEFT_PAR if not self.is_backward else ContextLabel.RIGHT_PAR
+        second_label = ContextLabel.RIGHT_PAR if not self.is_backward else ContextLabel.LEFT_PAR
+        
+        # Check the label combinations
+        if top_label == label:
+            self.simplified_context.append((function_id, label))
+        elif top_label == first_label and label == second_label:
+            if top_function_id == function_id:
+                self.simplified_context.pop()
             else:
-                # top_label == ContextLabel.RIGHT_PAR and label == ContextLabel.LEFT_PAR:
-                self.simplified_context.append((function_id, label))
-
-            if is_CFL_reachable:
-                self.context.append((function_id, label))
+                is_CFL_reachable = False
         else:
-            (top_function_id, top_label) = self.simplified_context[-1]
-            if top_label == label:
-                self.simplified_context.append((function_id, label))
-            elif top_label == ContextLabel.RIGHT_PAR and label == ContextLabel.LEFT_PAR:
-                if top_function_id == function_id:
-                    self.simplified_context.pop()
-                else:
-                    is_CFL_reachable = False
-            else:
-                # top_label == ContextLabel.LEFT_PAR and label == ContextLabel.RIGHT_PAR:
-                self.simplified_context.append((function_id, label))
+            # Other combinations
+            self.simplified_context.append((function_id, label))
 
-            if is_CFL_reachable:
-                self.context.append((function_id, label))
+        # Only update context if CFL reachable
+        if is_CFL_reachable:
+            self.context.append((function_id, label))
+            
         return is_CFL_reachable
+
+    def check_context(self, function_id: int, label: ContextLabel) -> bool:
+        """
+        Check if adding the context entry keeps the CFL reachability
+        :param function_id: the function id
+        :param label: the label of the context entry
+        :return: True if the context remains CFL reachable, False otherwise
+        """
+        if len(self.simplified_context) == 0:
+            return True
+
+        (top_function_id, top_label) = self.simplified_context[-1]
+        
+        # Determine which labels to match based on analysis direction
+        first_label = ContextLabel.LEFT_PAR if not self.is_backward else ContextLabel.RIGHT_PAR
+        second_label = ContextLabel.RIGHT_PAR if not self.is_backward else ContextLabel.LEFT_PAR
+        
+        if top_label == label:
+            return True
+        elif top_label == first_label and label == second_label:
+            return top_function_id == function_id
+        else:
+            # Other combinations
+            return True
+
 
     def __str__(self) -> str:
         return f"CallContext(is_backward={self.is_backward}, context={self.context})"
@@ -466,7 +486,7 @@ class TSAnalyzer(ABC):
         caller_function = self.get_all_caller_functions(para_function)
         for caller_function in caller_function:
             new_call_context = copy.deepcopy(call_context)
-            is_CFL_reachable = new_call_context.add_context(para_function.function_id, ContextLabel.LEFT_PAR)
+            is_CFL_reachable = new_call_context.add_and_check_context(para_function.function_id, ContextLabel.LEFT_PAR)
             
             if not is_CFL_reachable:
                 continue
@@ -513,7 +533,7 @@ class TSAnalyzer(ABC):
                 continue
                     
             new_call_context = copy.deepcopy(call_context)
-            is_CFL_reachable = new_call_context.add_context(callee_function.function_id, ContextLabel.LEFT_PAR)
+            is_CFL_reachable = new_call_context.add_and_check_context(callee_function.function_id, ContextLabel.LEFT_PAR)
 
             # violate CFL reachability and then skip
             if not is_CFL_reachable:
@@ -551,7 +571,7 @@ class TSAnalyzer(ABC):
         caller_functions = self.get_all_caller_functions(ret_function)
         for caller_function in caller_functions:
             new_call_context = copy.deepcopy(call_context)
-            is_CFL_reachable = new_call_context.add_context(ret_function.function_id, ContextLabel.RIGHT_PAR)
+            is_CFL_reachable = new_call_context.add_and_check_context(ret_function.function_id, ContextLabel.RIGHT_PAR)
 
             if not is_CFL_reachable:
                 continue
@@ -592,7 +612,7 @@ class TSAnalyzer(ABC):
         callee_functions = self.get_all_callee_functions(output_value_function)
         for callee_function in callee_functions:
             new_call_context = copy.deepcopy(call_context)
-            is_CFL_reachable = new_call_context.add_context(callee_function.function_id, ContextLabel.RIGHT_PAR)
+            is_CFL_reachable = new_call_context.add_and_check_context(callee_function.function_id, ContextLabel.RIGHT_PAR)
 
             if not is_CFL_reachable:
                 continue
