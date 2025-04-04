@@ -1,0 +1,9 @@
+[submodule "benchmark/Cpp/sofa-pbrpc"]
+	path = benchmark/Cpp/sofa-pbrpc
+	url = https://github.com/baidu/sofa-pbrpc.git
+[submodule "benchmark/Go/sally"]
+	path = benchmark/Go/sally
+	url = https://github.com/uber-go/sally.git
+[submodule "benchmark/Cpp/cpv-1"]
+	path = benchmark/Cpp/cpv-1
+	url = https://github.com/aixcc-public/challenge-004-nginx-source.git
