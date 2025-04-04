@@ -5,6 +5,7 @@ from agent.metascan import *
 from agent.bugscan import *
 from agent.slicescan import *
 from agent.dfbscan import *
+from agent.samplescan import *
 
 from tstool.analyzer.TS_analyzer import *
 from tstool.analyzer.Cpp_TS_analyzer import *
@@ -137,7 +138,21 @@ class RepoAudit:
                 self.max_workers
             )
             dfbscan_agent.start_scan()
+
+        if self.args.scan_type == "samplescan":
+            samplescan_agent = SampleScanAgent(
+                self.project_path,
+                self.language,
+                self.ts_analyzer,
+                self.model_name,
+                self.temperature,
+                self.call_depth,
+                self.max_workers
+            )
+            samplescan_agent.start_scan()
+            # print(samplescan_agent.get_agent_result())
         return
+    
 
     def travese_files(self, project_path: str, suffixs: List) -> None:
         """
@@ -178,18 +193,21 @@ class RepoAudit:
                 err_messages.append("Error: --is-reachable is required for dfbscan.")
             if self.args.bug_type not in default_dfbscan_checkers[self.args.language]:
                 err_messages.append("Error: Invalid bug type provided.")
+        if self.args.scan_type == "samplescan":
+            if not self.args.model_name:
+                err_messages.append("Error: --model-name is required for bugscan.")
         else:
             err_messages.append("Error: Unknown scan type provided.")
         return (len(err_messages) == 0, err_messages)
     
 def configure_args():
     parser = argparse.ArgumentParser(
-        description="RepoAudit-Plus: Run one of metascan, bugscan, slicescan, or dfbscan."
+        description="RepoAudit-Plus: Run one of metascan, bugscan, slicescan, dfbscan, or samplescan"
     )
     parser.add_argument(
         "--scan-type",
         required=True,
-        choices=["metascan", "slicescan", "bugscan", "dfbscan"],
+        choices=["metascan", "slicescan", "bugscan", "dfbscan", "samplescan"],
         help="The type of scan to perform."
     )
     # Common parameters of metascan, slicescan, bugscan, and dfbscan
