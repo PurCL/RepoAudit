@@ -207,7 +207,7 @@ class SampleScanAgent:
     def start_scan(self) -> None:
         print("Start bug scanning...")
     
-        # intra-procedural seed selection
+        # (Key Step I): Intra-procedural seed selection
         initial_seeds_in_functions = {}
         for (seed_value, is_backward) in self.initial_seeds:
             seed_function = self.ts_analyzer.get_function_from_localvalue(seed_value)
@@ -236,16 +236,15 @@ class SampleScanAgent:
             print("\n")
             seed_log_file.write("Target seed:\n")
             seed_log_file.write(target_seed_value_str + "\n")
-        return
 
 
         # Analyze each seed value, which is potential buggy point or root cause
-        for (seed_value, is_backward) in self.sampled_seed:
+        for (seed_value, is_backward) in self.sampled_seeds:
             seed_function = self.ts_analyzer.get_function_from_localvalue(seed_value)
             if seed_function == None:
                 continue
 
-            # (Key Step I): Start a slicescan agent for each seed
+            # (Key Step II): Start a slicescan agent for each seed
             slice_scan_agent = SliceScanAgent([seed_value], is_backward, self.project_path, \
                                               self.language, self.ts_analyzer, \
                                               self.model_name, self.temperature, self.call_depth, self.max_workers)
@@ -259,10 +258,10 @@ class SampleScanAgent:
 
             # Inline each instance to obtain the abstraction of buggy code snippets (consisting of slices in the relevant functions)
             for slice_inliner_input in slice_inliner_inputs:
-                # (Key Step II): Inline the slices
+                # (Key Step III): Inline the slices
                 slice_inliner_output: SliceInlinerOutput = self.slice_inliner.invoke(slice_inliner_input)
 
-                # (Key Step III): Detect the bugs upon the inlined slices
+                # (Key Step IV): Detect the bugs upon the inlined slices
                 intra_detector_input = IntraDetectorInput(seed_value.name, slice_inliner_output.inlined_snippet)
                 intra_detector_output: IntraDetectorOutput = self.intra_detector.invoke(intra_detector_input)
 

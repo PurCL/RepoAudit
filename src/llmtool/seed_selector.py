@@ -45,7 +45,7 @@ class SeedSelector(LLMTool):
         prompt += "\n" + "\n".join(prompt_template_dict["analysis_examples"])
         prompt += "\n" + "\n".join(prompt_template_dict["meta_prompts"])
 
-        lines_str = [", ".join([str(value.line_number - input.seed_function.start_line_number + 1) for value in input.seed_list])]
+        lines_str = [", ".join(list(set([str(value.line_number - input.seed_function.start_line_number + 1) for value in input.seed_list])))]
         prompt = prompt.replace("<LINE_NUMBERS>", "\n".join(lines_str))
         prompt = prompt.replace("<FUNCTION>", input.seed_function.lined_code)
         prompt = prompt.replace("<QUESTION>", prompt_template_dict["question_template"])

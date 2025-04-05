@@ -1,0 +1,2922 @@
+cpv-1
+../benchmark/Cpp/cpv-1
+Start extracting seeds...
+Start bug scanning...
+LLM tool is invoked.
+Prompt:  Given a C/C++ function, please identify potential memory accesses that can cause the buffer overflow bugs.
+Here are several important reasoning tips:
+1. First, according to the program lines offered by us, localize the memory access operations in the function, including the array access and pointer dereference.
+2. For each memory access operation, check the branch conditions of the path containing such memory access operation. If the branch condition constrains that the access point is within the buffer, then it is safe.
+3. You should consider the off-by-one cases, such as the accessed indexes are the length of the buffer/string. You also need to pay attention to other corner cases, such as the first or last iteration in the loop.
+4. Lastly, report the unsafe cases as the results.
+Example 1:
+User:
+Now I will give you the function with multiple buffer access points on lines 4, 5, and 6:
+```c
+1. #define BUFFER_SIZE 10
+2. void foo(char* input, int idx) {
+3.     char buffer[BUFFER_SIZE];
+4.     buffer[idx] = 'A';
+5.     buffer[BUFFER_SIZE - 1] = 'B';
+6.     buffer[BUFFER_SIZE] = 'C';
+7. }
+```
+- Does the function contain any buffer overflow bugs? If yes, specify the line numbers where the bugs occur.
+System:
+Explanation:
+Step 1: Identify the buffer and access points. The buffer is `buffer`, and the access points are:
+ - Line 4: `buffer[idx]`
+ - Line 5: `buffer[BUFFER_SIZE - 1]`
+ - Line 6: `buffer[BUFFER_SIZE]`
+Step 2: Analyze each access point.
+ - Line 4: The index `idx` is not constrained, so it may exceed the buffer bounds or be negative. This is a potential buffer overflow.
+ - Line 5: The index `BUFFER_SIZE - 1` is within bounds, so it is safe.
+ - Line 6: The index `BUFFER_SIZE` exceeds the buffer bounds, causing a buffer overflow.
+Answer:
+ - Line 4
+ - Line 6
+Example 2:
+User:
+Now I will give you the function with multiple buffer access points on lines 4 and 6:
+```c
+1. void bar(char* arr, int i, int j) {
+2.     int size = strlen(arr);
+3.     if (i >= 0 && i < size) {
+4.         arr[i] = 'X';
+5.     }
+6.     arr[j] = 'Y';
+7. }
+```
+- Does the function contain any buffer overflow bugs? If yes, specify the line numbers where the bugs occur.
+System:
+Explanation:
+Step 1: Identify the buffer and access points. The buffer is `arr`, and the access points are:
+ - Line 4: `arr[i]`
+ - Line 6: `arr[j]`
+Step 2: Analyze each access point.
+ - Line 4: The condition `i >= 0 && i < size` ensures that the access is within bounds, so it is safe.
+ - Line 6: The index `j` may exceed the buffer bounds, potentially causing a buffer overflow.
+Answer:
+ - Line 6
+Example 3 (Off-by-One Case):
+User:
+Now I will give you the function with multiple buffer access points on lines 4 and 5:
+```c
+1. #define BUFFER_SIZE 5
+2. void baz(char* input) {
+3.     char buffer[BUFFER_SIZE];
+4.     for (int i = 0; i <= BUFFER_SIZE; i++) {
+5.         buffer[i] = input[i];
+6.     }
+7. }
+```
+- Does the function contain any buffer overflow bugs? If yes, specify the line numbers where the bugs occur.
+System:
+Explanation:
+Step 1: Identify the buffer and access points. The buffer is `buffer`, and the access points are:
+ - Line 5: `buffer[i]`
+Step 2: Analyze the access point.
+ - Line 5: The loop condition `i <= BUFFER_SIZE` allows `i` to take the value `BUFFER_SIZE`, which exceeds the buffer bounds. This is an off-by-one error, causing a buffer overflow.
+Answer:
+ - Line 5
+Now I will give you the function with multiple buffer access points. The access points are at lines 73, 82, 30, 99, 47, 53, 42, 89. Here is the function: 
+```
+1. static ngx_int_t
+2. ngx_http_validate_from(ngx_str_t *from, ngx_pool_t *pool, ngx_uint_t alloc)
+3. {
+4.     u_char  *f, *u, ch;
+5.     size_t   i;
+6. 
+7.     enum {
+8.         sw_begin = 0,
+9.         sw_username,
+10.         sw_username_dot,
+11.         sw_domain,
+12.         sw_tld
+13.     } state;
+14. 
+15.     f = from->data;
+16. 
+17.     state = sw_begin;
+18. 
+19.     if (alloc) {
+20.         u = ngx_palloc(pool, from->len);
+21. 
+22.         if (u == NULL) {
+23.             return NGX_ERROR;
+24.         }
+25.     } else {
+26.         u = from->data;
+27.     }
+28. 
+29.     for (i = 0; i < from->len; i++) {
+30.         ch = f[i];
+31. 
+32.         switch (state) {
+33. 
+34.         case sw_begin:
+35.             if (isalnum(ch) || ch == '-' || ch == '_') {
+36.                 state = sw_username;
+37.             } else if (ch == '.') {
+38.                 state = sw_username_dot;
+39.             } else {
+40.                 return NGX_DECLINED;
+41.             }
+42.             *u++ = ch;
+43.             break;
+44. 
+45.         case sw_username_dot:
+46.             if (isalnum(ch) || ch == '-' || ch == '_') {
+47.                 *u++ = ch;
+48.                 state = sw_username;
+49.             } else if (ch == '.') {
+50.                 state = sw_username_dot;
+51.                 u -= 2;
+52.                 for ( ;; ) {
+53.                     if (*u == '.') {
+54.                         u++;
+55.                         break;
+56.                     }
+57. 
+58.                     u--;
+59.                 }
+60.             } else {
+61.                 return NGX_DECLINED;
+62.             }
+63.             break;
+64. 
+65.         case sw_username:
+66.             if (ch == '@') {
+67.                 state = sw_domain;
+68.             } else if (ch == '.') {
+69.                 state = sw_username_dot;
+70.             } else if (!isalnum(ch) && ch != '-' && ch != '_' && ch != '+') {
+71.                 return NGX_DECLINED;
+72.             }
+73.             *u++ = ch;
+74.             break;
+75. 
+76.         case sw_domain:
+77.             if (ch == '.') {
+78.                 state = sw_tld;
+79.             } else if (!isalnum(ch) && ch != '-') {
+80.                 return NGX_DECLINED;
+81.             }
+82.             *u++ = ch;
+83.             break;
+84. 
+85.         case sw_tld:
+86.             if (!isalpha(ch)) {
+87.                 return NGX_DECLINED;
+88.             }
+89.             *u++ = ch;
+90.             break;
+91. 
+92.         default:
+93. 
+94.             return NGX_DECLINED;
+95.         }
+96.     }
+97. 
+98.     if (state == sw_tld) {
+99.         *u = '\0';
+100. 
+101.         if (alloc) {
+102.             from->data = u;
+103.         }
+104.         return NGX_OK;
+105.     } else {
+106.         return NGX_DECLINED;
+107.     }
+108. }
+``` 
+
+
+Please answer the following question:
+- Does the function contain any buffer overflow bugs? If yes, specify the line numbers where the bugs occur.
+
+
+Your answer should follow the following format: 
+1. Explanation: Provide your reasoning.
+2. Answer: Specify the line numbers where the bugs occur, or 'No' if there are no bugs.
+Example format:
+Explanation: {Your Explanation}
+Answer: Yes or no.
+If yes, you should specify the line numbers as follows:
+- Line xx
+- Line xx
+
+claude-3.7 is running
+I'll analyze this function for potential buffer overflow bugs by examining each memory access operation.
+
+Explanation:
+
+Step 1: Identify the buffer and access points.
+The main buffer here is `u`, which is either allocated with `ngx_palloc(pool, from->len)` or points to `from->data`. The access points are:
+- Line 30: `f[i]` - Reading from `f` (which is `from->data`)
+- Line 42, 47, 53, 73, 82, 89: Writing to `u` using `*u++`
+- Line 99: Writing to `u` using `*u = '\0'`
+
+Step 2: Analyze each access point:
+
+- Line 30: `ch = f[i]` - This is safe because the loop condition `i < from->len` ensures we're within bounds of `from->data`.
+
+- Lines 42, 47, 73, 82, 89: `*u++ = ch` - These operations increment `u` after writing to it. If `u` was allocated with `from->len` size, there's a potential issue because we might write beyond the allocated space.
+
+- Line 53: `*u == '.'` - This is a read operation. The concerning part is that there's a loop with `u--` operations without a clear lower bound check. If there are no '.' characters, this could potentially read before the start of the buffer.
+
+- Line 99: `*u = '\0'` - This writes a null terminator at the current position of `u`. If all characters from the input were copied, `u` would point just beyond the allocated space, causing a buffer overflow.
+
+The key issue is that `u` is incremented multiple times throughout the function, but there's no check to ensure it stays within the allocated bounds. If `alloc` is true, `u` is allocated with exactly `from->len` bytes, which is enough to hold the original data but not an additional null terminator.
+
+Answer: Yes.
+- Line 99
+
+The buffer overflow occurs at line 99 because the function writes a null terminator at position `u` after potentially copying all `from->len` characters, which would exceed the allocated buffer size by one byte.
+((*u, ../benchmark/Cpp/cpv-1/src/http/ngx_http_request.c, 4137, -1), ValueLabel.BUF_ACCESS_EXPR)
+((*u, ../benchmark/Cpp/cpv-1/src/http/ngx_http_request.c, 4137, -1), ValueLabel.BUF_ACCESS_EXPR)
+
+
+Start slice scanning in parallel...
+==================================================
+Current worklist size: 1
+==================================================
+LLM tool is invoked.
+claude-3.7 is running
+I'll analyze the function to determine which statements influence the value of `*u` (which appears to be a buffer access expression).
+
+Step-by-step explanation:
+1. `u` is declared on line 4 as a pointer variable.
+2. The value of `u` is initially set based on the `alloc` parameter:
+   - If `alloc` is true, `u` is allocated using `ngx_palloc` (line 20)
+   - If `alloc` is false, `u` is set to `from->data` (line 26)
+3. Throughout the function, `u` is modified in several places:
+   - Line 42: `*u++ = ch`
+   - Line 47: `*u++ = ch`
+   - Lines 51-59: Complex manipulation of `u` pointer
+   - Line 73: `*u++ = ch`
+   - Line 82: `*u++ = ch`
+   - Line 89: `*u++ = ch`
+   - Line 99: `*u = '\0'`
+4. The value of `*u` depends on:
+   - The `from` parameter (both data and length)
+   - The `pool` parameter (used for allocation)
+   - The `alloc` parameter (determines initialization)
+   - The `isalnum`, `isalpha` functions for character classification
+
+Answer:
+Slicing:
+```
+1. static ngx_int_t
+2. ngx_http_validate_from(ngx_str_t *from, ngx_pool_t *pool, ngx_uint_t alloc)
+3. {
+4.     u_char  *f, *u, ch;
+5.     size_t   i;
+7.     enum {
+8.         sw_begin = 0,
+9.         sw_username,
+10.         sw_username_dot,
+11.         sw_domain,
+12.         sw_tld
+13.     } state;
+15.     f = from->data;
+17.     state = sw_begin;
+19.     if (alloc) {
+20.         u = ngx_palloc(pool, from->len);
+22.         if (u == NULL) {
+23.             return NGX_ERROR;
+24.         }
+25.     } else {
+26.         u = from->data;
+27.     }
+29.     for (i = 0; i < from->len; i++) {
+30.         ch = f[i];
+32.         switch (state) {
+34.         case sw_begin:
+35.             if (isalnum(ch) || ch == '-' || ch == '_') {
+36.                 state = sw_username;
+37.             } else if (ch == '.') {
+38.                 state = sw_username_dot;
+39.             } else {
+40.                 return NGX_DECLINED;
+41.             }
+42.             *u++ = ch;
+43.             break;
+45.         case sw_username_dot:
+46.             if (isalnum(ch) || ch == '-' || ch == '_') {
+47.                 *u++ = ch;
+48.                 state = sw_username;
+49.             } else if (ch == '.') {
+50.                 state = sw_username_dot;
+51.                 u -= 2;
+52.                 for ( ;; ) {
+53.                     if (*u == '.') {
+54.                         u++;
+55.                         break;
+56.                     }
+58.                     u--;
+59.                 }
+60.             } else {
+61.                 return NGX_DECLINED;
+62.             }
+63.             break;
+65.         case sw_username:
+66.             if (ch == '@') {
+67.                 state = sw_domain;
+68.             } else if (ch == '.') {
+69.                 state = sw_username_dot;
+70.             } else if (!isalnum(ch) && ch != '-' && ch != '_' && ch != '+') {
+71.                 return NGX_DECLINED;
+72.             }
+73.             *u++ = ch;
+74.             break;
+76.         case sw_domain:
+77.             if (ch == '.') {
+78.                 state = sw_tld;
+79.             } else if (!isalnum(ch) && ch != '-') {
+80.                 return NGX_DECLINED;
+81.             }
+82.             *u++ = ch;
+83.             break;
+85.         case sw_tld:
+86.             if (!isalpha(ch)) {
+87.                 return NGX_DECLINED;
+88.             }
+89.             *u++ = ch;
+90.             break;
+92.         default:
+94.             return NGX_DECLINED;
+95.         }
+96.     }
+98.     if (state == sw_tld) {
+99.         *u = '\0';
+100. 
+101.         if (alloc) {
+102.             from->data = u;
+103.         }
+104.         return NGX_OK;
+105.     } else {
+106.         return NGX_DECLINED;
+107.     }
+108. }
+```
+
+External Variables:
+- Type: Output Value. Callee: ngx_palloc.
+- Type: Output Value. Callee: isalnum.
+- Type: Output Value. Callee: isalpha.
+- Type: Parameter. Index: 0.
+- Type: Parameter. Index: 1.
+- Type: Parameter. Index: 2.
+=========================04=========================
+slice_context:  CallContext(is_backward=True, context=[])
+current function:  1080
+callee_function:  51
+==================================================
+
+call edge:  ngx_http_validate_from  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[])
+current function:  1080
+caller_function:  1081
+==================================================
+
+call edge:  ngx_http_process_from  -->  ngx_http_validate_from
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[])
+current function:  1080
+caller_function:  1081
+==================================================
+
+call edge:  ngx_http_process_from  -->  ngx_http_validate_from
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[])
+current function:  1080
+caller_function:  1081
+==================================================
+
+call edge:  ngx_http_process_from  -->  ngx_http_validate_from
+==================================================
+Current worklist size: 2
+==================================================
+LLM tool is invoked.
+claude-3.7 is running
+I'll analyze the function `ngx_palloc` to determine which statements influence the return value.
+
+Step-by-step explanation:
+1. The function `ngx_palloc` takes two parameters: `pool` and `size`.
+2. There's a conditional check at line 5 that compares `size` with `pool->max`.
+3. If `size <= pool->max` and `NGX_DEBUG_PALLOC` is not defined, the function returns the result of `ngx_palloc_small(pool, size, 1)`.
+4. Otherwise, the function returns the result of `ngx_palloc_large(pool, size)`.
+5. Both return paths depend on the input parameters `pool` and `size`.
+6. The return value is determined by either `ngx_palloc_small` or `ngx_palloc_large` function calls.
+
+Answer:
+Slicing:
+```
+1. void *
+2. ngx_palloc(ngx_pool_t *pool, size_t size)
+3. {
+4. #if !(NGX_DEBUG_PALLOC)
+5.     if (size <= pool->max) {
+6.         return ngx_palloc_small(pool, size, 1);
+7.     }
+8. #endif
+9. 
+10.     return ngx_palloc_large(pool, size);
+11. }
+```
+
+External Variables:
+- Type: Parameter. Index: 0.
+- Type: Parameter. Index: 1.
+- Type: Output Value. Callee: ngx_palloc_small.
+- Type: Output Value. Callee: ngx_palloc_large.
+- Type: Global Variable. Name: NGX_DEBUG_PALLOC.
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1027
+==================================================
+
+call edge:  ngx_http_init_connection  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1028
+==================================================
+
+call edge:  ngx_http_wait_request_handler  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1543
+==================================================
+
+call edge:  ngx_http_log_set_log  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1033
+==================================================
+
+call edge:  ngx_http_ssl_servername  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1552
+==================================================
+
+call edge:  ngx_http_gzip_filter_deflate_start  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  532
+==================================================
+
+call edge:  ngx_mail_optimize_servers  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1557
+==================================================
+
+call edge:  ngx_http_gzip_filter_alloc  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  2068
+==================================================
+
+call edge:  ngx_http_random_index_create_loc_conf  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  2586
+==================================================
+
+call edge:  ngx_ssl_send_chain  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1053
+==================================================
+
+call edge:  ngx_http_post_request  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  545
+==================================================
+
+call edge:  ngx_mail_init_connection  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1064
+==================================================
+
+call edge:  ngx_http_keepalive_handler  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  2100
+==================================================
+
+call edge:  ngx_http_headers_expires  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1080
+==================================================
+
+call edge:  ngx_http_validate_from  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  2105
+==================================================
+
+call edge:  ngx_http_uwsgi_create_request  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  58
+==================================================
+
+call edge:  ngx_pcalloc  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  59
+==================================================
+
+call edge:  ngx_pool_cleanup_add  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1083
+==================================================
+
+call edge:  ngx_http_add_variable  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1595
+==================================================
+
+call edge:  ngx_http_geo_block  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  2617
+==================================================
+
+call edge:  ngx_ssl_get_curves  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  64
+==================================================
+
+call edge:  ngx_radix_tree_create  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1088
+==================================================
+
+call edge:  ngx_http_get_variable  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1602
+==================================================
+
+call edge:  ngx_http_geo_value  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1606
+==================================================
+
+call edge:  ngx_http_geo_include_binary_base  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  2118
+==================================================
+
+call edge:  ngx_http_uwsgi_cache  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1611
+==================================================
+
+call edge:  ngx_http_grpc_create_request  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  76
+==================================================
+
+call edge:  ngx_output_chain_get_buf  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  2125
+==================================================
+
+call edge:  ngx_http_map_create_conf  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  80
+==================================================
+
+call edge:  ngx_open_file_cache_init  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  2128
+==================================================
+
+call edge:  ngx_http_map  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  595
+==================================================
+
+call edge:  ngx_stream_upstream_update_random  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  596
+==================================================
+
+call edge:  ngx_stream_upstream_init_random_peer  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  2136
+==================================================
+
+call edge:  ngx_http_gunzip_filter_alloc  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1630
+==================================================
+
+call edge:  ngx_http_grpc_get_buf  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  2146
+==================================================
+
+call edge:  ngx_http_proxy_body_output_filter  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  2661
+==================================================
+
+call edge:  ngx_event_core_create_conf  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1650
+==================================================
+
+call edge:  ngx_http_image_read  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  2683
+==================================================
+
+call edge:  ngx_epoll_process_events  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  2685
+==================================================
+
+call edge:  ngx_epoll_create_conf  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  638
+==================================================
+
+call edge:  ngx_stream_map_create_conf  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1151
+==================================================
+
+call edge:  ngx_http_regex_compile  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1152
+==================================================
+
+call edge:  ngx_http_regex_exec  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  641
+==================================================
+
+call edge:  ngx_stream_map  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1665
+==================================================
+
+call edge:  ngx_http_image_filter  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1666
+==================================================
+
+call edge:  ngx_http_image_filter_jpeg_quality  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1667
+==================================================
+
+call edge:  ngx_http_image_filter_webp_quality  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  645
+==================================================
+
+call edge:  ngx_stream_geo_block  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1668
+==================================================
+
+call edge:  ngx_http_image_filter_sharpen  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  2183
+==================================================
+
+call edge:  ngx_http_proxy_cache  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  139
+==================================================
+
+call edge:  ngx_array_create  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  652
+==================================================
+
+call edge:  ngx_stream_geo_value  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  2702
+==================================================
+
+call edge:  ngx_kqueue_create_conf  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  655
+==================================================
+
+call edge:  ngx_stream_geo_include_binary_base  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  659
+==================================================
+
+call edge:  ngx_stream_realip_set_addr  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1683
+==================================================
+
+call edge:  ngx_http_charset_map_block  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  2196
+==================================================
+
+call edge:  ngx_http_upstream_init_keepalive_peer  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1692
+==================================================
+
+call edge:  ngx_http_upstream_update_random  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1693
+==================================================
+
+call edge:  ngx_http_upstream_init_random_peer  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  2717
+==================================================
+
+call edge:  ngx_iocp_create_conf  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  160
+==================================================
+
+call edge:  ngx_inet_add_addr  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1184
+==================================================
+
+call edge:  ngx_http_subrequest  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  2209
+==================================================
+
+call edge:  ngx_http_chunked_body_filter  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1187
+==================================================
+
+call edge:  ngx_http_cleanup_add  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  2210
+==================================================
+
+call edge:  ngx_http_chunked_create_trailers  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  680
+==================================================
+
+call edge:  ngx_stream_log_gzip_alloc  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1196
+==================================================
+
+call edge:  ngx_http_core_type  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1712
+==================================================
+
+call edge:  ngx_http_upstream_init_hash_peer  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  2224
+==================================================
+
+call edge:  ngx_http_perl_create_interpreter  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1714
+==================================================
+
+call edge:  ngx_http_upstream_init_chash  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  2740
+==================================================
+
+call edge:  ngx_eventport_create_conf  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1719
+==================================================
+
+call edge:  ngx_http_upstream_hash_create_conf  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  697
+==================================================
+
+call edge:  ngx_stream_log_set_log  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1209
+==================================================
+
+call edge:  ngx_http_core_set_aio  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  2235
+==================================================
+
+call edge:  ngx_http_perl_set  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  2748
+==================================================
+
+call edge:  ngx_devpoll_create_conf  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1218
+==================================================
+
+call edge:  ngx_http_disable_symlinks  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1735
+==================================================
+
+call edge:  ngx_http_autoindex_create_loc_conf  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  2760
+==================================================
+
+call edge:  ngx_list_init  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1738
+==================================================
+
+call edge:  ngx_http_memcached_handler  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  719
+==================================================
+
+call edge:  ngx_stream_add_variable  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  724
+==================================================
+
+call edge:  ngx_stream_get_variable  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1754
+==================================================
+
+call edge:  ngx_http_ssi_get_variable  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1756
+==================================================
+
+call edge:  ngx_http_ssi_regex_match  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1757
+==================================================
+
+call edge:  ngx_http_ssi_include  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1246
+==================================================
+
+call edge:  ngx_http_upstream_process_header  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  745
+==================================================
+
+call edge:  ngx_stream_regex_compile  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  746
+==================================================
+
+call edge:  ngx_stream_regex_exec  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1258
+==================================================
+
+call edge:  ngx_http_upstream_process_upgraded  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  753
+==================================================
+
+call edge:  ngx_stream_optimize_servers  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  245
+==================================================
+
+call edge:  ngx_conf_add_dump  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  758
+==================================================
+
+call edge:  ngx_stream_upstream_init_round_robin_peer  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  759
+==================================================
+
+call edge:  ngx_stream_upstream_create_round_robin_peer  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1793
+==================================================
+
+call edge:  ngx_http_xslt_filter_create_main_conf  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1804
+==================================================
+
+call edge:  ngx_http_slice_create_loc_conf  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1808
+==================================================
+
+call edge:  ngx_http_sub_header_filter  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  785
+==================================================
+
+call edge:  ngx_stream_upstream_init_hash_peer  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  787
+==================================================
+
+call edge:  ngx_stream_upstream_init_chash  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1815
+==================================================
+
+call edge:  ngx_http_sub_merge_conf  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  792
+==================================================
+
+call edge:  ngx_stream_upstream_hash_create_conf  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  796
+==================================================
+
+call edge:  ngx_stream_proxy_set_local  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  2333
+==================================================
+
+call edge:  ngx_sendfile_r  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  287
+==================================================
+
+call edge:  ngx_list_create  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  288
+==================================================
+
+call edge:  ngx_list_push  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1312
+==================================================
+
+call edge:  ngx_http_upstream_bind_set_slot  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1313
+==================================================
+
+call edge:  ngx_http_upstream_set_local  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1828
+==================================================
+
+call edge:  ngx_http_modern_browser_value  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1829
+==================================================
+
+call edge:  ngx_http_ancient_browser_value  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  2861
+==================================================
+
+call edge:  ngx_array_init  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1842
+==================================================
+
+call edge:  ngx_http_index_create_loc_conf  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  822
+==================================================
+
+call edge:  ngx_stream_proxy_pass  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  823
+==================================================
+
+call edge:  ngx_stream_proxy_bind  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1852
+==================================================
+
+call edge:  ngx_http_auth_basic_user_file  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  830
+==================================================
+
+call edge:  ngx_stream_set_complex_value_slot  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  831
+==================================================
+
+call edge:  ngx_stream_set_complex_value_zero_slot  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1350
+==================================================
+
+call edge:  ngx_http_copy_filter_create_conf  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  327
+==================================================
+
+call edge:  ngx_libc_cdecl
+ngx_regex_malloc  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  329
+==================================================
+
+call edge:  ngx_libc_cdecl
+ngx_regex_malloc  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1871
+==================================================
+
+call edge:  ngx_http_add_referer  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1371
+==================================================
+
+call edge:  ngx_http_v2_header_filter  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1373
+==================================================
+
+call edge:  ngx_http_v2_push_resource  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1374
+==================================================
+
+call edge:  ngx_http_v2_create_headers_frame  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1375
+==================================================
+
+call edge:  ngx_http_v2_create_push_frame  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1376
+==================================================
+
+call edge:  ngx_http_v2_create_trailers_frame  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1379
+==================================================
+
+call edge:  ngx_http_v2_filter_get_data_frame  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1894
+==================================================
+
+call edge:  ngx_http_upstream_init_ip_hash_peer  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1901
+==================================================
+
+call edge:  ngx_http_mp4_read  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1902
+==================================================
+
+call edge:  ngx_http_mp4_read_ftyp_atom  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  882
+==================================================
+
+call edge:  ngx_http_init_locations  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  371
+==================================================
+
+call edge:  ngx_create_listening  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  884
+==================================================
+
+call edge:  ngx_http_add_location  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  373
+==================================================
+
+call edge:  ngx_set_inherited_sockets  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1395
+==================================================
+
+call edge:  ngx_http_v2_add_header  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1398
+==================================================
+
+call edge:  ngx_http_v2_init  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  889
+==================================================
+
+call edge:  ngx_http_create_locations_tree  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  895
+==================================================
+
+call edge:  ngx_http_server_names  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  383
+==================================================
+
+call edge:  ngx_connection_local_sockaddr  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  900
+==================================================
+
+call edge:  ngx_http_add_addrs  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  901
+==================================================
+
+call edge:  ngx_http_add_addrs6  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  923
+==================================================
+
+call edge:  ngx_http_postpone_filter_add  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1947
+==================================================
+
+call edge:  ngx_http_mp4_create_conf  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1437
+==================================================
+
+call edge:  ngx_http_v2_send_settings  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  417
+==================================================
+
+call edge:  ngx_set_cpu_affinity  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  930
+==================================================
+
+call edge:  ngx_http_set_complex_value_slot  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  931
+==================================================
+
+call edge:  ngx_http_set_complex_value_zero_slot  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1444
+==================================================
+
+call edge:  ngx_http_v2_create_stream  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  426
+==================================================
+
+call edge:  ngx_hash_init  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  2478
+==================================================
+
+call edge:  ngx_event_accept  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  435
+==================================================
+
+call edge:  ngx_create_temp_buf  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  436
+==================================================
+
+call edge:  ngx_alloc_chain_link  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  437
+==================================================
+
+call edge:  ngx_create_chain_of_bufs  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  2487
+==================================================
+
+call edge:  ngx_event_post_acceptex  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  2490
+==================================================
+
+call edge:  ngx_event_recvmsg  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  2502
+==================================================
+
+call edge:  ngx_ssl_stapling_responder  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1480
+==================================================
+
+call edge:  ngx_http_scgi_create_request  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1997
+==================================================
+
+call edge:  ngx_http_auth_request_handler  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  974
+==================================================
+
+call edge:  ngx_http_upstream_init_round_robin_peer  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  975
+==================================================
+
+call edge:  ngx_http_upstream_create_round_robin_peer  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  2514
+==================================================
+
+call edge:  ngx_ssl_ocsp_responder  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1493
+==================================================
+
+call edge:  ngx_http_scgi_cache  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  2517
+==================================================
+
+call edge:  ngx_ssl_ocsp_start  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  2009
+==================================================
+
+call edge:  ngx_http_degradation_create_loc_conf  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  2522
+==================================================
+
+call edge:  ngx_ssl_ocsp_resolve_handler  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  2527
+==================================================
+
+call edge:  ngx_ssl_ocsp_create_request  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  2016
+==================================================
+
+call edge:  ngx_http_fastcgi_create_request  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  2018
+==================================================
+
+call edge:  ngx_http_fastcgi_body_output_filter  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1517
+==================================================
+
+call edge:  ngx_http_log_gzip_alloc  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  2037
+==================================================
+
+call edge:  ngx_http_fastcgi_cache  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  2041
+==================================================
+
+call edge:  ngx_http_gzip_static_create_conf  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1027
+==================================================
+
+call edge:  ngx_http_init_connection  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1028
+==================================================
+
+call edge:  ngx_http_wait_request_handler  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1543
+==================================================
+
+call edge:  ngx_http_log_set_log  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1033
+==================================================
+
+call edge:  ngx_http_ssl_servername  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1552
+==================================================
+
+call edge:  ngx_http_gzip_filter_deflate_start  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  532
+==================================================
+
+call edge:  ngx_mail_optimize_servers  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1557
+==================================================
+
+call edge:  ngx_http_gzip_filter_alloc  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  2068
+==================================================
+
+call edge:  ngx_http_random_index_create_loc_conf  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  2586
+==================================================
+
+call edge:  ngx_ssl_send_chain  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1053
+==================================================
+
+call edge:  ngx_http_post_request  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  545
+==================================================
+
+call edge:  ngx_mail_init_connection  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1064
+==================================================
+
+call edge:  ngx_http_keepalive_handler  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  2100
+==================================================
+
+call edge:  ngx_http_headers_expires  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1080
+==================================================
+
+call edge:  ngx_http_validate_from  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  2105
+==================================================
+
+call edge:  ngx_http_uwsgi_create_request  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  58
+==================================================
+
+call edge:  ngx_pcalloc  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  59
+==================================================
+
+call edge:  ngx_pool_cleanup_add  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1083
+==================================================
+
+call edge:  ngx_http_add_variable  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1595
+==================================================
+
+call edge:  ngx_http_geo_block  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  2617
+==================================================
+
+call edge:  ngx_ssl_get_curves  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  64
+==================================================
+
+call edge:  ngx_radix_tree_create  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1088
+==================================================
+
+call edge:  ngx_http_get_variable  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1602
+==================================================
+
+call edge:  ngx_http_geo_value  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1606
+==================================================
+
+call edge:  ngx_http_geo_include_binary_base  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  2118
+==================================================
+
+call edge:  ngx_http_uwsgi_cache  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1611
+==================================================
+
+call edge:  ngx_http_grpc_create_request  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  76
+==================================================
+
+call edge:  ngx_output_chain_get_buf  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  2125
+==================================================
+
+call edge:  ngx_http_map_create_conf  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  80
+==================================================
+
+call edge:  ngx_open_file_cache_init  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  2128
+==================================================
+
+call edge:  ngx_http_map  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  595
+==================================================
+
+call edge:  ngx_stream_upstream_update_random  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  596
+==================================================
+
+call edge:  ngx_stream_upstream_init_random_peer  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  2136
+==================================================
+
+call edge:  ngx_http_gunzip_filter_alloc  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1630
+==================================================
+
+call edge:  ngx_http_grpc_get_buf  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  2146
+==================================================
+
+call edge:  ngx_http_proxy_body_output_filter  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  2661
+==================================================
+
+call edge:  ngx_event_core_create_conf  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1650
+==================================================
+
+call edge:  ngx_http_image_read  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  2683
+==================================================
+
+call edge:  ngx_epoll_process_events  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  2685
+==================================================
+
+call edge:  ngx_epoll_create_conf  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  638
+==================================================
+
+call edge:  ngx_stream_map_create_conf  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1151
+==================================================
+
+call edge:  ngx_http_regex_compile  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1152
+==================================================
+
+call edge:  ngx_http_regex_exec  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  641
+==================================================
+
+call edge:  ngx_stream_map  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1665
+==================================================
+
+call edge:  ngx_http_image_filter  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1666
+==================================================
+
+call edge:  ngx_http_image_filter_jpeg_quality  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1667
+==================================================
+
+call edge:  ngx_http_image_filter_webp_quality  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  645
+==================================================
+
+call edge:  ngx_stream_geo_block  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1668
+==================================================
+
+call edge:  ngx_http_image_filter_sharpen  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  2183
+==================================================
+
+call edge:  ngx_http_proxy_cache  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  139
+==================================================
+
+call edge:  ngx_array_create  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  652
+==================================================
+
+call edge:  ngx_stream_geo_value  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  2702
+==================================================
+
+call edge:  ngx_kqueue_create_conf  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  655
+==================================================
+
+call edge:  ngx_stream_geo_include_binary_base  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  659
+==================================================
+
+call edge:  ngx_stream_realip_set_addr  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1683
+==================================================
+
+call edge:  ngx_http_charset_map_block  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  2196
+==================================================
+
+call edge:  ngx_http_upstream_init_keepalive_peer  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1692
+==================================================
+
+call edge:  ngx_http_upstream_update_random  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1693
+==================================================
+
+call edge:  ngx_http_upstream_init_random_peer  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  2717
+==================================================
+
+call edge:  ngx_iocp_create_conf  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  160
+==================================================
+
+call edge:  ngx_inet_add_addr  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1184
+==================================================
+
+call edge:  ngx_http_subrequest  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  2209
+==================================================
+
+call edge:  ngx_http_chunked_body_filter  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1187
+==================================================
+
+call edge:  ngx_http_cleanup_add  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  2210
+==================================================
+
+call edge:  ngx_http_chunked_create_trailers  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  680
+==================================================
+
+call edge:  ngx_stream_log_gzip_alloc  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1196
+==================================================
+
+call edge:  ngx_http_core_type  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1712
+==================================================
+
+call edge:  ngx_http_upstream_init_hash_peer  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  2224
+==================================================
+
+call edge:  ngx_http_perl_create_interpreter  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1714
+==================================================
+
+call edge:  ngx_http_upstream_init_chash  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  2740
+==================================================
+
+call edge:  ngx_eventport_create_conf  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1719
+==================================================
+
+call edge:  ngx_http_upstream_hash_create_conf  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  697
+==================================================
+
+call edge:  ngx_stream_log_set_log  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1209
+==================================================
+
+call edge:  ngx_http_core_set_aio  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  2235
+==================================================
+
+call edge:  ngx_http_perl_set  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  2748
+==================================================
+
+call edge:  ngx_devpoll_create_conf  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1218
+==================================================
+
+call edge:  ngx_http_disable_symlinks  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1735
+==================================================
+
+call edge:  ngx_http_autoindex_create_loc_conf  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  2760
+==================================================
+
+call edge:  ngx_list_init  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1738
+==================================================
+
+call edge:  ngx_http_memcached_handler  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  719
+==================================================
+
+call edge:  ngx_stream_add_variable  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  724
+==================================================
+
+call edge:  ngx_stream_get_variable  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1754
+==================================================
+
+call edge:  ngx_http_ssi_get_variable  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1756
+==================================================
+
+call edge:  ngx_http_ssi_regex_match  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1757
+==================================================
+
+call edge:  ngx_http_ssi_include  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1246
+==================================================
+
+call edge:  ngx_http_upstream_process_header  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  745
+==================================================
+
+call edge:  ngx_stream_regex_compile  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  746
+==================================================
+
+call edge:  ngx_stream_regex_exec  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1258
+==================================================
+
+call edge:  ngx_http_upstream_process_upgraded  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  753
+==================================================
+
+call edge:  ngx_stream_optimize_servers  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  245
+==================================================
+
+call edge:  ngx_conf_add_dump  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  758
+==================================================
+
+call edge:  ngx_stream_upstream_init_round_robin_peer  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  759
+==================================================
+
+call edge:  ngx_stream_upstream_create_round_robin_peer  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1793
+==================================================
+
+call edge:  ngx_http_xslt_filter_create_main_conf  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1804
+==================================================
+
+call edge:  ngx_http_slice_create_loc_conf  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1808
+==================================================
+
+call edge:  ngx_http_sub_header_filter  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  785
+==================================================
+
+call edge:  ngx_stream_upstream_init_hash_peer  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  787
+==================================================
+
+call edge:  ngx_stream_upstream_init_chash  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1815
+==================================================
+
+call edge:  ngx_http_sub_merge_conf  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  792
+==================================================
+
+call edge:  ngx_stream_upstream_hash_create_conf  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  796
+==================================================
+
+call edge:  ngx_stream_proxy_set_local  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  2333
+==================================================
+
+call edge:  ngx_sendfile_r  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  287
+==================================================
+
+call edge:  ngx_list_create  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  288
+==================================================
+
+call edge:  ngx_list_push  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1312
+==================================================
+
+call edge:  ngx_http_upstream_bind_set_slot  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1313
+==================================================
+
+call edge:  ngx_http_upstream_set_local  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1828
+==================================================
+
+call edge:  ngx_http_modern_browser_value  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1829
+==================================================
+
+call edge:  ngx_http_ancient_browser_value  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  2861
+==================================================
+
+call edge:  ngx_array_init  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1842
+==================================================
+
+call edge:  ngx_http_index_create_loc_conf  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  822
+==================================================
+
+call edge:  ngx_stream_proxy_pass  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  823
+==================================================
+
+call edge:  ngx_stream_proxy_bind  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1852
+==================================================
+
+call edge:  ngx_http_auth_basic_user_file  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  830
+==================================================
+
+call edge:  ngx_stream_set_complex_value_slot  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  831
+==================================================
+
+call edge:  ngx_stream_set_complex_value_zero_slot  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1350
+==================================================
+
+call edge:  ngx_http_copy_filter_create_conf  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  327
+==================================================
+
+call edge:  ngx_libc_cdecl
+ngx_regex_malloc  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  329
+==================================================
+
+call edge:  ngx_libc_cdecl
+ngx_regex_malloc  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1871
+==================================================
+
+call edge:  ngx_http_add_referer  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1371
+==================================================
+
+call edge:  ngx_http_v2_header_filter  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1373
+==================================================
+
+call edge:  ngx_http_v2_push_resource  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1374
+==================================================
+
+call edge:  ngx_http_v2_create_headers_frame  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1375
+==================================================
+
+call edge:  ngx_http_v2_create_push_frame  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1376
+==================================================
+
+call edge:  ngx_http_v2_create_trailers_frame  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1379
+==================================================
+
+call edge:  ngx_http_v2_filter_get_data_frame  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1894
+==================================================
+
+call edge:  ngx_http_upstream_init_ip_hash_peer  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1901
+==================================================
+
+call edge:  ngx_http_mp4_read  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1902
+==================================================
+
+call edge:  ngx_http_mp4_read_ftyp_atom  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  882
+==================================================
+
+call edge:  ngx_http_init_locations  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  371
+==================================================
+
+call edge:  ngx_create_listening  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  884
+==================================================
+
+call edge:  ngx_http_add_location  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  373
+==================================================
+
+call edge:  ngx_set_inherited_sockets  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1395
+==================================================
+
+call edge:  ngx_http_v2_add_header  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1398
+==================================================
+
+call edge:  ngx_http_v2_init  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  889
+==================================================
+
+call edge:  ngx_http_create_locations_tree  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  895
+==================================================
+
+call edge:  ngx_http_server_names  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  383
+==================================================
+
+call edge:  ngx_connection_local_sockaddr  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  900
+==================================================
+
+call edge:  ngx_http_add_addrs  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  901
+==================================================
+
+call edge:  ngx_http_add_addrs6  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  923
+==================================================
+
+call edge:  ngx_http_postpone_filter_add  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1947
+==================================================
+
+call edge:  ngx_http_mp4_create_conf  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1437
+==================================================
+
+call edge:  ngx_http_v2_send_settings  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  417
+==================================================
+
+call edge:  ngx_set_cpu_affinity  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  930
+==================================================
+
+call edge:  ngx_http_set_complex_value_slot  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  931
+==================================================
+
+call edge:  ngx_http_set_complex_value_zero_slot  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1444
+==================================================
+
+call edge:  ngx_http_v2_create_stream  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  426
+==================================================
+
+call edge:  ngx_hash_init  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  2478
+==================================================
+
+call edge:  ngx_event_accept  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  435
+==================================================
+
+call edge:  ngx_create_temp_buf  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  436
+==================================================
+
+call edge:  ngx_alloc_chain_link  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  437
+==================================================
+
+call edge:  ngx_create_chain_of_bufs  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  2487
+==================================================
+
+call edge:  ngx_event_post_acceptex  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  2490
+==================================================
+
+call edge:  ngx_event_recvmsg  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  2502
+==================================================
+
+call edge:  ngx_ssl_stapling_responder  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1480
+==================================================
+
+call edge:  ngx_http_scgi_create_request  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1997
+==================================================
+
+call edge:  ngx_http_auth_request_handler  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  974
+==================================================
+
+call edge:  ngx_http_upstream_init_round_robin_peer  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  975
+==================================================
+
+call edge:  ngx_http_upstream_create_round_robin_peer  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  2514
+==================================================
+
+call edge:  ngx_ssl_ocsp_responder  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1493
+==================================================
+
+call edge:  ngx_http_scgi_cache  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  2517
+==================================================
+
+call edge:  ngx_ssl_ocsp_start  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  2009
+==================================================
+
+call edge:  ngx_http_degradation_create_loc_conf  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  2522
+==================================================
+
+call edge:  ngx_ssl_ocsp_resolve_handler  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  2527
+==================================================
+
+call edge:  ngx_ssl_ocsp_create_request  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  2016
+==================================================
+
+call edge:  ngx_http_fastcgi_create_request  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  2018
+==================================================
+
+call edge:  ngx_http_fastcgi_body_output_filter  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  1517
+==================================================
+
+call edge:  ngx_http_log_gzip_alloc  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  2037
+==================================================
+
+call edge:  ngx_http_fastcgi_cache  -->  ngx_palloc
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+caller_function:  2041
+==================================================
+
+call edge:  ngx_http_gzip_static_create_conf  -->  ngx_palloc
+=========================04=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+callee_function:  53
+==================================================
+
+call edge:  ngx_palloc  -->  ngx_palloc_small
+=========================04=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>)])
+current function:  51
+callee_function:  55
+==================================================
+
+call edge:  ngx_palloc  -->  ngx_palloc_large
+LLM tool is invoked.
+claude-3.7 is running
+I'll analyze the function to determine which statements influence the value of the arguments in the call to `ngx_http_validate_from(&from, r->pool, 1)`.
+
+Step-by-step explanation:
+1. The function takes three parameters: `r`, `h`, and `offset`.
+2. At line 19, `from` is assigned the value of `h->value`.
+3. At line 21, `from` is passed as the first argument to `ngx_http_validate_from()`.
+4. The second argument `r->pool` comes directly from the parameter `r`.
+5. The third argument is a constant value `1`.
+
+So the value of the arguments depends on:
+- First argument `&from`: Depends on line 19 where `from = h->value`, and `h` is a parameter.
+- Second argument `r->pool`: Depends on parameter `r`.
+- Third argument `1`: This is a constant literal.
+
+Answer:
+Slicing:
+```
+1. static ngx_int_t
+2. ngx_http_process_from(ngx_http_request_t *r, ngx_table_elt_t *h,
+3.     ngx_uint_t offset)
+4. {
+5.     ngx_str_t  from;
+19.     from = h->value;
+21.     if (ngx_http_validate_from(&from, r->pool, 1) != NGX_OK) {
+22.         ngx_http_finalize_request(r, NGX_HTTP_BAD_REQUEST);
+23.         return NGX_ERROR;
+24.     }
+25. }
+```
+
+External Variables:
+- Type: Parameter. Index: 0.
+- Type: Parameter. Index: 1.
+==================================================
+Current worklist size: 243
+==================================================
+LLM tool is invoked.
+claude-3.7 is running
+I'll analyze the function to identify statements that influence the value of the argument `c->pool, sizeof(ngx_http_log_ctx_t)` at line 102.
+
+Step-by-step explanation:
+1. The question asks about the arguments to `ngx_palloc()` at line 102: `ngx_palloc(c->pool, sizeof(ngx_http_log_ctx_t))`
+2. The first argument is `c->pool`, which depends on the parameter `c` passed to the function
+3. The second argument is `sizeof(ngx_http_log_ctx_t)`, which is a compile-time constant
+4. The parameter `c` is passed directly to the function and is not modified before line 102
+5. There are no statements in the function that modify `c->pool` before line 102
+6. Therefore, the value of `c->pool` at line 102 depends solely on the input parameter `c`
+
+Answer:
+Slicing:
+```
+2. ngx_http_init_connection(ngx_connection_t *c)
+3. {
+102.     ctx = ngx_palloc(c->pool, sizeof(ngx_http_log_ctx_t));
+}
+```
+
+External Variables:
+- Type: Parameter. Index: 0.
+LLM tool is invoked.
+claude-3.7 is running
+I'll analyze the function to identify statements that influence the value of `c->pool, size` at line 39 (which appears to be the ngx_create_temp_buf call).
+
+Step-by-step explanation:
+
+1. First, I need to identify what `c->pool` and `size` are and how they're determined.
+
+2. For `c->pool`:
+   - `c` is initialized at line 12 as `c = rev->data`
+   - `rev` is a parameter to the function (ngx_event_t *rev)
+   - So `c->pool` depends on the parameter `rev`
+
+3. For `size`:
+   - `size` is declared at line 5
+   - It's assigned at line 34: `size = cscf->client_header_buffer_size`
+   - `cscf` is assigned at line 32: `cscf = ngx_http_get_module_srv_conf(hc->conf_ctx, ngx_http_core_module)`
+   - `hc` is assigned at line 31: `hc = c->data`
+   - So `size` depends on `c->data`, which depends on `c`, which depends on `rev->data`
+
+4. The call to `ngx_create_temp_buf(c->pool, size)` at line 39 uses both values.
+
+Answer:
+Slicing:
+```
+2. ngx_http_wait_request_handler(ngx_event_t *rev)
+5.     size_t                     size;
+8.     ngx_connection_t          *c;
+9.     ngx_http_connection_t     *hc;
+10.     ngx_http_core_srv_conf_t  *cscf;
+12.     c = rev->data;
+31.     hc = c->data;
+32.     cscf = ngx_http_get_module_srv_conf(hc->conf_ctx, ngx_http_core_module);
+34.     size = cscf->client_header_buffer_size;
+39.         b = ngx_create_temp_buf(c->pool, size);
+```
+
+External Variables:
+- Type: Parameter. Index: 0.
+- Type: Output Value. Callee: ngx_http_get_module_srv_conf.
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>), (51, <ContextLabel.LEFT_PAR: -1>)])
+current function:  1028
+caller_function:  1032
+==================================================
+
+call edge:  ngx_http_ssl_handshake_handler  -->  ngx_http_wait_request_handler
+=========================05=========================
+slice_context:  CallContext(is_backward=True, context=[(51, <ContextLabel.RIGHT_PAR: 1>), (51, <ContextLabel.LEFT_PAR: -1>)])
+current function:  1028
+caller_function:  1031
+==================================================
+
+call edge:  ngx_http_ssl_handshake  -->  ngx_http_wait_request_handler
+LLM tool is invoked.
+claude-3.7 is running
