@@ -225,6 +225,17 @@ class SampleScanAgent:
             for output_seed_value in output.seed_list:
                 print(str(output_seed_value))
                 self.sampled_seeds.append((output_seed_value, is_backward))
+            
+        # dump to log
+        output_seed_value_strs = [str(output_seed_value) for (output_seed_value, is_backward) in self.sampled_seeds]
+        target_seed_value_str = seed_locations[self.project_name]
+        with open(self.log_dir_path + "/seed_log.txt", 'w') as seed_log_file:
+            seed_log_file.write("Sampled seeds:\n")
+            for output_seed_value_str in output_seed_value_strs:
+                seed_log_file.write(output_seed_value_str + "\n")
+            print("\n")
+            seed_log_file.write("Target seed:\n")
+            seed_log_file.write(target_seed_value_str + "\n")
         return
 
 
