@@ -75,14 +75,14 @@ class SliceScanAgent:
                         input: IntraSlicerInput, 
                         output: IntraSlicerOutput, 
                         slice_context: CallContext
-                        ) -> List[Tuple[int, Value]]:
+                        ) -> List[Tuple[CallContext, int, Value]]:
         """
         Update the worklist based on the output of the intra-slicer
         :param input: the input of the intra-slicer
         :param output: the output of the intra-slicer
         :param slice_context: the slice context, i.e., the parentheses context calling call stack
         """
-        delta_worklist = []  # The list of (slice_context, function_id, a singleton of value)
+        delta_worklist = []  # The list of (slice_context, function_id, a value)
         function_id = input.function.function_id
         function = self.ts_analyzer.function_env[function_id]
 
@@ -96,23 +96,32 @@ class SliceScanAgent:
                     for caller_function in caller_functions:
                         # Forward slicing: Return back to caller function from the current function. 
                         new_slice_context = copy.deepcopy(slice_context)
-                        is_CFL_reachable_return = new_slice_context.add_and_check_context(function_id, ContextLabel.RIGHT_PAR)
-
-                        # Forward slicing: Check whether the caller function is valid or not
-                        is_CFL_reachable_output = new_slice_context.check_context(caller_function.function_id, ContextLabel.RIGHT_PAR)
-
-                        # violate CFL reachability and then skip
-                        if not is_CFL_reachable_return or not is_CFL_reachable_output:
-                            continue
-
-                        print("call edge: ", caller_function.function_name, " --> ", function.function_name)
+                        top_unmatched_context_label = new_slice_context.get_top_unmatched_context_label()
 
                         call_site_nodes = self.ts_analyzer.get_callsites_by_callee_name(caller_function, function.function_name)
                         for call_site_node in call_site_nodes:
+                            caller_function_file_id = self.ts_analyzer.functionToFile[caller_function.function_id]
+                            file_content = self.ts_analyzer.code_in_files[caller_function_file_id]
+                            call_site_lower_line_number = file_content[:call_site_node.start_byte].count("\n") + 1
+
+                            if top_unmatched_context_label is not None:
+                                if top_unmatched_context_label.parenthesis == Parenthesis.LEFT_PAR:
+                                    if call_site_lower_line_number != top_unmatched_context_label.line_number \
+                                        or caller_function_file_id != top_unmatched_context_label.file_id \
+                                        or top_unmatched_context_label.function_id != function.function_id:
+                                        continue
+                            
+                            append_context_label = ContextLabel(
+                                caller_function_file_id, 
+                                call_site_lower_line_number, 
+                                function.function_id, 
+                                Parenthesis.RIGHT_PAR)
+                            new_slice_context.add_and_check_context(append_context_label)
                             output_value = self.ts_analyzer.get_output_value_at_callsite(caller_function, call_site_node)
-                            delta_worklist.append((new_slice_context, caller_function.function_id, set([output_value])))
+                            delta_worklist.append((new_slice_context, caller_function.function_id, output_value))
 
                 elif ext_val_type == "Argument":
+                    print("04")
                     callee_name = external_variable["callee_name"]
                     index = external_variable["index"]
                     callee_functions = [
@@ -121,21 +130,25 @@ class SliceScanAgent:
                         if function.function_name == callee_name
                     ]
                     for callee_function in callee_functions:
-                        new_slice_context = copy.deepcopy(slice_context)
-    
-                        # Forward slicing: Step into the callee function from the current function
-                        new_slice_context = copy.deepcopy(slice_context)
-                        is_CFL_reachable = new_slice_context.add_and_check_context(callee_function.function_id, ContextLabel.LEFT_PAR)
-
-                        # violate CFL reachability and then skip
-                        if not is_CFL_reachable:
-                            continue
-                        print("call edge: ", function.function_name, " --> ", callee_function.function_name)
-
-                        parameter_list = self.ts_analyzer.get_parameters_in_single_function(callee_function)
-                        for parameter in parameter_list:
-                            if parameter.index == index:
-                                delta_worklist.append((new_slice_context, callee_function.function_id, set([parameter])))
+                        call_sites = self.ts_analyzer.get_callsites_by_callee_name(function, callee_function.function_name)
+                        call_site_line_number = -1
+                        for call_site_node in call_sites:
+                            file_content = self.ts_analyzer.code_in_files[function.file_path]
+                            call_site_lower_line_number = file_content[:call_site_node.start_byte].count("\n") + 1
+                            
+                            new_slice_context = copy.deepcopy(slice_context)
+                            context_label = ContextLabel(
+                                self.ts_analyzer.functionToFile[function.function_id], 
+                                call_site_lower_line_number, 
+                                callee_function.function_id, 
+                                Parenthesis.LEFT_PAR)
+                            is_CFL_reachable = new_slice_context.add_and_check_context(context_label)
+                            if not is_CFL_reachable:
+                                continue
+                            
+                            for para in callee_function.paras:
+                                if para.index == index:
+                                    delta_worklist.append((new_slice_context, callee_function.function_id, para))
 
                 elif ext_val_type == "Parameter":
                     # Consider side-effect. 
@@ -146,26 +159,32 @@ class SliceScanAgent:
 
                     for caller_function in caller_functions:
                         new_slice_context = copy.deepcopy(slice_context)
-
-                        # Forward slicing: Return back to caller function from the current function. 
-                        new_slice_context = copy.deepcopy(slice_context)
-                        is_CFL_reachable_parameter = new_slice_context.add_and_check_context(function_id, ContextLabel.RIGHT_PAR)
-
-                        # Forward slicing: Check whether the caller function is valid or not
-                        is_CFL_reachable_argument = new_slice_context.check_context(caller_function.function_id, ContextLabel.RIGHT_PAR)
-
-                        # violate CFL reachability and then skip
-                        if not is_CFL_reachable_parameter or not is_CFL_reachable_argument:
-                            continue
-                        print("call edge: ", caller_function.function_name, " --> ", function.function_name)
+                        top_unmatched_context_label = new_slice_context.get_top_unmatched_context_label()
 
                         call_site_nodes = self.ts_analyzer.get_callsites_by_callee_name(caller_function, function.function_name)
                         for call_site_node in call_site_nodes:
+                            caller_function_file_id = self.ts_analyzer.functionToFile[caller_function.function_id]
+                            file_content = self.ts_analyzer.code_in_files[caller_function_file_id]
+                            call_site_lower_line_number = file_content[:call_site_node.start_byte].count("\n") + 1
+
+                            if top_unmatched_context_label is not None:
+                                if top_unmatched_context_label.parenthesis == Parenthesis.LEFT_PAR:
+                                    if call_site_lower_line_number != top_unmatched_context_label.line_number \
+                                        or caller_function_file_id != top_unmatched_context_label.file_id \
+                                        or top_unmatched_context_label.function_id != function.function_id:
+                                        continue
+
+                            append_context_label = ContextLabel(
+                                caller_function_file_id, 
+                                call_site_lower_line_number, 
+                                function.function_id, 
+                                Parenthesis.RIGHT_PAR)
+                            new_slice_context.add_and_check_context(append_context_label)
+
                             args = self.ts_analyzer.get_arguments_at_callsite(caller_function, call_site_node)
-                            # TODO: For better precision (field-sensitivity), we can consider to transform the argument name to a specific access path
                             for arg in args:
                                 if arg.index == index:
-                                    delta_worklist.append((new_slice_context, caller_function.function_id, set([arg])))
+                                    delta_worklist.append((new_slice_context, caller_function.function_id, arg))
 
                 elif ext_val_type == "Global Variable":
                     # TODO: add global variable support
@@ -288,8 +307,7 @@ class SliceScanAgent:
             print("length of delta_worklist: ", len(delta_worklist))
             print("length of worklist: ", len(worklist))
 
-            for (delta_slice_context, delta_function_id, delta_seed_set) in delta_worklist:
-                delta_seed_value = list(delta_seed_set)[0]
+            for (delta_slice_context, delta_function_id, delta_seed_value) in delta_worklist:
                 is_mergeable = False
                 for (worklist_slice_context, worklist_function_id, worklist_seed_set) in worklist:
                     if delta_slice_context != worklist_slice_context or delta_function_id != worklist_function_id:
@@ -297,11 +315,11 @@ class SliceScanAgent:
                     worklist_seed_value = list(worklist_seed_set)[0]
                     if (delta_seed_value.label == ValueLabel.RET and worklist_seed_value.label == ValueLabel.RET) \
                         or (delta_seed_value.line_number == worklist_seed_value.line_number):
-                        worklist_seed_set.update(delta_seed_set)
+                        worklist_seed_set.update({delta_seed_value})
                         is_mergeable = True
                         break
                 if not is_mergeable:
-                    worklist.append((delta_slice_context, delta_function_id, delta_seed_set))
+                    worklist.append((delta_slice_context, delta_function_id, {delta_seed_value}))
         return
 
     def __process_item(self, item: Tuple[CallContext, int, Set[Value]]) -> List[Tuple[CallContext, int, Set[Value]]]:
@@ -317,9 +335,12 @@ class SliceScanAgent:
 
         input_data = IntraSlicerInput(self.ts_analyzer.function_env[function_id], seed_set, self.is_backward)
         output = self.intra_slicer.invoke(input_data)
+        print("01")
         self.state.update_intra_slices_in_state(slice_context, self.ts_analyzer.function_env[function_id], seed_set, output.slice)
+        print("02")
 
         delta_worklist = self.__update_worklist(input_data, output, slice_context)
+        print("03")
         return delta_worklist
 
     def start_scan(self) -> None:
@@ -347,19 +368,18 @@ class SliceScanAgent:
 
                     # Protect the merging of new delta items into the worklist.
                     with self.worklist_lock:
-                        for (delta_slice_context, delta_function_id, delta_seed_set) in delta_items:
-                            delta_seed_value = list(delta_seed_set)[0]
+                        for (delta_slice_context, delta_function_id, delta_seed_value) in delta_items:
                             is_mergeable = False
                             for i, (wl_slice_context, wl_function_id, wl_seed_set) in enumerate(worklist):
                                 if delta_slice_context == wl_slice_context and delta_function_id == wl_function_id:
                                     wl_seed_value = list(wl_seed_set)[0]
                                     if (delta_seed_value.label == ValueLabel.RET and wl_seed_value.label == ValueLabel.RET) \
                                         or (delta_seed_value.line_number == wl_seed_value.line_number):
-                                        wl_seed_set.update(delta_seed_set)
+                                        wl_seed_set.update({delta_seed_value})
                                         is_mergeable = True
                                         break
                             if not is_mergeable:
-                                worklist.append((delta_slice_context, delta_function_id, delta_seed_set))
+                                worklist.append((delta_slice_context, delta_function_id, {delta_seed_value}))
         return
 
     def get_agent_state(self) -> SliceScanState:
