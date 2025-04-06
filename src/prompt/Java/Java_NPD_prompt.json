@@ -35,17 +35,17 @@
       " - In the first path, when obj is null, the method throws an exception without dereferencing it;",
       " - In the second path, obj is non-null, so subsequent accesses are safe.",
       "Answer: No",
-      "PoC: Invoking processData(null) immediately throws a NullPointerException, preventing any further dereference of the null object."
+      "Explanation: Invoking processData(null) immediately throws a NullPointerException, preventing any further dereference of the null object."
     ],
     "question_template": "- Does the object `<SEED_NAME>` have a Null Pointer Exception?",
     "answer_format": [
       "1. Explanation: Provide your reasoning.",
       "2. Answer: 'Yes' or 'No'.",
-      "3. If 'Yes', provide a PoC demonstrating the bug propagation path.",
+      "3. If 'Yes', provide a Explanation demonstrating the bug propagation path.",
       "Example format:",
       "Explanation: {Your Explanation}",
       "Answer: {Yes or No}",
-      "PoC: {Description of the bug propagation path}"
+      "Explanation: {Description of the bug propagation path}"
     ],
     "meta_prompts": [
       "Now I will give you the method with a potential Null value `<SEED_NAME>`: \n```\n<FUNCTION>\n``` \n\n",

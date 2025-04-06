@@ -24,13 +24,13 @@ class IntraDetectorInput(LLMToolInput):
         
 
 class IntraDetectorOutput(LLMToolOutput):
-    def __init__(self, is_buggy: bool, poc_str: str) -> None:
+    def __init__(self, is_buggy: bool, explanation_str: str) -> None:
         """
         :param is_buggy: whether the construct is buggy. The construct can be a specific expression
-        :param poc_str: the string explaining the proof of concept
+        :param explanation_str: the string explaining the proof of concept
         """
         self.is_buggy = is_buggy
-        self.poc_str = poc_str
+        self.explanation_str = explanation_str
         return
 
 
@@ -70,12 +70,11 @@ class IntraDetector(LLMTool):
         :return: the output of intra-procedural detector
         """
         answer_match = re.search(r'Answer:\s*(\w+)', response)
-        poc_match = re.search(r'PoC:\s*(.*)', response, re.DOTALL)
+        poc_match = re.search(r'Explanation:\s*(.*)', response, re.DOTALL)
 
         if answer_match:
             answer = answer_match.group(1).strip()
-            poc = poc_match.group(1).strip() if poc_match else ""
-            output = IntraDetectorOutput(answer == "Yes", poc)
+            output = IntraDetectorOutput(answer == "Yes", response)
         else:
             print(f"Answer not found in output")
             output = None

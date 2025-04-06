@@ -36,17 +36,17 @@
     " - in the first path, when ptr is nil, the function returns without dereferencing it;",
     " - in the second path, ptr is non-nil, so the subsequent accesses are safe.",
     "Answer: No",
-    "PoC: Invoking processData(nil) immediately triggers the nil check and returns an error, preventing any dereference of the nil pointer."
+    "Explanation: Invoking processData(nil) immediately triggers the nil check and returns an error, preventing any dereference of the nil pointer."
   ],
   "question_template": "- Does the pointer `<SEED_NAME>` have a Nil Panic?",
   "answer_format": [
     "1. Explanation: Provide your reasoning.",
     "2. Answer: 'Yes' or 'No'.",
-    "3. If 'Yes', provide a PoC demonstrating the bug propagation path.",
+    "3. If 'Yes', provide a Explanation demonstrating the bug propagation path.",
     "Example format:",
     "Explanation: {Your Explanation}",
     "Answer: {Yes or No}",
-    "PoC: {Description of the bug propagation path}"
+    "Explanation: {Description of the bug propagation path}"
   ],
   "meta_prompts": [
     "Now I will give you the function with a potential null value `<SEED_NAME>`: \n```\n<FUNCTION>\n``` \n\n",

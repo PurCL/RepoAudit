@@ -20,9 +20,9 @@ class PathValidatorInput(LLMToolInput):
         
 
 class PathValidatorOutput(LLMToolOutput):
-    def __init__(self, is_reachable: bool, poc_str: str) -> None:
+    def __init__(self, is_reachable: bool, explanation_str: str) -> None:
         self.is_reachable = is_reachable
-        self.poc_str = poc_str   
+        self.explanation_str = explanation_str   
         return
 
 
@@ -67,12 +67,9 @@ class PathValidator(LLMTool):
 
     def _parse_response(self, response: str, input: PathValidatorInput) -> PathValidatorOutput:
         answer_match = re.search(r'Answer:\s*(\w+)', response)
-        poc_match = re.search(r'PoC:\s*(.*)', response, re.DOTALL)
-
         if answer_match:
             answer = answer_match.group(1).strip()
-            poc = poc_match.group(1).strip() if poc_match else ""
-            output = PathValidatorOutput(answer == "Yes", poc)
+            output = PathValidatorOutput(answer == "Yes", response)
         else:
             print(f"Answer not found in output")
             output = None

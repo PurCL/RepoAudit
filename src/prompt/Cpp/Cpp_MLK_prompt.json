@@ -35,18 +35,18 @@
         " - Path2: Lines 6-10, 11. When the condition is false, the pointer `base` at line 1 is overwritten at line 7, thus cannot reach the free site at line 9.",
         "Step3: In path 1, the pointer `base` at line 1 can reach the free site at line 4. Thus it is safe in path 1. In path 2, the pointer `base` at line 1 is overwritten at line 7 before reaching the free site at line 9. Thus there is a memory leak bug.",
       "Answer: Yes",
-      "PoC: The pointer `base` at line 1 is overwritten at line 7 before reaching the free site at line 9. Thus there is a memory leak bug in the function goo when condition is false.",
+      "Explanation: The pointer `base` at line 1 is overwritten at line 7 before reaching the free site at line 9. Thus there is a memory leak bug in the function goo when condition is false.",
       ""
     ],
     "question_template": "- Does the memory object `<SEED_NAME>` have a memory leak bug?",
     "answer_format": [
         "1. Explanation: Provide the process of reasoning and explanations.",
         "2. Answer: Indicate whether there is a memory leak bug (Yes/No).",
-        "3. PoC: If there is a bug, describe the bug propagation path.",
+        "3. Explanation: If there is a bug, describe the bug propagation path.",
         "Example format:",
         "Explanation: {Your Explanation}",
         "Answer: {Yes or No}",
-        "PoC: {Description of the bug propagation path}"
+        "Explanation: {Description of the bug propagation path}"
     ],
     "meta_prompts": [
        "Now I will give you the function with a memory object `<SEED_NAME>`: \n```\n<FUNCTION>\n``` \n\n",

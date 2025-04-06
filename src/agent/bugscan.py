@@ -184,7 +184,7 @@ class BugScanAgent:
                 explanation = "Call tree: \n" + slice_inliner_input.tree_str + "\n" \
                                 + "After the abstraction, we have the following code snippet:\n" \
                                 + slice_inliner_output.inlined_snippet + "\n" \
-                                + intra_detector_output.poc_str
+                                + intra_detector_output.explanation_str
                 bug_report = BugReport(self.bug_type, seed_value, slice_inliner_input.relevant_functions, explanation)
                 self.state.update_state(bug_report)
 
@@ -258,7 +258,7 @@ class BugScanAgent:
                 "Call tree: \n" + slice_inliner_input.tree_str + "\n" +
                 "After the abstraction, we have the following code snippet:\n" +
                 slice_inliner_output.inlined_snippet + "\n" +
-                intra_detector_output.poc_str
+                intra_detector_output.explanation_str
             )
             bug_report = BugReport(self.bug_type, seed_value, slice_inliner_input.relevant_functions, explanation)
             self.state.update_state(bug_report)
