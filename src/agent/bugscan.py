@@ -176,15 +176,23 @@ class BugScanAgent:
                 # (Key Step II): Inline the slices
                 slice_inliner_output: SliceInlinerOutput = self.slice_inliner.invoke(slice_inliner_input)
 
+                if slice_inliner_output is None:
+                    print("Slice inliner output is None")
+                    continue
+
                 # (Key Step III): Detect the bugs upon the inlined slices
                 intra_detector_input = IntraDetectorInput(seed_value.name, slice_inliner_output.inlined_snippet)
                 intra_detector_output: IntraDetectorOutput = self.intra_detector.invoke(intra_detector_input)
+
+                if intra_detector_output is None:
+                    print("Intra detector output is None")
+                    continue
 
                 # Construct the bug report and update the state
                 explanation = "Call tree: \n" + slice_inliner_input.tree_str + "\n" \
                                 + "After the abstraction, we have the following code snippet:\n" \
                                 + slice_inliner_output.inlined_snippet + "\n" \
-                                + intra_detector_output.poc_str
+                                + intra_detector_output.explanation_str
                 bug_report = BugReport(self.bug_type, seed_value, slice_inliner_input.relevant_functions, explanation)
                 self.state.update_state(bug_report)
 
@@ -249,16 +257,24 @@ class BugScanAgent:
             # Inline the slices.
             slice_inliner_output: SliceInlinerOutput = self.slice_inliner.invoke(slice_inliner_input)
 
+            if slice_inliner_output is None:
+                print("Slice inliner output is None")
+                continue
+
             # Detect bugs upon the inlined slices.
             intra_detector_input = IntraDetectorInput(seed_value.name, slice_inliner_output.inlined_snippet)
             intra_detector_output: IntraDetectorOutput = self.intra_detector.invoke(intra_detector_input)
+
+            if intra_detector_output is None:
+                print("Intra detector output is None")
+                continue
 
             # Construct the bug report and update the state.
             explanation = (
                 "Call tree: \n" + slice_inliner_input.tree_str + "\n" +
                 "After the abstraction, we have the following code snippet:\n" +
                 slice_inliner_output.inlined_snippet + "\n" +
-                intra_detector_output.poc_str
+                intra_detector_output.explanation_str
             )
             bug_report = BugReport(self.bug_type, seed_value, slice_inliner_input.relevant_functions, explanation)
             self.state.update_state(bug_report)

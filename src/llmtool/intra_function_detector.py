@@ -9,21 +9,19 @@ from memory.syntactic.value import *
 from memory.syntactic.api import *
 BASE_PATH = Path(__file__).resolve().parents[1]
 
-class IntraDetectorInput(LLMToolInput):
-    def __init__(self, buggy_construct_str: str, single_function_str: str) -> None:
+class IntraFunctionDetectorInput(LLMToolInput):
+    def __init__(self, single_function_str: str) -> None:
         """
-        :param buggy_construct_str: the string indicating the buggy construct
         :param single_function_str: the string indicating the single function
         """
-        self.buggy_construct_str = buggy_construct_str
         self.single_function_str = single_function_str
         return
 
     def __hash__(self) -> int:
-        return hash((self.buggy_construct_str, self.single_function_str))
+        return hash(self.single_function_str)
         
 
-class IntraDetectorOutput(LLMToolOutput):
+class IntraFunctionDetectorOutput(LLMToolOutput):
     def __init__(self, is_buggy: bool, explanation_str: str) -> None:
         """
         :param is_buggy: whether the construct is buggy. The construct can be a specific expression
@@ -37,7 +35,7 @@ class IntraDetectorOutput(LLMToolOutput):
         return f"Is buggy: {self.is_buggy} \nExplanation: {self.explanation_str}"
 
 
-class IntraDetector(LLMTool):
+class IntraFunctionDetector(LLMTool):
     def __init__(self, bug_type: str, model_name: str, temperature: float, language: str, max_query_num: int) -> None:
         """
         :param bug_type: the type of bug to detect
@@ -48,10 +46,10 @@ class IntraDetector(LLMTool):
         """
         super().__init__(model_name, temperature, language, max_query_num)
         self.bug_type = bug_type
-        self.inline_prompt_file = f"{BASE_PATH}/prompt/{language}/{language}_{bug_type}_prompt.json"
+        self.inline_prompt_file = f"{BASE_PATH}/prompt/{language}/{language}_intra_function_detector_prompt.json"
         return
 
-    def _get_prompt(self, input: IntraDetectorInput) -> str:
+    def _get_prompt(self, input: IntraFunctionDetectorInput) -> str:
         """
         :param input: the input of intra-procedural detector
         :return: the prompt string
@@ -65,10 +63,9 @@ class IntraDetector(LLMTool):
         prompt = prompt.replace("<ANSWER>", "\n".join(prompt_template_dict["answer_format"]))
         prompt = prompt.replace("<QUESTION>", prompt_template_dict["question_template"])
         prompt = prompt.replace("<FUNCTION>", input.single_function_str)
-        prompt = prompt.replace("<SEED_NAME>", input.buggy_construct_str)
         return prompt
 
-    def _parse_response(self, response: str, input: IntraDetectorInput) -> IntraDetectorOutput:
+    def _parse_response(self, response: str, input: IntraFunctionDetectorInput) -> IntraFunctionDetectorOutput:
         """
         :param response: the string response from the model
         :return: the output of intra-procedural detector
@@ -78,8 +75,8 @@ class IntraDetector(LLMTool):
 
         if answer_match:
             answer = answer_match.group(1).strip()
-            output = IntraDetectorOutput(answer == "Yes", response)
-            print("Output of intra_detector:\n", str(output))
+            output = IntraFunctionDetectorOutput(answer == "Yes", response)
+            print("Output of intra_function_detector:\n", str(output))
         else:
             print(f"Answer not found in output")
             output = None

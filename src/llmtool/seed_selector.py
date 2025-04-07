@@ -27,7 +27,12 @@ class SeedSelectorOutput(LLMToolOutput):
     def __init__(self, seed_list: List[Value]) -> None:
         self.seed_list = seed_list
         return
-
+    
+    def __str__(self):
+        output_str = ""
+        for seed in self.seed_list:
+            output_str += f"- {seed}\n"
+        return output_str
 
 class SeedSelector(LLMTool):
     def __init__(self, model_name: str, temperature: float, language: str, bug_type: str, max_query_num: int) -> None:
@@ -50,8 +55,6 @@ class SeedSelector(LLMTool):
         prompt = prompt.replace("<FUNCTION>", input.seed_function.lined_code)
         prompt = prompt.replace("<QUESTION>", prompt_template_dict["question_template"])
         prompt = prompt.replace("<ANSWER>", "\n".join(prompt_template_dict["answer_format"]))
-
-        print("Prompt: ", prompt)
         return prompt
 
     def _parse_response(self, response: str, input: SeedSelectorInput) -> SeedSelectorOutput:
@@ -67,13 +70,15 @@ class SeedSelector(LLMTool):
         index_answer = response.index("Answer")
         final_answer = response[index_answer + len("Answer"):]
         if "No" in final_answer.lower():
-            return SeedSelectorOutput([])
-        
-        numbers = re.findall(r'\d+', final_answer)
-        seed_list = []
-        for number in numbers:
-            line_number = int(number)
-            for value in input.seed_list:
-                if value.line_number == line_number + input.seed_function.start_line_number - 1:
-                    seed_list.append(value)
-        return SeedSelectorOutput(seed_list)
+            output = SeedSelectorOutput([])
+        else:
+            numbers = re.findall(r'\d+', final_answer)
+            seed_list = []
+            for number in numbers:
+                line_number = int(number)
+                for value in input.seed_list:
+                    if value.line_number == line_number + input.seed_function.start_line_number - 1:
+                        seed_list.append(value)
+            output = SeedSelectorOutput(seed_list)
+        print("Output of seed_selector:\n", str(output))
+        return output

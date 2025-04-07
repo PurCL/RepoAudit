@@ -6,7 +6,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from llmtool.LLM_utils import *
 from llmtool.seed_selector import *
 from llmtool.slice_inliner import *
-from llmtool.intra_detector import *
+from llmtool.intra_function_detector import *
 
 from tstool.analyzer.TS_analyzer import *
 from tstool.analyzer.Cpp_TS_analyzer import *
@@ -72,7 +72,10 @@ class SampleScanAgent:
                  project_path,
                  language,
                  ts_analyzer,
-                 model_name,
+                 seed_selection_model,
+                 slicing_model,
+                 inlining_model,
+                 function_detection_model,
                  temperature,
                  call_depth,
                  max_workers=1
@@ -80,9 +83,6 @@ class SampleScanAgent:
 
         self.project_path = project_path
         self.project_name = project_path.split("/")[-1]
-
-        print(self.project_name)
-        print(self.project_path)
 
         if self.project_name not in cases:
             raise ValueError(f"Project name {self.project_name} not in cases")
@@ -99,35 +99,35 @@ class SampleScanAgent:
         self.language = language if language not in {"C", "Cpp"} else "Cpp"
         self.ts_analyzer = ts_analyzer
 
-        self.model_name = model_name
+        self.seed_selection_model = seed_selection_model
+        self.slicing_model = slicing_model
+        self.inlining_model = inlining_model
+        self.function_detection_model = function_detection_model
         self.temperature = temperature
         
         self.call_depth = call_depth
         self.max_workers = max_workers
         self.MAX_QUERY_NUM = 5
 
-        self.log_dir_path = f"{BASE_PATH}/log/samplescan-{self.model_name}/{self.language}-{self.project_name}/{time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())}"
+        self.log_dir_path = f"{BASE_PATH}/log/samplescan-{self.slicing_model}/{self.language}-{self.project_name}/{time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())}"
         if not os.path.exists(self.log_dir_path):
             os.makedirs(self.log_dir_path)
 
-        self.result_dir_path = f"{BASE_PATH}/result/samplescan-{self.model_name}/{self.language}-{self.project_name}/{time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())}"
+        self.result_dir_path = f"{BASE_PATH}/result/samplescan-{self.slicing_model}/{self.language}-{self.project_name}/{time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())}"
         if not os.path.exists(self.result_dir_path):
             os.makedirs(self.result_dir_path)
 
         # LLM tools used by SampleScanAgent
-        self.seed_selector = SeedSelector(self.model_name, self.temperature, self.language, self.bug_type, self.MAX_QUERY_NUM)
-        self.slice_inliner = SliceInliner(self.model_name, self.temperature, self.language, self.MAX_QUERY_NUM)
-        self.intra_detector = IntraDetector(self.bug_type, self.model_name, self.temperature, self.language, self.MAX_QUERY_NUM)
+        self.seed_selector = SeedSelector(self.seed_selection_model, self.temperature, self.language, self.bug_type, self.MAX_QUERY_NUM)
+        self.slice_inliner = SliceInliner(self.inlining_model, self.temperature, self.language, self.MAX_QUERY_NUM)
+        self.intra_detector = IntraFunctionDetector(self.bug_type, self.function_detection_model, self.temperature, self.language, self.MAX_QUERY_NUM)
 
         # LLM Agent instances created by SampleScanAgent
         self.SliceScanAgent: List[SliceScanAgent] = []
 
-        print("Start extracting seeds...")
-
         self.initial_seeds: List[Tuple[Value, bool]] = self.__obtain_extractor().extract_all()
         self.sampled_seeds = []
-
-        # self.state = SampleScanState(self.seeds)
+        self.state = SampleScanState(self.sampled_seeds)
 
         self.file_lock = threading.Lock()
         return
@@ -175,7 +175,10 @@ class SampleScanAgent:
                 root_function_ids.append(relevant_function_id)
 
         for root_function_id in root_function_ids:
-            callees = self.ts_analyzer.get_all_transitive_callee_functions(self.ts_analyzer.function_env[root_function_id])
+            root_function = self.ts_analyzer.function_env[root_function_id]
+
+        for root_function_id in root_function_ids:
+            callees = self.ts_analyzer.get_all_transitive_callee_functions(self.ts_analyzer.function_env[root_function_id], 2 * self.call_depth + 2)
             
             relevant_functions = {
                 callee.function_id: callee
@@ -203,8 +206,9 @@ class SampleScanAgent:
             inputs.append(input)
         return inputs
 
+
     # TOBE deprecated
-    def start_scan(self) -> None:
+    def start_scan_squential(self) -> None:
         print("Start bug scanning...")
     
         # (Key Step I): Intra-procedural seed selection
@@ -222,10 +226,16 @@ class SampleScanAgent:
             seed_list = [seed_value for (seed_value, is_backward) in initial_seeds_in_functions[function_id]]
             input = SeedSelectorInput(seed_function, seed_list)
             output = self.seed_selector.invoke(input)
+
+            if output is None:
+                print("No seed selected.")
+                continue
+
             for output_seed_value in output.seed_list:
-                print(str(output_seed_value))
                 self.sampled_seeds.append((output_seed_value, is_backward))
-            
+
+        self.state.update_sampled_seed_values(self.sampled_seeds)
+        
         # dump to log
         output_seed_value_strs = [str(output_seed_value) for (output_seed_value, is_backward) in self.sampled_seeds]
         target_seed_value_str = seed_locations[self.project_name]
@@ -233,10 +243,8 @@ class SampleScanAgent:
             seed_log_file.write("Sampled seeds:\n")
             for output_seed_value_str in output_seed_value_strs:
                 seed_log_file.write(output_seed_value_str + "\n")
-            print("\n")
             seed_log_file.write("Target seed:\n")
             seed_log_file.write(target_seed_value_str + "\n")
-
 
         # Analyze each seed value, which is potential buggy point or root cause
         for (seed_value, is_backward) in self.sampled_seeds:
@@ -244,10 +252,18 @@ class SampleScanAgent:
             if seed_function == None:
                 continue
 
+            is_analyzed = False
+            for (file_name, line_number) in self.state.bug_report_lines.values():
+                if file_name == seed_value.file and line_number == seed_value.line_number:
+                    is_analyzed = True
+                    break
+            if is_analyzed:
+                return
+
             # (Key Step II): Start a slicescan agent for each seed
             slice_scan_agent = SliceScanAgent([seed_value], is_backward, self.project_path, \
                                               self.language, self.ts_analyzer, \
-                                              self.model_name, self.temperature, self.call_depth, self.max_workers)
+                                              self.slicing_model, self.temperature, self.call_depth, self.max_workers)
             self.SliceScanAgent.append(slice_scan_agent)
 
             slice_scan_agent.start_scan()
@@ -261,98 +277,182 @@ class SampleScanAgent:
                 # (Key Step III): Inline the slices
                 slice_inliner_output: SliceInlinerOutput = self.slice_inliner.invoke(slice_inliner_input)
 
+                if slice_inliner_output is None:
+                    print("No slice inlined.")
+                    continue
+
                 # (Key Step IV): Detect the bugs upon the inlined slices
-                intra_detector_input = IntraDetectorInput(seed_value.name, slice_inliner_output.inlined_snippet)
-                intra_detector_output: IntraDetectorOutput = self.intra_detector.invoke(intra_detector_input)
+                intra_function_detector_input = IntraFunctionDetectorInput(slice_inliner_output.inlined_snippet)
+                intra_function_detector_output: IntraFunctionDetectorOutput = self.intra_detector.invoke(intra_function_detector_input)
+
+                if intra_function_detector_output is None:
+                    print("No bug detected.")
+                    continue
 
                 # Construct the bug report and update the state
                 explanation = "Call tree: \n" + slice_inliner_input.tree_str + "\n" \
                                 + "After the abstraction, we have the following code snippet:\n" \
                                 + slice_inliner_output.inlined_snippet + "\n" \
-                                + intra_detector_output.poc_str
+                                + intra_function_detector_output.explanation_str
                 bug_report = BugReport(self.bug_type, seed_value, slice_inliner_input.relevant_functions, explanation)
-                self.state.update_state(bug_report)
+                self.state.update_bug_report(seed_value, bug_report)
 
             # Dump bug reports
-            bug_report_dict = {bug_report_id: bug.to_dict() for bug_report_id, bug in self.state.bug_reports.items()}
             with open(self.result_dir_path + "/detect_info.json", 'w') as bug_info_file:
-                json.dump(bug_report_dict, bug_info_file, indent=4)
-
-            total_bug_number = len(self.state.bug_reports)
-            print(f"{total_bug_number} bug(s) was/were detected in total.")
+                json.dump(self.state.bug_report_lines, bug_info_file, indent=4)
+            print(f"{len(self.state.bug_report_lines)} bug(s) was/were detected in total.")
             print(f"The bug report(s) has/have been dumped to {self.result_dir_path}/detect_info.json")
         return
     
-    # def start_scan(self) -> None:
-    #     print("Start bug scanning...")
+
+    def start_scan(self) -> None:
+        print("==================================")
+        print("Start bug scanning in parallel...")
+        print("==================================\n")
+
+        # (Key Step I): Intra-procedural seed selection
+        print("---------------------------------------------------")
+        print("Step I: Start intra-procedural seed selection...")
+        print("---------------------------------------------------\n")
+        initial_seeds_in_functions = {}
+        for (seed_value, is_backward) in self.initial_seeds:
+            seed_function = self.ts_analyzer.get_function_from_localvalue(seed_value)
+            if seed_function.function_id not in initial_seeds_in_functions:
+                initial_seeds_in_functions[seed_function.function_id] = []
+            initial_seeds_in_functions[seed_function.function_id].append((seed_value, is_backward))
+
+        for function_id in initial_seeds_in_functions:
+            seed_function = self.ts_analyzer.function_env[function_id]
+            if seed_function.function_name != cases[self.project_name]["Function"]:
+                continue
+            seed_list = [seed_value for (seed_value, is_backward) in initial_seeds_in_functions[function_id]]
+            input = SeedSelectorInput(seed_function, seed_list)
+            output = self.seed_selector.invoke(input)
+
+            if output is None:
+                print("No seed selected.")
+                continue
+
+            for output_seed_value in output.seed_list:
+                self.sampled_seeds.append((output_seed_value, is_backward))
+
+        self.state.update_sampled_seed_values(self.sampled_seeds)
+
+        # Dump to log
+        output_seed_value_strs = [str(output_seed_value) for (output_seed_value, is_backward) in self.sampled_seeds]
+        target_seed_value_str = seed_locations[self.project_name]
+        with open(self.log_dir_path + "/seed_log.txt", 'w') as seed_log_file:
+            seed_log_file.write("Sampled seeds:\n")
+            for output_seed_value_str in output_seed_value_strs:
+                seed_log_file.write(output_seed_value_str + "\n")
+            seed_log_file.write("Target seed:\n")
+            seed_log_file.write(target_seed_value_str + "\n")
+
+        print("---------------------------------------------------")
+        print("Step II: Start to analyze each seed in parallel...")
+        print("---------------------------------------------------\n")
+
+        # Process each seed in parallel
+        with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
+            futures = [
+                executor.submit(self.__process_seed_parallel, seed_value, is_backward)
+                for (seed_value, is_backward) in self.sampled_seeds
+            ]
+            for future in as_completed(futures):
+                try:
+                    future.result()
+                except Exception as e:
+                    print("Error processing seed:", e)
+
+        # Final summary
+        print(f"{len(self.state.bug_report_lines)} bug(s) was/were detected in total.")
+        print(f"The bug report(s) has/have been dumped to {self.result_dir_path}/detect_info.json")
+        return
     
-    #     # Process each seed in parallel
-    #     with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
-    #         futures = [
-    #             executor.submit(self.__process_seed, seed_value, is_backward)
-    #             for (seed_value, is_backward) in self.initial_seeds:
-    #         ]
-    #         for future in as_completed(futures):
-    #             try:
-    #                 future.result()
-    #             except Exception as e:
-    #                 print("Error processing seed:", e)
 
-    #     # Final summary
-    #     total_bug_number = len(self.state.bug_reports)
-    #     print(f"{total_bug_number} bug(s) was/were detected in total.")
-    #     print(f"The bug report(s) has/have been dumped to {self.result_dir_path}/detect_info.json")
-    #     return
+    def __process_seed_parallel(self, seed_value: Value, is_backward: bool) -> None:
+        is_analyzed = False
+        for (file_name, line_number) in self.state.bug_report_lines.values():
+            if file_name == seed_value.file and line_number == seed_value.line_number:
+                is_analyzed = True
+                break
+        if is_analyzed:
+            return
 
-    # def __process_seed(self, seed_value: Value, is_backward: bool) -> None:
-    #     seed_function = self.ts_analyzer.get_function_from_localvalue(seed_value)
-    #     if seed_function is None:
-    #         return
-
-    #     # (Key Step I): Start a slicescan agent for the seed.
-    #     slice_scan_agent = SliceScanAgent(
-    #         [seed_value],
-    #         is_backward,
-    #         self.project_path,
-    #         self.language,
-    #         self.ts_analyzer,
-    #         self.model_name,
-    #         self.temperature,
-    #         self.call_depth,
-    #         self.max_workers
-    #     )
-    #     self.SliceScanAgent.append(slice_scan_agent)
-
-    #     slice_scan_agent.start_scan()
-    #     slice_scan_state = slice_scan_agent.get_agent_state()
-
-    #     # Obtain all the inliner instances.
-    #     slice_inliner_inputs: List[SliceInlinerInput] = self.__retrieve_slice_inliner_inputs(slice_scan_state)
-
-    #     # (Key Step II & III): Inline each instance and run intra detection to generate bug reports.
-    #     for slice_inliner_input in slice_inliner_inputs:
-    #         # Inline the slices.
-    #         slice_inliner_output: SliceInlinerOutput = self.slice_inliner.invoke(slice_inliner_input)
-
-    #         # Detect bugs upon the inlined slices.
-    #         intra_detector_input = IntraDetectorInput(seed_value.name, slice_inliner_output.inlined_snippet)
-    #         intra_detector_output: IntraDetectorOutput = self.intra_detector.invoke(intra_detector_input)
-
-    #         # Construct the bug report and update the state.
-    #         explanation = (
-    #             "Call tree: \n" + slice_inliner_input.tree_str + "\n" +
-    #             "After the abstraction, we have the following code snippet:\n" +
-    #             slice_inliner_output.inlined_snippet + "\n" +
-    #             intra_detector_output.poc_str
-    #         )
-    #         bug_report = BugReport(self.bug_type, seed_value, slice_inliner_input.relevant_functions, explanation)
-    #         self.state.update_state(bug_report)
-
-    #     # Write to detect_info.json for the current seed. Use lock to protect the file during writes.
-    #     with self.file_lock:
-    #         bug_report_dict = {bug_report_id: bug.to_dict() for bug_report_id, bug in self.state.bug_reports.items()}
-    #         with open(self.result_dir_path + "/detect_info.json", 'w') as bug_info_file:
-    #             json.dump(bug_report_dict, bug_info_file, indent=4)
+        seed_function = self.ts_analyzer.get_function_from_localvalue(seed_value)
+        if seed_function is None:
+            return
         
-    # def get_agent_result(self) -> BugScanState:
-    #     return self.state
+        print("---------------------------------------------------")
+        print("Step II: Start the inter-procedural slicing...")
+        print("Value info: ", str(seed_value))
+        print("---------------------------------------------------\n")
+
+        # (Key Step II): Start a slicescan agent for the seed
+        slice_scan_agent = SliceScanAgent(
+            [seed_value],
+            is_backward,
+            self.project_path,
+            self.language,
+            self.ts_analyzer,
+            self.slicing_model,
+            self.temperature,
+            self.call_depth,
+            self.max_workers
+        )
+        self.SliceScanAgent.append(slice_scan_agent)
+
+        slice_scan_agent.start_scan()
+        slice_scan_state = slice_scan_agent.get_agent_state()
+
+        # Obtain all the inliner instances
+        slice_inliner_inputs: List[SliceInlinerInput] = self.__retrieve_slice_inliner_inputs(slice_scan_state)
+
+        print("---------------------------------------------------")
+        print("Step III & IV: Start the detection upon inlined slice...")
+        print("Value info: ", str(seed_value))
+        print("slice number: ", len(slice_inliner_inputs))
+        print("---------------------------------------------------\n")
+
+        # Inline each instance to obtain the abstraction of buggy code snippets
+        cnt = 0
+        for slice_inliner_input in slice_inliner_inputs:
+            print("---------------------------------------------------")
+            print("Step III: Start the inlining...", f"{cnt + 1}/{len(slice_inliner_inputs)}")
+            print("---------------------------------------------------\n")
+
+            # (Key Step III): Inline the slices
+            slice_inliner_output: SliceInlinerOutput = self.slice_inliner.invoke(slice_inliner_input)
+
+            if slice_inliner_output is None:
+                print("Error: No slice inlined.")
+                continue
+
+            print("---------------------------------------------------")
+            print("Step IV: Start the detection...", f"{cnt + 1}/{len(slice_inliner_inputs)}")
+            print("---------------------------------------------------\n")
+
+            # (Key Step IV): Detect the bugs upon the inlined slices
+            intra_function_detector_input = IntraFunctionDetectorInput(slice_inliner_output.inlined_snippet)
+            intra_function_detector_output: IntraFunctionDetectorOutput = self.intra_detector.invoke(intra_function_detector_input)
+
+            if intra_function_detector_output is None:
+                print("Error: No bug detected.")
+                continue
+
+            # Construct the bug report and update the state
+            explanation = "Call tree: \n" + slice_inliner_input.tree_str + "\n" \
+                        + "After the abstraction, we have the following code snippet:\n" \
+                        + slice_inliner_output.inlined_snippet + "\n" \
+                        + intra_function_detector_output.explanation_str
+            bug_report = BugReport(self.bug_type, seed_value, slice_inliner_input.relevant_functions, explanation)
+            
+            # Write to detect_info.json for the current seed. Use lock to protect the file during writes
+            with self.file_lock:
+                self.state.update_bug_report(seed_value, bug_report)
+                with open(self.result_dir_path + "/detect_info.json", 'w') as bug_info_file:
+                    json.dump(self.state.bug_report_lines, bug_info_file, indent=4)
+
+
+    def get_agent_result(self) -> SampleScanState:
+        return self.state

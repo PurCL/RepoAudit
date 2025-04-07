@@ -33,6 +33,14 @@ class IntraDataFlowAnalyzerOutput(LLMToolOutput):
     def __init__(self, reachable_values: List[Set[Value]]) -> None:
         self.reachable_values = reachable_values
         return
+    
+    def __str__(self):
+        output_str = ""
+        for i, reachable_values_per_path in enumerate(self.reachable_values):
+            output_str += f"Path {i}:\n"
+            for value in reachable_values_per_path:
+                output_str += f"- {value}\n"
+        return output_str
 
 
 class IntraDataFlowAnalyzer(LLMTool):
@@ -52,6 +60,7 @@ class IntraDataFlowAnalyzer(LLMTool):
             prompt_template_dict = json.load(f)
         prompt = prompt_template_dict["task"]
         prompt += "\n" + "\n".join(prompt_template_dict["analysis_rules"])
+        prompt += "\n" + "\n".join(prompt_template_dict["analysis_examples"])
         prompt += "\n" + "".join(prompt_template_dict["meta_prompts"])
         prompt = prompt.replace("<ANSWER>", "\n".join(prompt_template_dict["answer_format_cot"]))
         prompt = prompt.replace("<QUESTION>", prompt_template_dict["question_template"])
@@ -156,5 +165,5 @@ class IntraDataFlowAnalyzer(LLMTool):
             reachable_values.append(reachable_values_per_path)
 
         output = IntraDataFlowAnalyzerOutput(reachable_values)
-        print(output.reachable_values)
+        print("Output of intra_dfa:\n", str(output))
         return output

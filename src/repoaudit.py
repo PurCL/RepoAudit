@@ -54,6 +54,11 @@ class RepoAudit:
         self.call_depth = args.call_depth
         self.max_workers = args.max_workers
 
+        self.seed_selection_model = args.seed_selection_model
+        self.slicing_model = args.slicing_model
+        self.inlining_model = args.inlining_model
+        self.function_detection_model = args.function_detection_model
+
         self.bug_type = args.bug_type
         self.is_reachable = args.is_reachable
         self.is_backward = args.is_backward
@@ -144,13 +149,15 @@ class RepoAudit:
                 self.project_path,
                 self.language,
                 self.ts_analyzer,
-                self.model_name,
+                self.seed_selection_model,
+                self.slicing_model,
+                self.inlining_model,
+                self.function_detection_model,
                 self.temperature,
                 self.call_depth,
                 self.max_workers
             )
             samplescan_agent.start_scan()
-            # print(samplescan_agent.get_agent_result())
         return
     
 
@@ -194,8 +201,12 @@ class RepoAudit:
             if self.args.bug_type not in default_dfbscan_checkers[self.args.language]:
                 err_messages.append("Error: Invalid bug type provided.")
         if self.args.scan_type == "samplescan":
-            if not self.args.model_name:
-                err_messages.append("Error: --model-name is required for bugscan.")
+            if not self.args.seed_selection_model:
+                err_messages.append("Error: --seed-selection-model is required for samplescan.")
+            if not self.args.slicing_model:
+                err_messages.append("Error: --slicing-model is required for samplescan.")
+            if not self.args.function_detection_model:
+                err_messages.append("Error: --function-detection-model is required for samplescan.")
         else:
             err_messages.append("Error: Unknown scan type provided.")
         return (len(err_messages) == 0, err_messages)
@@ -220,6 +231,12 @@ def configure_args():
     parser.add_argument("--call-depth", type=int, default=3, help="Call depth setting")
     parser.add_argument("--max-workers", type=int, default=1, help="Max workers to use for scan")
 
+    # Parameters for samplescan
+    parser.add_argument("--seed-selection-model", help="The name of LLMs identifying the seed values")
+    parser.add_argument("--slicing-model", help="The name of LLMs for slicing")
+    parser.add_argument("--inlining-model", help="The name of LLMs for inline bug detection")
+    parser.add_argument("--function-detection-model", help="The name of LLMs for function-level bug detection")
+    
     # Parameters for slicescan
     parser.add_argument("--is-backward", action="store_true", help="Flag for backward slicing")
 

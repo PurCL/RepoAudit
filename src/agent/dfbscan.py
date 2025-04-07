@@ -110,10 +110,13 @@ class DFBScanAgent:
 
         for value in output.reachable_values[path_index]:
             if value.label == ValueLabel.ARG:
+                print("===================01===================")
+                
                 callee_functions = self.ts_analyzer.get_all_callee_functions(function)
                 for callee_function in callee_functions:
                     is_called = False
                     call_sites = self.ts_analyzer.get_callsites_by_callee_name(function, callee_function.function_name)
+                    call_site_line_number = -1
                     for call_site_node in call_sites:
                         file_content = self.ts_analyzer.code_in_files[function.file_path]
                         call_site_lower_line_number = file_content[:call_site_node.start_byte].count("\n") + 1
@@ -121,18 +124,23 @@ class DFBScanAgent:
                         arg_line_number_in_file = function.start_line_number + value.line_number - 1
                         if not (call_site_lower_line_number <= arg_line_number_in_file and arg_line_number_in_file <= call_site_upper_line_number):
                             is_called = True
+                            call_site_line_number = call_site_lower_line_number
                     if not is_called:
                         continue
                             
                     new_call_context = copy.deepcopy(call_context)
-                    is_CFL_reachable = new_call_context.add_and_check_context(callee_function.function_id, ContextLabel.LEFT_PAR)
-
-                    # violate CFL reachability and then skip
+                    context_label = ContextLabel(
+                        self.ts_analyzer.functionToFile[function.function_id], 
+                        call_site_line_number, 
+                        callee_function.function_id, 
+                        Parenthesis.LEFT_PAR)
+                    is_CFL_reachable = new_call_context.add_and_check_context(context_label)
                     if not is_CFL_reachable:
                         continue
                     
                     for para in callee_function.paras:
                         if para.index == value.index:
+                            print("appned")
                             delta_worklist.append((para, callee_function, new_call_context))
                             self.state.update_external_value_match((value, call_context), set({(para, new_call_context)}))
                     
@@ -140,37 +148,71 @@ class DFBScanAgent:
                 # Consider side-effect. 
                 # Example: the parameter *p is used in the function: p->f = null; 
                 # We need to consider the side-effect of p.
+                print("===================02===================")
+
                 caller_function = self.ts_analyzer.get_all_caller_functions(function)
                 for caller_function in caller_function:
                     new_call_context = copy.deepcopy(call_context)
-                    is_CFL_reachable_para = new_call_context.add_and_check_context(function.function_id, ContextLabel.RIGHT_PAR)
-                    is_CFL_reachable_arg = new_call_context.check_context(caller_function.function_id, ContextLabel.RIGHT_PAR)
-                    
-                    if not is_CFL_reachable_para or not is_CFL_reachable_arg:
-                        continue
+                    top_unmatched_context_label = new_call_context.get_top_unmatched_context_label()
 
                     call_site_nodes = self.ts_analyzer.get_callsites_by_callee_name(caller_function, function.function_name)
                     for call_site_node in call_site_nodes:
+                        caller_function_file_name = self.ts_analyzer.functionToFile[caller_function.function_id]
+                        file_content = self.ts_analyzer.code_in_files[caller_function_file_name]
+                        call_site_lower_line_number = file_content[:call_site_node.start_byte].count("\n") + 1
+
+                        if top_unmatched_context_label is not None:
+                            if top_unmatched_context_label.parenthesis == Parenthesis.LEFT_PAR:
+                                if call_site_lower_line_number != top_unmatched_context_label.line_number \
+                                    or caller_function_file_name != top_unmatched_context_label.file_name \
+                                    or top_unmatched_context_label.function_id != function.function_id:
+                                    continue
+
+                        append_context_label = ContextLabel(
+                            caller_function_file_name, 
+                            call_site_lower_line_number, 
+                            function.function_id, 
+                            Parenthesis.RIGHT_PAR)
+                        new_call_context.add_and_check_context(append_context_label)
+
                         args = self.ts_analyzer.get_arguments_at_callsite(caller_function, call_site_node)
                         for arg in args:
                             if arg.index == value.index:
+                                print("appned")
                                 delta_worklist.append((arg, caller_function, new_call_context))
                                 self.state.update_external_value_match((value, call_context), set({(arg, new_call_context)}))
                     
             if value.label == ValueLabel.RET:
+                print("===================03===================")
+
                 caller_functions = self.ts_analyzer.get_all_caller_functions(function)
                 print("The number of caller functions: ", len(caller_functions))
                 for caller_function in caller_functions:
                     new_call_context = copy.deepcopy(call_context)
-                    is_CFL_reachable_return = new_call_context.add_and_check_context(function.function_id, ContextLabel.RIGHT_PAR)
-                    is_CFL_reachable_output = new_call_context.check_context(caller_function.function_id, ContextLabel.RIGHT_PAR)
-
-                    if not is_CFL_reachable_return or not is_CFL_reachable_output:
-                        continue
+                    top_unmatched_context_label = new_call_context.get_top_unmatched_context_label()
 
                     call_site_nodes = self.ts_analyzer.get_callsites_by_callee_name(caller_function, function.function_name)
                     for call_site_node in call_site_nodes:
+                        caller_function_file_name = self.ts_analyzer.functionToFile[caller_function.function_id]
+                        file_content = self.ts_analyzer.code_in_files[caller_function_file_name]
+                        call_site_lower_line_number = file_content[:call_site_node.start_byte].count("\n") + 1
+
+                        if top_unmatched_context_label is not None:
+                            if top_unmatched_context_label.parenthesis == Parenthesis.LEFT_PAR:
+                                if call_site_lower_line_number != top_unmatched_context_label.line_number \
+                                    or caller_function_file_name != top_unmatched_context_label.file_name \
+                                    or top_unmatched_context_label.function_id != function.function_id:
+                                    continue
+                        
+                        append_context_label = ContextLabel(
+                            caller_function_file_name, 
+                            call_site_lower_line_number, 
+                            function.function_id, 
+                            Parenthesis.RIGHT_PAR)
+                        new_call_context.add_and_check_context(append_context_label)
+
                         output_value = self.ts_analyzer.get_output_value_at_callsite(caller_function, call_site_node)
+                        print("append")
                         delta_worklist.append((output_value, caller_function, new_call_context))
                         self.state.update_external_value_match((value, call_context), set({(output_value, new_call_context)}))
  
@@ -215,7 +257,7 @@ class DFBScanAgent:
             worklist.append((src_value, src_function, initial_context))
             while len(worklist) > 0:
                 (start_value, start_function, call_context) = worklist.pop(0)
-                if len(call_context.context) > self.call_depth:
+                if len(call_context.context) >= self.call_depth:
                     continue
 
                 # construct the input for intra-procedural data-flow analysis
@@ -234,6 +276,10 @@ class DFBScanAgent:
             
                 # invoke the intra-procedural data-flow analysis
                 output = self.intra_dfa.invoke(input)
+                if output is None:
+                    print("The output of intra-procedural data-flow analysis is None.")
+                    continue
+
                 for path_index in range(len(output.reachable_values)):
                     reachable_values_in_single_path = set([])
                     for value in output.reachable_values[path_index]:
@@ -256,6 +302,11 @@ class DFBScanAgent:
             for buggy_path in self.state.potential_buggy_paths.values():
                 input = PathValidatorInput(buggy_path, {value: self.ts_analyzer.get_function_from_localvalue(value) for value in buggy_path})
                 output: PathValidatorOutput = self.path_validator.invoke(input)
+
+                if output is None:
+                    print("The output of path validator is None.")
+                    continue
+
                 if output.is_reachable:
                     relevant_functions = {}
                     for value in buggy_path:
@@ -263,7 +314,7 @@ class DFBScanAgent:
                         if function is not None:
                             relevant_functions[function.function_id] = function
 
-                    bug_report = BugReport(self.bug_type, src_value, relevant_functions, output.poc_str)
+                    bug_report = BugReport(self.bug_type, src_value, relevant_functions, output.explanation_str)
                     self.state.update_bug_reports(src_value, bug_report)
             
             # Dump bug reports
@@ -333,6 +384,11 @@ class DFBScanAgent:
 
             # Invoke the intra-procedural data-flow analysis
             output = self.intra_dfa.invoke(input)
+
+            if output is None:
+                print("The output of intra-procedural data-flow analysis is None.")
+                continue
+
             for path_index in range(len(output.reachable_values)):
                 reachable_values_in_single_path = set([])
                 for value in output.reachable_values[path_index]:
@@ -349,6 +405,11 @@ class DFBScanAgent:
         for buggy_path in self.state.potential_buggy_paths.values():
             input = PathValidatorInput(buggy_path, {value: self.ts_analyzer.get_function_from_localvalue(value) for value in buggy_path})
             output: PathValidatorOutput = self.path_validator.invoke(input)
+
+            if output is None:
+                print("The output of path validator is None.")
+                continue
+
             if output.is_reachable:
                 relevant_functions = {}
                 for value in buggy_path:
@@ -356,7 +417,7 @@ class DFBScanAgent:
                     if function is not None:
                         relevant_functions[function.function_id] = function
 
-                bug_report = BugReport(self.bug_type, src_value, relevant_functions, output.poc_str)
+                bug_report = BugReport(self.bug_type, src_value, relevant_functions, output.explanation_str)
                 self.state.update_bug_reports(src_value, bug_report)
 
         # Dump bug reports for the current seed
@@ -374,7 +435,6 @@ class DFBScanAgent:
             with open(self.result_dir_path + "/detect_info.json", 'w') as bug_info_file:
                 json.dump(bug_report_dict, bug_info_file, indent=4)
         return
-
 
     def get_agent_result(self) -> DFBState:
         return self.state
