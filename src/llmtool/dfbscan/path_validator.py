@@ -37,11 +37,11 @@ class PathValidator(LLMTool):
         :param max_query_num: the maximum number of queries if the model fails
         """
         super().__init__(model_name, temperature, language, max_query_num)
-        self.path_valid_prompt_file = f"{BASE_PATH}/prompt/{language}/{language}_path_validator_prompt.json"
+        self.prompt_file = f"{BASE_PATH}/prompt/{language}/dfbscan/path_validator.json"
         return
 
     def _get_prompt(self, input: PathValidatorInput) -> str:
-        with open(self.path_valid_prompt_file, "r") as f:
+        with open(self.prompt_file, "r") as f:
             prompt_template_dict = json.load(f)
         prompt = prompt_template_dict["task"]
         prompt += "\n" + "\n".join(prompt_template_dict["analysis_rules"])

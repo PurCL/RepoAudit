@@ -9,7 +9,7 @@ from memory.syntactic.value import *
 from memory.syntactic.api import *
 BASE_PATH = Path(__file__).resolve().parent.parent.parent
 
-class IntraDetectorInput(LLMToolInput):
+class SliceBugDetectorInput(LLMToolInput):
     def __init__(self, buggy_construct_str: str, single_function_str: str) -> None:
         """
         :param buggy_construct_str: the string indicating the buggy construct
@@ -23,7 +23,7 @@ class IntraDetectorInput(LLMToolInput):
         return hash((self.buggy_construct_str, self.single_function_str))
         
 
-class IntraDetectorOutput(LLMToolOutput):
+class SliceBugDetectorOutput(LLMToolOutput):
     def __init__(self, is_buggy: bool, explanation_str: str) -> None:
         """
         :param is_buggy: whether the construct is buggy. The construct can be a specific expression
@@ -37,7 +37,7 @@ class IntraDetectorOutput(LLMToolOutput):
         return f"Is buggy: {self.is_buggy} \nExplanation: {self.explanation_str}"
 
 
-class IntraDetector(LLMTool):
+class SliceBugDetector(LLMTool):
     def __init__(self, bug_type: str, model_name: str, temperature: float, language: str, max_query_num: int) -> None:
         """
         :param bug_type: the type of bug to detect
@@ -48,15 +48,15 @@ class IntraDetector(LLMTool):
         """
         super().__init__(model_name, temperature, language, max_query_num)
         self.bug_type = bug_type
-        self.inline_prompt_file = f"{BASE_PATH}/prompt/{language}/{language}_{bug_type}_prompt.json"
+        self.prompt_file = f"{BASE_PATH}/prompt/{language}/bugscan/{bug_type}_slice_bug_detector.json"
         return
 
-    def _get_prompt(self, input: IntraDetectorInput) -> str:
+    def _get_prompt(self, input: SliceBugDetectorInput) -> str:
         """
         :param input: the input of intra-procedural detector
         :return: the prompt string
         """
-        with open(self.inline_prompt_file, "r") as f:
+        with open(self.prompt_file, "r") as f:
             prompt_template_dict = json.load(f)
         prompt = prompt_template_dict["task"]
         prompt += "\n" + "\n".join(prompt_template_dict["analysis_rules"])
@@ -68,7 +68,7 @@ class IntraDetector(LLMTool):
         prompt = prompt.replace("<SEED_NAME>", input.buggy_construct_str)
         return prompt
 
-    def _parse_response(self, response: str, input: IntraDetectorInput) -> IntraDetectorOutput:
+    def _parse_response(self, response: str, input: SliceBugDetectorInput) -> SliceBugDetectorOutput:
         """
         :param response: the string response from the model
         :return: the output of intra-procedural detector
@@ -78,7 +78,7 @@ class IntraDetector(LLMTool):
 
         if answer_match:
             answer = answer_match.group(1).strip()
-            output = IntraDetectorOutput(answer == "Yes", response)
+            output = SliceBugDetectorOutput(answer == "Yes", response)
             print("Output of intra_detector:\n", str(output))
         else:
             print(f"Answer not found in output")

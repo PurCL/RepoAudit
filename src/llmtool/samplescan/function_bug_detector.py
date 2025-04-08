@@ -9,7 +9,7 @@ from memory.syntactic.value import *
 from memory.syntactic.api import *
 BASE_PATH = Path(__file__).resolve().parent.parent.parent
 
-class IntraFunctionDetectorInput(LLMToolInput):
+class FunctionBugDetectorInput(LLMToolInput):
     def __init__(self, single_function_str: str) -> None:
         """
         :param single_function_str: the string indicating the single function
@@ -21,7 +21,7 @@ class IntraFunctionDetectorInput(LLMToolInput):
         return hash(self.single_function_str)
         
 
-class IntraFunctionDetectorOutput(LLMToolOutput):
+class FunctionBugDetectorOutput(LLMToolOutput):
     def __init__(self, is_buggy: bool, explanation_str: str) -> None:
         """
         :param is_buggy: whether the construct is buggy. The construct can be a specific expression
@@ -46,15 +46,15 @@ class IntraFunctionDetector(LLMTool):
         """
         super().__init__(model_name, temperature, language, max_query_num)
         self.bug_type = bug_type
-        self.inline_prompt_file = f"{BASE_PATH}/prompt/{language}/{language}_intra_function_detector_prompt.json"
+        self.prompt_file = f"{BASE_PATH}/prompt/{language}/samplescan/function_bug_detector.json"
         return
 
-    def _get_prompt(self, input: IntraFunctionDetectorInput) -> str:
+    def _get_prompt(self, input: FunctionBugDetectorInput) -> str:
         """
         :param input: the input of intra-procedural detector
         :return: the prompt string
         """
-        with open(self.inline_prompt_file, "r") as f:
+        with open(self.prompt_file, "r") as f:
             prompt_template_dict = json.load(f)
         prompt = prompt_template_dict["task"]
         prompt += "\n" + "\n".join(prompt_template_dict["analysis_rules"])
@@ -65,7 +65,7 @@ class IntraFunctionDetector(LLMTool):
         prompt = prompt.replace("<FUNCTION>", input.single_function_str)
         return prompt
 
-    def _parse_response(self, response: str, input: IntraFunctionDetectorInput) -> IntraFunctionDetectorOutput:
+    def _parse_response(self, response: str, input: FunctionBugDetectorInput) -> FunctionBugDetectorOutput:
         """
         :param response: the string response from the model
         :return: the output of intra-procedural detector
@@ -75,7 +75,7 @@ class IntraFunctionDetector(LLMTool):
 
         if answer_match:
             answer = answer_match.group(1).strip()
-            output = IntraFunctionDetectorOutput(answer == "Yes", response)
+            output = FunctionBugDetectorOutput(answer == "Yes", response)
             print("Output of intra_function_detector:\n", str(output))
         else:
             print(f"Answer not found in output")

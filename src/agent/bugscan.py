@@ -24,7 +24,7 @@ from tstool.bugscan_extractor.Python.Python_NPD_extractor import *
 
 from llmtool.LLM_utils import *
 from llmtool.bugscan.slice_inliner import *
-from llmtool.bugscan.intra_detector import *
+from llmtool.bugscan.slice_bug_detector import *
 
 from memory.semantic.bugscan_state import *
 from memory.syntactic.function import *
@@ -69,7 +69,7 @@ class BugScanAgent(Agent):
 
         # LLM tools used by BugScanAgent
         self.slice_inliner = SliceInliner(self.model_name, self.temperature, self.language, self.MAX_QUERY_NUM)
-        self.intra_detector = IntraDetector(self.bug_type, self.model_name, self.temperature, self.language, self.MAX_QUERY_NUM)
+        self.intra_detector = SliceBugDetector(self.bug_type, self.model_name, self.temperature, self.language, self.MAX_QUERY_NUM)
 
         # LLM Agent instances created by BugScanAgent
         self.SliceScanAgent: List[SliceScanAgent] = []
@@ -183,8 +183,8 @@ class BugScanAgent(Agent):
                     continue
 
                 # (Key Step III): Detect the bugs upon the inlined slices
-                intra_detector_input = IntraDetectorInput(seed_value.name, slice_inliner_output.inlined_snippet)
-                intra_detector_output: IntraDetectorOutput = self.intra_detector.invoke(intra_detector_input)
+                intra_detector_input = SliceBugDetectorInput(seed_value.name, slice_inliner_output.inlined_snippet)
+                intra_detector_output: SliceBugDetectorOutput = self.intra_detector.invoke(intra_detector_input)
 
                 if intra_detector_output is None:
                     print("Intra detector output is None")
@@ -264,8 +264,8 @@ class BugScanAgent(Agent):
                 continue
 
             # Detect bugs upon the inlined slices.
-            intra_detector_input = IntraDetectorInput(seed_value.name, slice_inliner_output.inlined_snippet)
-            intra_detector_output: IntraDetectorOutput = self.intra_detector.invoke(intra_detector_input)
+            intra_detector_input = SliceBugDetectorInput(seed_value.name, slice_inliner_output.inlined_snippet)
+            intra_detector_output: SliceBugDetectorOutput = self.intra_detector.invoke(intra_detector_input)
 
             if intra_detector_output is None:
                 print("Intra detector output is None")

@@ -38,11 +38,11 @@ class SeedSelector(LLMTool):
     def __init__(self, model_name: str, temperature: float, language: str, bug_type: str, max_query_num: int) -> None:
         super().__init__(model_name, temperature, language, max_query_num)
         self.bug_type = bug_type
-        self.seed_selector_prompt_file = f"{BASE_PATH}/prompt/{language}/{language}_{bug_type}_seed_selector_prompt.json"
+        self.prompt_file = f"{BASE_PATH}/prompt/{language}/samplecan/{bug_type}_seed_selector.json"
         return
 
     def _get_prompt(self, input: SeedSelectorInput) -> str:
-        with open(self.seed_selector_prompt_file, "r") as f:
+        with open(self.prompt_file, "r") as f:
             prompt_template_dict = json.load(f)
 
         prompt = prompt_template_dict["task"]

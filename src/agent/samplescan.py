@@ -22,7 +22,7 @@ from tstool.bugscan_extractor.Python.Python_NPD_extractor import *
 from llmtool.LLM_utils import *
 from llmtool.samplescan.seed_selector import *
 from llmtool.bugscan.slice_inliner import *
-from llmtool.samplescan.intra_function_detector import *
+from llmtool.samplescan.function_bug_detector import *
 
 from agent.agent import *
 from agent.slicescan import *
@@ -284,8 +284,8 @@ class SampleScanAgent(Agent):
                     continue
 
                 # (Key Step IV): Detect the bugs upon the inlined slices
-                intra_function_detector_input = IntraFunctionDetectorInput(slice_inliner_output.inlined_snippet)
-                intra_function_detector_output: IntraFunctionDetectorOutput = self.intra_detector.invoke(intra_function_detector_input)
+                intra_function_detector_input = FunctionBugDetectorInput(slice_inliner_output.inlined_snippet)
+                intra_function_detector_output: FunctionBugDetectorOutput = self.intra_detector.invoke(intra_function_detector_input)
 
                 if intra_function_detector_output is None:
                     print("No bug detected.")
@@ -435,8 +435,8 @@ class SampleScanAgent(Agent):
             print("---------------------------------------------------\n")
 
             # (Key Step IV): Detect the bugs upon the inlined slices
-            intra_function_detector_input = IntraFunctionDetectorInput(slice_inliner_output.inlined_snippet)
-            intra_function_detector_output: IntraFunctionDetectorOutput = self.intra_detector.invoke(intra_function_detector_input)
+            intra_function_detector_input = FunctionBugDetectorInput(slice_inliner_output.inlined_snippet)
+            intra_function_detector_output: FunctionBugDetectorOutput = self.intra_detector.invoke(intra_function_detector_input)
 
             if intra_function_detector_output is None:
                 print("Error: No bug detected.")

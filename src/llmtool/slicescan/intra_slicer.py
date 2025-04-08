@@ -104,8 +104,8 @@ class IntraSlicerOutput(LLMToolOutput):
 class IntraSlicer(LLMTool):
     def __init__(self, model_name: str, temperature: float, language: str, max_query_num: int) -> None:
         super().__init__(model_name, temperature, language, max_query_num)
-        self.backward_prompt_file = f"{BASE_PATH}/prompt/{language}/{language}_backward_prompt.json"
-        self.forward_prompt_file = f"{BASE_PATH}/prompt/{language}/{language}_forward_prompt.json"
+        self.backward_prompt_file = f"{BASE_PATH}/prompt/{language}/slicescan/backward_slicer.json"
+        self.forward_prompt_file = f"{BASE_PATH}/prompt/{language}/slicescan/forward_slicer.json"
         return
 
     def _get_prompt(self, input: IntraSlicerInput) -> str:

@@ -18,7 +18,7 @@ from tstool.dfbscan_extractor.Cpp.Cpp_UAF_extractor import *
 from tstool.dfbscan_extractor.Java.Java_NPD_extractor import *
 
 from llmtool.LLM_utils import *
-from llmtool.dfbscan.intra_dfa import *
+from llmtool.dfbscan.intra_dataflow_analyzer import *
 from llmtool.dfbscan.path_validator import *
 
 from memory.semantic.dfb_state import *
