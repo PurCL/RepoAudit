@@ -3,6 +3,8 @@ import os
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
+from agent.agent import *
+
 from tstool.analyzer.TS_analyzer import *
 from tstool.analyzer.Cpp_TS_analyzer import *
 from tstool.analyzer.Go_TS_analyzer import *
@@ -16,8 +18,8 @@ from tstool.dfbscan_extractor.Cpp.Cpp_UAF_extractor import *
 from tstool.dfbscan_extractor.Java.Java_NPD_extractor import *
 
 from llmtool.LLM_utils import *
-from llmtool.intra_dfa import *
-from llmtool.path_validator import *
+from llmtool.dfbscan.intra_dfa import *
+from llmtool.dfbscan.path_validator import *
 
 from memory.semantic.dfb_state import *
 from memory.syntactic.function import *
@@ -27,7 +29,7 @@ from pathlib import Path
 BASE_PATH = Path(__file__).resolve().parents[2]
 
 
-class DFBScanAgent:
+class DFBScanAgent(Agent):
     def __init__(self,
                  bug_type,
                  is_reachable,
@@ -436,5 +438,5 @@ class DFBScanAgent:
                 json.dump(bug_report_dict, bug_info_file, indent=4)
         return
 
-    def get_agent_result(self) -> DFBState:
+    def get_agent_state(self) -> DFBState:
         return self.state

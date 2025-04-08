@@ -2,12 +2,12 @@ from os import path
 import json
 import time
 from typing import List, Set, Optional, Dict
-from .LLM_utils import *
-from .LLM_tool import *
+from llmtool.LLM_utils import *
+from llmtool.LLM_tool import *
 from memory.syntactic.function import *
 from memory.syntactic.value import *
 from memory.syntactic.api import *
-BASE_PATH = Path(__file__).resolve().parents[1]
+BASE_PATH = Path(__file__).resolve().parent.parent.parent
 
 class IntraDetectorInput(LLMToolInput):
     def __init__(self, buggy_construct_str: str, single_function_str: str) -> None:

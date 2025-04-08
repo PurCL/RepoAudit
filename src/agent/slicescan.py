@@ -3,21 +3,27 @@ import os
 import threading
 import copy
 from concurrent.futures import ThreadPoolExecutor, as_completed
+
+from agent.agent import *
+
 from tstool.analyzer.TS_analyzer import *
 from tstool.analyzer.Cpp_TS_analyzer import *
 from tstool.analyzer.Go_TS_analyzer import *
 from tstool.analyzer.Java_TS_analyzer import *
 from tstool.analyzer.Python_TS_analyzer import *
+
 from llmtool.LLM_utils import *
+from llmtool.slicescan.intra_slicer import *
+
 from memory.semantic.slicescan_state import *
 from memory.syntactic.function import *
 from memory.syntactic.value import *
-from llmtool.intra_slicer import *
+
 from pathlib import Path
 BASE_PATH = Path(__file__).resolve().parents[2]
 
 
-class SliceScanAgent:
+class SliceScanAgent(Agent):
     def __init__(self,
                  seed_values: List[Value],
                  is_backward: bool,

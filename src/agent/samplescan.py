@@ -3,11 +3,6 @@ import os
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-from llmtool.LLM_utils import *
-from llmtool.seed_selector import *
-from llmtool.slice_inliner import *
-from llmtool.intra_function_detector import *
-
 from tstool.analyzer.TS_analyzer import *
 from tstool.analyzer.Cpp_TS_analyzer import *
 from tstool.analyzer.Go_TS_analyzer import *
@@ -24,7 +19,14 @@ from tstool.bugscan_extractor.Go.Go_NPD_extractor import *
 from tstool.bugscan_extractor.Java.Java_NPD_extractor import *
 from tstool.bugscan_extractor.Python.Python_NPD_extractor import *
 
+from llmtool.LLM_utils import *
+from llmtool.samplescan.seed_selector import *
+from llmtool.bugscan.slice_inliner import *
+from llmtool.samplescan.intra_function_detector import *
+
+from agent.agent import *
 from agent.slicescan import *
+
 from memory.semantic.samplescan_state import *
 from memory.syntactic.function import *
 from memory.syntactic.value import *
@@ -67,7 +69,7 @@ cases = {
     "cpv-17": {"Function": "ngx_mail_smtp_noop", "File": "../benchmark/Cpp/cpv-17/src/mail/ngx_mail_smtp_handler.c", "Type": "Use After Free"}
 }
 
-class SampleScanAgent:
+class SampleScanAgent(Agent):
     def __init__(self,
                  project_path,
                  language,
@@ -454,5 +456,5 @@ class SampleScanAgent:
                     json.dump(self.state.bug_report_lines, bug_info_file, indent=4)
 
 
-    def get_agent_result(self) -> SampleScanState:
+    def get_agent_state(self) -> SampleScanState:
         return self.state

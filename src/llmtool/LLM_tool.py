@@ -1,4 +1,4 @@
-from .LLM_utils import *
+from llmtool.LLM_utils import *
 from abc import ABC, abstractmethod
 from typing import Dict
 

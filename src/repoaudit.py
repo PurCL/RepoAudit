@@ -200,7 +200,7 @@ class RepoAudit:
                 err_messages.append("Error: --is-reachable is required for dfbscan.")
             if self.args.bug_type not in default_dfbscan_checkers[self.args.language]:
                 err_messages.append("Error: Invalid bug type provided.")
-        if self.args.scan_type == "samplescan":
+        elif self.args.scan_type == "samplescan":
             if not self.args.seed_selection_model:
                 err_messages.append("Error: --seed-selection-model is required for samplescan.")
             if not self.args.slicing_model:

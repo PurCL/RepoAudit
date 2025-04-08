@@ -18,7 +18,6 @@ from botocore.exceptions import BotoCoreError, ClientError
 import boto3
 
 
-
 class LLM:
     """
     An online inference model using different LLMs:

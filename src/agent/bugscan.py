@@ -3,9 +3,8 @@ import os
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-from llmtool.LLM_utils import *
-from llmtool.slice_inliner import *
-from llmtool.intra_detector import *
+from agent.agent import *
+from agent.slicescan import *
 
 from tstool.analyzer.TS_analyzer import *
 from tstool.analyzer.Cpp_TS_analyzer import *
@@ -23,7 +22,10 @@ from tstool.bugscan_extractor.Go.Go_NPD_extractor import *
 from tstool.bugscan_extractor.Java.Java_NPD_extractor import *
 from tstool.bugscan_extractor.Python.Python_NPD_extractor import *
 
-from agent.slicescan import *
+from llmtool.LLM_utils import *
+from llmtool.bugscan.slice_inliner import *
+from llmtool.bugscan.intra_detector import *
+
 from memory.semantic.bugscan_state import *
 from memory.syntactic.function import *
 from memory.syntactic.value import *
@@ -32,7 +34,7 @@ from pathlib import Path
 BASE_PATH = Path(__file__).resolve().parents[2]
 
 
-class BugScanAgent:
+class BugScanAgent(Agent):
     def __init__(self,
                  bug_type,
                  project_path,
@@ -121,7 +123,7 @@ class BugScanAgent:
                 root_function_ids.append(relevant_function_id)
 
         for root_function_id in root_function_ids:
-            callees = self.ts_analyzer.get_all_transitive_callee_functions(self.ts_analyzer.function_env[root_function_id])
+            callees = self.ts_analyzer.get_all_transitive_callee_functions(self.ts_analyzer.function_env[root_function_id], 2 * self.call_depth + 2)
             
             relevant_functions = {
                 callee.function_id: callee
@@ -285,5 +287,5 @@ class BugScanAgent:
             with open(self.result_dir_path + "/detect_info.json", 'w') as bug_info_file:
                 json.dump(bug_report_dict, bug_info_file, indent=4)
         
-    def get_agent_result(self) -> BugScanState:
+    def get_agent_state(self) -> BugScanState:
         return self.state

@@ -19,7 +19,7 @@ case "$SCAN_TYPE" in
           --temperature 0.0 \
           --scan-type bugscan \
           --call-depth 6 \
-          --max-workers 3
+          --max-workers 1
         ;;
     dfbscan)
         python3 repoaudit.py \
@@ -31,7 +31,7 @@ case "$SCAN_TYPE" in
           --temperature 0.0 \
           --scan-type dfbscan \
           --call-depth 6 \
-          --max-workers 3
+          --max-workers 1
         ;;
     *)
         echo "Unknown scan type: $SCAN_TYPE"

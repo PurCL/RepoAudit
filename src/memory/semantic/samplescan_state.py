@@ -1,10 +1,11 @@
 from memory.syntactic.function import *
 from memory.syntactic.value import *
 from memory.report.bug_report import *
+from memory.semantic.state import *
 from typing import List, Tuple, Dict
 
 
-class SampleScanState:
+class SampleScanState(State):
     def __init__(self, seed_values: List[Tuple[Value, bool]]) -> None:
         """
         :param seed_values: the seed values indicating the potential buggy points or root causes
