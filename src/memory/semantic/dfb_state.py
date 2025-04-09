@@ -1,11 +1,12 @@
 from memory.syntactic.function import *
 from memory.syntactic.value import *
-from typing import List, Tuple, Dict
 from memory.report.bug_report import *
+from memory.semantic.state import *
 from tstool.analyzer.TS_analyzer import *
+from typing import List, Tuple, Dict
     
 
-class DFBState:
+class DFBState(State):
     def __init__(self, src_values: List[Value], sink_values: List[Value]) -> None:
         self.src_values = src_values
         self.sink_values = sink_values

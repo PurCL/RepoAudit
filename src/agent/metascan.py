@@ -1,15 +1,17 @@
 import json
 import os
+
+from agent.agent import *
 from tstool.analyzer.TS_analyzer import *
 from tstool.analyzer.Cpp_TS_analyzer import *
 from tstool.analyzer.Go_TS_analyzer import *
 from tstool.analyzer.Java_TS_analyzer import *
 from tstool.analyzer.Python_TS_analyzer import *
 from llmtool.LLM_utils import *
-from llmtool.LLM_utils import *
+from memory.semantic.metascan_state import *
 from pathlib import Path
 
-class MetaScanAgent:
+class MetaScanAgent(Agent):
     """
     This agent is designed to extract meta information from the source code.
     Used for testing llmtools :)
@@ -22,6 +24,7 @@ class MetaScanAgent:
         self.project_name = project_path.split("/")[-1]
         self.language = language
         self.ts_analyzer = ts_analyzer
+        self.state = MetaScanState()
         return
 
 
@@ -35,8 +38,6 @@ class MetaScanAgent:
 
         if not os.path.exists(log_dir_path):
             os.makedirs(log_dir_path)
-
-        function_meta_data_dict = {}
 
         for function_id in self.ts_analyzer.function_env:
             function_meta_data = {}
@@ -116,10 +117,10 @@ class MetaScanAgent:
                 loop_statement["loop_body_end_line"] = loop_body_end_line
                 function_meta_data["loop_statements"].append(loop_statement)
         
-            function_meta_data_dict[function_id] = function_meta_data
+            self.state.update_function_meta_data(function_id, function_meta_data)
 
         with open(log_dir_path + "/meta_scan_result.json", 'w') as f:
-            json.dump(function_meta_data_dict, f, indent=4, sort_keys=True)
+            json.dump(self.state.function_meta_data_dict, f, indent=4, sort_keys=True)
         
         f2f_call_edge_num = 0
         f2a_call_edge_num = 0
@@ -128,10 +129,12 @@ class MetaScanAgent:
         for callee, callers in self.ts_analyzer.function_caller_api_callee_map.items():
             f2a_call_edge_num += len(callers)
 
-        print("Function Number: ", len(function_meta_data_dict))
+        print("Function Number: ", len(self.state.function_meta_data_dict))
         print("API Number: ", len(self.ts_analyzer.api_env))
         print("Function-Function Call Edge Number: ", f2f_call_edge_num)
         print("Function-API Call Edge Number: ", f2a_call_edge_num)
-        
         return
+    
+    def get_agent_state(self):
+        return self.state
     

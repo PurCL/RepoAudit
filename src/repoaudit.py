@@ -5,6 +5,7 @@ from agent.metascan import *
 from agent.bugscan import *
 from agent.slicescan import *
 from agent.dfbscan import *
+from agent.samplescan import *
 
 from tstool.analyzer.TS_analyzer import *
 from tstool.analyzer.Cpp_TS_analyzer import *
@@ -52,6 +53,11 @@ class RepoAudit:
         self.temperature = args.temperature
         self.call_depth = args.call_depth
         self.max_workers = args.max_workers
+
+        self.seed_selection_model = args.seed_selection_model
+        self.slicing_model = args.slicing_model
+        self.inlining_model = args.inlining_model
+        self.function_detection_model = args.function_detection_model
 
         self.bug_type = args.bug_type
         self.is_reachable = args.is_reachable
@@ -137,7 +143,23 @@ class RepoAudit:
                 self.max_workers
             )
             dfbscan_agent.start_scan()
+
+        if self.args.scan_type == "samplescan":
+            samplescan_agent = SampleScanAgent(
+                self.project_path,
+                self.language,
+                self.ts_analyzer,
+                self.seed_selection_model,
+                self.slicing_model,
+                self.inlining_model,
+                self.function_detection_model,
+                self.temperature,
+                self.call_depth,
+                self.max_workers
+            )
+            samplescan_agent.start_scan()
         return
+    
 
     def travese_files(self, project_path: str, suffixs: List) -> None:
         """
@@ -178,18 +200,25 @@ class RepoAudit:
                 err_messages.append("Error: --is-reachable is required for dfbscan.")
             if self.args.bug_type not in default_dfbscan_checkers[self.args.language]:
                 err_messages.append("Error: Invalid bug type provided.")
+        elif self.args.scan_type == "samplescan":
+            if not self.args.seed_selection_model:
+                err_messages.append("Error: --seed-selection-model is required for samplescan.")
+            if not self.args.slicing_model:
+                err_messages.append("Error: --slicing-model is required for samplescan.")
+            if not self.args.function_detection_model:
+                err_messages.append("Error: --function-detection-model is required for samplescan.")
         else:
             err_messages.append("Error: Unknown scan type provided.")
         return (len(err_messages) == 0, err_messages)
     
 def configure_args():
     parser = argparse.ArgumentParser(
-        description="RepoAudit-Plus: Run one of metascan, bugscan, slicescan, or dfbscan."
+        description="RepoAudit-Plus: Run one of metascan, bugscan, slicescan, dfbscan, or samplescan"
     )
     parser.add_argument(
         "--scan-type",
         required=True,
-        choices=["metascan", "slicescan", "bugscan", "dfbscan"],
+        choices=["metascan", "slicescan", "bugscan", "dfbscan", "samplescan"],
         help="The type of scan to perform."
     )
     # Common parameters of metascan, slicescan, bugscan, and dfbscan
@@ -202,6 +231,12 @@ def configure_args():
     parser.add_argument("--call-depth", type=int, default=3, help="Call depth setting")
     parser.add_argument("--max-workers", type=int, default=1, help="Max workers to use for scan")
 
+    # Parameters for samplescan
+    parser.add_argument("--seed-selection-model", help="The name of LLMs identifying the seed values")
+    parser.add_argument("--slicing-model", help="The name of LLMs for slicing")
+    parser.add_argument("--inlining-model", help="The name of LLMs for inline bug detection")
+    parser.add_argument("--function-detection-model", help="The name of LLMs for function-level bug detection")
+    
     # Parameters for slicescan
     parser.add_argument("--is-backward", action="store_true", help="Flag for backward slicing")
 

@@ -2,12 +2,12 @@ from os import path
 import json
 import time
 from typing import List, Set, Optional, Dict
-from .LLM_utils import *
-from .LLM_tool import *
+from llmtool.LLM_utils import *
+from llmtool.LLM_tool import *
 from memory.syntactic.function import *
 from memory.syntactic.value import *
 from memory.syntactic.api import *
-BASE_PATH = Path(__file__).resolve().parents[1]
+BASE_PATH = Path(__file__).resolve().parent.parent.parent
 
 class IntraSlicerInput(LLMToolInput):
     def __init__(self, function: Function, seed_list: List[Value], is_backward: bool = True) -> None:
@@ -93,12 +93,19 @@ class IntraSlicerOutput(LLMToolOutput):
         """
         self.ext_values = ext_values
 
+    def __str__(self):
+        output_str = f"Slice: {self.slice}\n"
+        output_str += "External Values:\n"
+        for ext_value in self.ext_values:
+            output_str += f"{str(ext_value)}\n"
+        return output_str
+
 
 class IntraSlicer(LLMTool):
     def __init__(self, model_name: str, temperature: float, language: str, max_query_num: int) -> None:
         super().__init__(model_name, temperature, language, max_query_num)
-        self.backward_prompt_file = f"{BASE_PATH}/prompt/{language}/{language}_backward_prompt.json"
-        self.forward_prompt_file = f"{BASE_PATH}/prompt/{language}/{language}_forward_prompt.json"
+        self.backward_prompt_file = f"{BASE_PATH}/prompt/{language}/slicescan/backward_slicer.json"
+        self.forward_prompt_file = f"{BASE_PATH}/prompt/{language}/slicescan/forward_slicer.json"
         return
 
     def _get_prompt(self, input: IntraSlicerInput) -> str:
@@ -114,7 +121,7 @@ class IntraSlicer(LLMTool):
 
         question = (
             prompt_template_dict["question_template"].replace("<SEED_NAME>", input.seed_name)
-            .replace("<SEED_LINE>", "" if input.seed_line_number == -1 else f"line {input.seed_line_number}")
+            .replace("<SEED_LINE>", "" if input.seed_line_number == -1 else f"line {input.seed_line_number - input.function.start_line_number + 1}")
             .replace("<SEED_TYPE>", str(input.seed_type))
         )
         answer_format = "\n".join(prompt_template_dict["answer_format_cot"])
@@ -170,4 +177,5 @@ class IntraSlicer(LLMTool):
                         ext_value["index"] = None
                 output_ext_values.append(ext_value)
         output = IntraSlicerOutput(output_slice, output_ext_values)
+        print("Output of intra_slicer:\n", str(output))
         return output

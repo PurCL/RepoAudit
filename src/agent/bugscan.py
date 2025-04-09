@@ -3,9 +3,8 @@ import os
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-from llmtool.LLM_utils import *
-from llmtool.slice_inliner import *
-from llmtool.intra_detector import *
+from agent.agent import *
+from agent.slicescan import *
 
 from tstool.analyzer.TS_analyzer import *
 from tstool.analyzer.Cpp_TS_analyzer import *
@@ -23,7 +22,10 @@ from tstool.bugscan_extractor.Go.Go_NPD_extractor import *
 from tstool.bugscan_extractor.Java.Java_NPD_extractor import *
 from tstool.bugscan_extractor.Python.Python_NPD_extractor import *
 
-from agent.slicescan import *
+from llmtool.LLM_utils import *
+from llmtool.bugscan.slice_inliner import *
+from llmtool.bugscan.slice_bug_detector import *
+
 from memory.semantic.bugscan_state import *
 from memory.syntactic.function import *
 from memory.syntactic.value import *
@@ -32,7 +34,7 @@ from pathlib import Path
 BASE_PATH = Path(__file__).resolve().parents[2]
 
 
-class BugScanAgent:
+class BugScanAgent(Agent):
     def __init__(self,
                  bug_type,
                  project_path,
@@ -67,7 +69,7 @@ class BugScanAgent:
 
         # LLM tools used by BugScanAgent
         self.slice_inliner = SliceInliner(self.model_name, self.temperature, self.language, self.MAX_QUERY_NUM)
-        self.intra_detector = IntraDetector(self.bug_type, self.model_name, self.temperature, self.language, self.MAX_QUERY_NUM)
+        self.intra_detector = SliceBugDetector(self.bug_type, self.model_name, self.temperature, self.language, self.MAX_QUERY_NUM)
 
         # LLM Agent instances created by BugScanAgent
         self.SliceScanAgent: List[SliceScanAgent] = []
@@ -121,7 +123,7 @@ class BugScanAgent:
                 root_function_ids.append(relevant_function_id)
 
         for root_function_id in root_function_ids:
-            callees = self.ts_analyzer.get_all_transitive_callee_functions(self.ts_analyzer.function_env[root_function_id])
+            callees = self.ts_analyzer.get_all_transitive_callee_functions(self.ts_analyzer.function_env[root_function_id], 2 * self.call_depth + 2)
             
             relevant_functions = {
                 callee.function_id: callee
@@ -176,15 +178,23 @@ class BugScanAgent:
                 # (Key Step II): Inline the slices
                 slice_inliner_output: SliceInlinerOutput = self.slice_inliner.invoke(slice_inliner_input)
 
+                if slice_inliner_output is None:
+                    print("Slice inliner output is None")
+                    continue
+
                 # (Key Step III): Detect the bugs upon the inlined slices
-                intra_detector_input = IntraDetectorInput(seed_value.name, slice_inliner_output.inlined_snippet)
-                intra_detector_output: IntraDetectorOutput = self.intra_detector.invoke(intra_detector_input)
+                intra_detector_input = SliceBugDetectorInput(seed_value.name, slice_inliner_output.inlined_snippet)
+                intra_detector_output: SliceBugDetectorOutput = self.intra_detector.invoke(intra_detector_input)
+
+                if intra_detector_output is None:
+                    print("Intra detector output is None")
+                    continue
 
                 # Construct the bug report and update the state
                 explanation = "Call tree: \n" + slice_inliner_input.tree_str + "\n" \
                                 + "After the abstraction, we have the following code snippet:\n" \
                                 + slice_inliner_output.inlined_snippet + "\n" \
-                                + intra_detector_output.poc_str
+                                + intra_detector_output.explanation_str
                 bug_report = BugReport(self.bug_type, seed_value, slice_inliner_input.relevant_functions, explanation)
                 self.state.update_state(bug_report)
 
@@ -249,16 +259,24 @@ class BugScanAgent:
             # Inline the slices.
             slice_inliner_output: SliceInlinerOutput = self.slice_inliner.invoke(slice_inliner_input)
 
+            if slice_inliner_output is None:
+                print("Slice inliner output is None")
+                continue
+
             # Detect bugs upon the inlined slices.
-            intra_detector_input = IntraDetectorInput(seed_value.name, slice_inliner_output.inlined_snippet)
-            intra_detector_output: IntraDetectorOutput = self.intra_detector.invoke(intra_detector_input)
+            intra_detector_input = SliceBugDetectorInput(seed_value.name, slice_inliner_output.inlined_snippet)
+            intra_detector_output: SliceBugDetectorOutput = self.intra_detector.invoke(intra_detector_input)
+
+            if intra_detector_output is None:
+                print("Intra detector output is None")
+                continue
 
             # Construct the bug report and update the state.
             explanation = (
                 "Call tree: \n" + slice_inliner_input.tree_str + "\n" +
                 "After the abstraction, we have the following code snippet:\n" +
                 slice_inliner_output.inlined_snippet + "\n" +
-                intra_detector_output.poc_str
+                intra_detector_output.explanation_str
             )
             bug_report = BugReport(self.bug_type, seed_value, slice_inliner_input.relevant_functions, explanation)
             self.state.update_state(bug_report)
@@ -269,5 +287,5 @@ class BugScanAgent:
             with open(self.result_dir_path + "/detect_info.json", 'w') as bug_info_file:
                 json.dump(bug_report_dict, bug_info_file, indent=4)
         
-    def get_agent_result(self) -> BugScanState:
+    def get_agent_state(self) -> BugScanState:
         return self.state

@@ -1,11 +1,12 @@
 from memory.syntactic.function import *
 from memory.syntactic.api import *
 from memory.syntactic.value import *
-from llmtool.intra_slicer import *
+from memory.semantic.state import *
+from llmtool.slicescan.intra_slicer import *
 from tstool.analyzer.TS_analyzer import *
 from typing import List, Dict, Tuple
 
-class SliceScanState:
+class SliceScanState(State):
     def __init__(self, seed_function: Function, seed_values: List[Value], call_depth: int = 1, is_backward: bool = True):
         # Typically, there is only one seed. 
         # Here, we consider a set of seed values at the same program location with the same label

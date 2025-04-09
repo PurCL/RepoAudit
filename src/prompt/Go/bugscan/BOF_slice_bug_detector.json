@@ -38,17 +38,17 @@
     " - Path1: If idx = -1, buffer[-1] = &src occurs, which is an out-of-bounds write (bof panic).",
     " - Path2: If len(arr) >= 10, then idx exceeds the buffer size, leading to another bof panic.",
     "Answer: Yes",
-    "PoC: If `goo(nil)` is called, `hoo(nil)` returns -1, leading to `buffer[-1] = &src`, which is a bof panic."
+    "Explanation: If `goo(nil)` is called, `hoo(nil)` returns -1, leading to `buffer[-1] = &src`, which is a bof panic."
   ],
   "question_template": "- Does the buffer access point `<SEED_NAME>` have a bof panic bug?",
   "answer_format": [
     "1. Explanation: Provide your reasoning.",
     "2. Answer: 'Yes' or 'No'.",
-    "3. If 'Yes', provide a PoC demonstrating the bug propagation path.",
+    "3. If 'Yes', provide a Explanation demonstrating the bug propagation path.",
     "Example format:",
     "Explanation: {Your Explanation}",
     "Answer: {Yes or No}",
-    "PoC: {Description of the bug propagation path}"
+    "Explanation: {Description of the bug propagation path}"
   ],
   "meta_prompts": [
     "Now I will give you the function with a buffer access point `<SEED_NAME>`: \n```\n<FUNCTION>\n``` \n\n",

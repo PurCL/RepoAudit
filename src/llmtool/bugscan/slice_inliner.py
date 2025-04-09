@@ -2,12 +2,12 @@ from os import path
 import json
 import time
 from typing import List, Set, Optional, Dict
-from .LLM_utils import *
-from .LLM_tool import *
+from llmtool.LLM_utils import *
+from llmtool.LLM_tool import *
 from memory.syntactic.function import *
 from memory.syntactic.value import *
 from memory.syntactic.api import *
-BASE_PATH = Path(__file__).resolve().parents[1]
+BASE_PATH = Path(__file__).resolve().parent.parent.parent
 
 class SliceInlinerInput(LLMToolInput):
     def __init__(self, root_function_id: int, 
@@ -77,7 +77,7 @@ class SliceInliner(LLMTool):
         :param max_query_num: the maximum number of queries if the model fails
         """
         super().__init__(model_name, temperature, language, max_query_num)
-        self.inline_prompt_file = f"{BASE_PATH}/prompt/{language}/{language}_inline_prompt.json"
+        self.prompt_file = f"{BASE_PATH}/prompt/{language}/bugscan/slice_inliner.json"
         return
 
     def _get_prompt(self, input: SliceInlinerInput) -> str:
@@ -85,7 +85,7 @@ class SliceInliner(LLMTool):
         :param input: the input of slice inliner
         :return: the prompt string
         """
-        with open(self.inline_prompt_file, "r") as f:
+        with open(self.prompt_file, "r") as f:
             prompt_template_dict = json.load(f)
 
         role = prompt_template_dict["system_role"].replace("<LANGUAGE>", self.language)

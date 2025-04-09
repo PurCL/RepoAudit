@@ -22,7 +22,7 @@ class Cpp_UAF_Extractor(DFBScanExtractor):
         nodes = find_nodes_by_type(root_node, "call_expression")
         nodes.extend(find_nodes_by_type(root_node, "delete_expression"))
 
-        free_functions = {"free"}
+        free_functions = {"free", "ngx_destroy_black_list_link"}
         spec_apis = {}         # specific user-defined APIs 
         sources = []
         for node in nodes:

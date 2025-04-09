@@ -1,4 +1,4 @@
-from .LLM_utils import *
+from llmtool.LLM_utils import *
 from abc import ABC, abstractmethod
 from typing import Dict
 
@@ -44,6 +44,8 @@ class LLMTool(ABC):
             return self.cache[input]
         
         prompt = self._get_prompt(input)
+        print("Prompt:", "\n", prompt)
+
         single_query_num = 0
         output = None
         while True:
@@ -56,8 +58,8 @@ class LLMTool(ABC):
             output = self._parse_response(response, input)
             if output is not None:
                 break
-        
-        print(response)
+        print("Response:", "\n", response)
+
         self.total_query_num += single_query_num
         if output is not None:
             self.cache[input] = output

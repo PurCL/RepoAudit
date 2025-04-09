@@ -2,12 +2,12 @@ from os import path
 import json
 import time
 from typing import List, Set, Optional, Dict
-from .LLM_utils import *
-from .LLM_tool import *
+from llmtool.LLM_utils import *
+from llmtool.LLM_tool import *
 from memory.syntactic.function import *
 from memory.syntactic.value import *
 from memory.syntactic.api import *
-BASE_PATH = Path(__file__).resolve().parents[1]
+BASE_PATH = Path(__file__).resolve().parent.parent.parent
 
 class PathValidatorInput(LLMToolInput):
     def __init__(self, values: List[Value], values_to_functions: Dict[Value, Function]) -> None:
@@ -20,11 +20,13 @@ class PathValidatorInput(LLMToolInput):
         
 
 class PathValidatorOutput(LLMToolOutput):
-    def __init__(self, is_reachable: bool, poc_str: str) -> None:
+    def __init__(self, is_reachable: bool, explanation_str: str) -> None:
         self.is_reachable = is_reachable
-        self.poc_str = poc_str   
+        self.explanation_str = explanation_str   
         return
-
+    
+    def __str__(self):
+        return f"Is reachable: {self.is_reachable} \nExplanation: {self.explanation_str}"
 
 class PathValidator(LLMTool):
     def __init__(self, model_name: str, temperature: float, language: str, max_query_num: int) -> None:
@@ -35,14 +37,15 @@ class PathValidator(LLMTool):
         :param max_query_num: the maximum number of queries if the model fails
         """
         super().__init__(model_name, temperature, language, max_query_num)
-        self.path_valid_prompt_file = f"{BASE_PATH}/prompt/{language}/{language}_path_validator_prompt.json"
+        self.prompt_file = f"{BASE_PATH}/prompt/{language}/dfbscan/path_validator.json"
         return
 
     def _get_prompt(self, input: PathValidatorInput) -> str:
-        with open(self.path_valid_prompt_file, "r") as f:
+        with open(self.prompt_file, "r") as f:
             prompt_template_dict = json.load(f)
         prompt = prompt_template_dict["task"]
         prompt += "\n" + "\n".join(prompt_template_dict["analysis_rules"])
+        prompt += "\n" + "\n".join(prompt_template_dict["analysis_examples"])
         prompt += "\n" + "".join(prompt_template_dict["meta_prompts"])
         prompt = prompt.replace("<ANSWER>", "\n".join(prompt_template_dict["answer_format"])).replace(
                                 "<QUESTION>", "\n".join(prompt_template_dict["question_template"]))
@@ -59,20 +62,14 @@ class PathValidator(LLMTool):
 
         program = "\n".join(["```\n" + func.lined_code + "\n```\n" for func in input.values_to_functions.values()])
         prompt = prompt.replace("<PROGRAM>", program)
-        
-        print("Prompt of path validator:")
-        print(prompt)
-
         return prompt
 
     def _parse_response(self, response: str, input: PathValidatorInput) -> PathValidatorOutput:
         answer_match = re.search(r'Answer:\s*(\w+)', response)
-        poc_match = re.search(r'PoC:\s*(.*)', response, re.DOTALL)
-
         if answer_match:
             answer = answer_match.group(1).strip()
-            poc = poc_match.group(1).strip() if poc_match else ""
-            output = PathValidatorOutput(answer == "Yes", poc)
+            output = PathValidatorOutput(answer == "Yes", response)
+            print("Output of path_validator:\n", str(output))
         else:
             print(f"Answer not found in output")
             output = None

@@ -33,17 +33,17 @@
       " - In the first path, when obj is None, the function raises a ValueError without attempting further attribute access;",
       " - In the second path, obj is not None, so the subsequent accesses are safe.",
       "Answer: No",
-      "PoC: Invoking process_data(None) immediately raises a ValueError, preventing any further dereference of a None value."
+      "Explanation: Invoking process_data(None) immediately raises a ValueError, preventing any further dereference of a None value."
     ],
     "question_template": "- Does the `<SEED_NAME>` in the specified program cause a None dereference error?",
     "answer_format": [
       "1. Explanation: Provide your reasoning.",
       "2. Answer: 'Yes' or 'No'.",
-      "3. If 'Yes', provide a PoC demonstrating the bug propagation path.",
+      "3. If 'Yes', provide a Explanation demonstrating the bug propagation path.",
       "Example format:",
       "Explanation: {Your Explanation}",
       "Answer: {Yes or No}",
-      "PoC: {Description of the bug propagation path}"
+      "Explanation: {Description of the bug propagation path}"
     ],
     "meta_prompts": [
       "Now I will give you the function with `<SEED_NAME>`: \n```\n<FUNCTION>\n``` \n\n",

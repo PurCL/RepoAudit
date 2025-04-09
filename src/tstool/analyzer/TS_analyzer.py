@@ -15,87 +15,92 @@ from memory.syntactic.function import *
 from memory.syntactic.api import *
 from memory.syntactic.value import *
 
-class ContextLabel(Enum):
+class Parenthesis(Enum):
     LEFT_PAR = -1
     RIGHT_PAR = 1
 
     def __str__(self) -> str:
         return self.name
+    
 
+class ContextLabel:
+    def __init__(self, file_name: str, line_number: int, function_id: int, parenthesis: Parenthesis):
+        self.file_name = file_name
+        self.line_number = line_number
+        self.function_id = function_id
+        self.parenthesis = parenthesis
+
+    def __str__(self) -> str:
+        return f"({self.file_name} {self.line_number} {self.function_id} {self.parenthesis})"
+        
 
 class CallContext:
     def __init__(self, is_backward: bool = True):
-        self.context : List[Tuple[int, ContextLabel]] = []
-        self.simplified_context : List[Tuple[int, ContextLabel]] = []
+        self.context : List[ContextLabel] = []
+        self.simplified_context : List[ContextLabel] = []
         self.is_backward = is_backward
 
-    def add_and_check_context(self, function_id: int, label: ContextLabel) -> bool:
+    def add_and_check_context(self, label: ContextLabel) -> bool:
         """
         Add a context entry to the context
-        :param function_id: the function id
-        :param label: the label of the context entry
-        :ret True if the context after adding the new context pair is in the CFL reachable, False otherwise
+        :param label: the context label
+        :ret True if the context after adding the new context label is in the CFL reachable, False otherwise
         """
         is_CFL_reachable = True
         
         # Handle empty context case
         if len(self.simplified_context) == 0:
-            self.simplified_context.append((function_id, label))
-            self.context.append((function_id, label))
+            self.simplified_context.append(label)
+            self.context.append(label)
             return is_CFL_reachable
         
+        # Avoid recursion
+        is_recursion = False
+        for context_label in self.context:
+            if context_label.file_name == label.file_name and context_label.function_id == label.function_id and context_label.parenthesis == label.parenthesis:
+                is_recursion = True
+                break
+        if is_recursion:
+            return False
+
         # Get the top element from the context stack
-        (top_function_id, top_label) = self.simplified_context[-1]
+        top_label = self.get_top_unmatched_context_label()
         
         # Determine which labels to match based on analysis direction
-        first_label = ContextLabel.LEFT_PAR if not self.is_backward else ContextLabel.RIGHT_PAR
-        second_label = ContextLabel.RIGHT_PAR if not self.is_backward else ContextLabel.LEFT_PAR
+        first_label = Parenthesis.LEFT_PAR if not self.is_backward else Parenthesis.RIGHT_PAR
+        second_label = Parenthesis.RIGHT_PAR if not self.is_backward else Parenthesis.LEFT_PAR
         
         # Check the label combinations
-        if top_label == label:
-            self.simplified_context.append((function_id, label))
+        if top_label.parenthesis == label.parenthesis:
+            self.simplified_context.append(label)
         elif top_label == first_label and label == second_label:
-            if top_function_id == function_id:
+            if top_label.file_name == label.file_name and top_label.line_number == label.line_number and top_label.function_id == label.function_id:
                 self.simplified_context.pop()
             else:
                 is_CFL_reachable = False
         else:
             # Other combinations
-            self.simplified_context.append((function_id, label))
+            self.simplified_context.append(label)
 
         # Only update context if CFL reachable
         if is_CFL_reachable:
-            self.context.append((function_id, label))
-            
+            self.context.append(label)
         return is_CFL_reachable
-
-    def check_context(self, function_id: int, label: ContextLabel) -> bool:
+    
+    def get_top_unmatched_context_label(self) -> ContextLabel:
         """
-        Check if adding the context entry keeps the CFL reachability
-        :param function_id: the function id
-        :param label: the label of the context entry
-        :return: True if the context remains CFL reachable, False otherwise
+        Get the top unmatched context label.
+        :return: The top unmatched context label.
         """
         if len(self.simplified_context) == 0:
-            return True
-
-        (top_function_id, top_label) = self.simplified_context[-1]
-        
-        # Determine which labels to match based on analysis direction
-        first_label = ContextLabel.LEFT_PAR if not self.is_backward else ContextLabel.RIGHT_PAR
-        second_label = ContextLabel.RIGHT_PAR if not self.is_backward else ContextLabel.LEFT_PAR
-        
-        if top_label == label:
-            return True
-        elif top_label == first_label and label == second_label:
-            return top_function_id == function_id
-        else:
-            # Other combinations
-            return True
-
+            return None
+        return self.simplified_context[-1]
 
     def __str__(self) -> str:
-        return f"CallContext(is_backward={self.is_backward}, context={self.context})"
+        """
+        Convert the context to a string representation.
+        """
+        return f"{self.is_backward}" + "\n" + " - ".join([str(label) + "\n" for label in self.context])
     
     def __eq__(self, other: 'CallContext') -> bool:
         return self.__str__() == other.__str__()
@@ -103,6 +108,7 @@ class CallContext:
     def __hash__(self) -> int:
         # Convert context list to tuple for hashing; assumes that context entries are immutable
         return hash(self.__str__())
+    
 
 class TSAnalyzer(ABC):
     """
@@ -365,18 +371,27 @@ class TSAnalyzer(ABC):
         caller_functions = list({function.function_id: function for function in caller_functions}.values())
         return caller_functions
     
-    def get_all_transitive_callee_functions(self, function: Function, max_depth = 1000) -> List[Function]:
+    def get_all_transitive_callee_functions(self, function: Function, max_depth, visited=None) -> List[Function]:
         """
         Get all transitive callee functions for the provided function.
         """
         if max_depth == 0:
             return []
+        
+        if visited is None:
+            visited = set()
+
+        if function.function_id in visited:
+            return []
+        
+        visited.add(function.function_id)
+
         if function.function_id not in self.function_caller_callee_map:
             return []
         callee_ids = self.function_caller_callee_map[function.function_id]
         callee_functions = [self.function_env[callee_id] for callee_id in callee_ids]
         for callee_function in callee_functions:
-            callee_functions.extend(self.get_all_transitive_callee_functions(callee_function, max_depth - 1))
+            callee_functions.extend(self.get_all_transitive_callee_functions(callee_function, max_depth - 1, visited))
         callee_functions = list({function.function_id: function for function in callee_functions}.values())
         return callee_functions
 
