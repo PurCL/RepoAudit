@@ -2,14 +2,20 @@ import streamlit as st
 import sys
 from pathlib import Path
 import json
+
+# Add the parent directory to the system path
 sys.path.append(str(Path(__file__).resolve().parents[2]))
 
+# Language dictionary
 language_dict = {
     "C": "c",
     "Cpp": "cpp"
 }
+
+# Base path for results
 BASE_PATH = Path(__file__).resolve().parents[3]
 
+# Function to get results
 def get_results(language="C", scanner="DFscan", model="claude-3.7", bug_type="NPD") -> list:
     result_dir = Path(f"{BASE_PATH}/result/{scanner}-{model}/{bug_type}")
     if not result_dir.exists():
@@ -22,19 +28,16 @@ def get_results(language="C", scanner="DFscan", model="claude-3.7", bug_type="NP
                 projects.append(project_name)
     return projects
 
-def main():
-    st.set_page_config(
-        layout="wide",  # Use wide layout instead of centered
-        initial_sidebar_state="expanded"
-    )
-        
-    if 'show_function' not in st.session_state:
-        st.session_state.show_function = {}
-    if 'analysis_results' not in st.session_state:
-        st.session_state.analysis_results = None
-    if 'bug_validations' not in st.session_state:
-        st.session_state.bug_validations = {}
+# Function to display the Home page
+def display_home():
+    st.title("Welcome to RepoAudit")
+    st.markdown("""
+        RepoAudit is a tool for analyzing code repositories and detecting bugs.
+        Use the sidebar to navigate between different functionalities.
+    """)
 
+# Function to display the Results page
+def display_results():
     st.title("Analysis Results")
     
     # 0. Language Selection
@@ -116,14 +119,12 @@ def main():
         
     if st.session_state.analysis_results:
         results = st.session_state.analysis_results
-        # try:
         for key, item in results.items():
             with st.expander(f"{key}"):
                 paths = item["Path"]
                 explanations = item["Explanation"]
     
                 st.markdown("---")
-                # Convert explanations to markdown list
                 if len(explanations) > 1:
                     explanations_markdown = "\n".join([f"- {exp.strip()}" for exp in explanations if exp.strip()])
                 else:
@@ -132,7 +133,6 @@ def main():
                 st.markdown(explanations_markdown)
                 st.write("**Human Validation Result:**", item["Vali_human"])
 
-                # Add validation radio buttons
                 validation_key = f"validation_{key}"
                 if validation_key not in st.session_state.bug_validations:
                     st.session_state.bug_validations[validation_key] = item["Vali_human"] if item["Vali_human"] != "" else "Unsure"
@@ -159,7 +159,6 @@ def main():
                         with open(result_path, 'w') as f:
                             json.dump(temp_results, f, indent=4)
 
-                # Show function content
                 if st.button(
                     "Show Function Content" if not st.session_state.show_function.get(key) 
                     else "Hide Function Content", 
@@ -179,9 +178,6 @@ def main():
                         st.write(f"- Source: `{source}` at line {src_line}")
                         st.write(f"- File: `{file_name}`")
                         st.code(function_code, language=language_dict[language], line_numbers=True)
-        
-        # except Exception as e:
-        #     st.error(f"Error occurred: {str(e)}")
             
         st.download_button(
             "Download Results",
@@ -190,6 +186,15 @@ def main():
             mime="application/json"
         )
 
+# Main function to handle navigation
+def main():
+    st.sidebar.title("Navigation")
+    page = st.sidebar.radio("Go to", ["Home", "Results"])
+
+    if page == "Home":
+        display_home()
+    elif page == "Results":
+        display_results()
 
 if __name__ == "__main__":
     main()
