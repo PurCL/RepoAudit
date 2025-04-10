@@ -7,30 +7,34 @@ if [[ $# -lt 1 ]]; then
 fi
 
 SCAN_TYPE=$1
+LANGUAGE=Cpp
+MODEL=claude-3.5
+BUG_TYPE=BOF
+PROJECT=zstd
 
 # For demo/test run
 case "$SCAN_TYPE" in
     bugscan)
         python3 repoaudit.py \
-          --language Java \
-          --model-name claude-3.7 \
-          --project-path ../benchmark/Java/toy/toy_NPD_single \
-          --bug-type NPD \
+          --language $LANGUAGE \
+          --model-name $MODEL \
+          --project-path ../benchmark/${LANGUAGE}/${PROJECT} \
+          --bug-type $BUG_TYPE \
           --temperature 0.0 \
           --scan-type bugscan \
-          --call-depth 6 \
+          --call-depth 4 \
           --max-workers 1
         ;;
     dfbscan)
         python3 repoaudit.py \
-          --language Java \
-          --model-name claude-3.7 \
-          --project-path ../benchmark/Java/toy/toy_NPD_single \
-          --bug-type NPD \
+          --language $LANGUAGE \
+          --model-name $MODEL \
+          --project-path ../benchmark/${LANGUAGE}/${PROJECT} \
+          --bug-type $BUG_TYPE \
           --is-reachable \
           --temperature 0.0 \
           --scan-type dfbscan \
-          --call-depth 6 \
+          --call-depth 4 \
           --max-workers 1
         ;;
     *)
