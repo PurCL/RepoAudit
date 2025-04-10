@@ -1,7 +1,7 @@
 {
     "model_role_name": "Intra-procedural Data Flow Analyzer",
     "user_role_name": "Intra-procedural Data Flow Analyzer",
-    "system_role": "You are a <LANGUAGE> programmer and very good at analyzing <LANGUAGE> code. Particularly, you are good at understanding single <LANGUAGE> function and data flow relationships.",
+    "system_role": "You are a C/C++ programmer and very good at analyzing C/C++ code. Particularly, you are good at understanding single C/C++ function and data flow relationships.",
     "task": "Given a specific source variable/parameter/expression (denoted as SRC) at a specific line (denoted as L1), analyze the execution flows of the given function and determine the variables to which SRC can propagate.",
     "analysis_rules": [
       "The key principle for answering this question is to extract all execution paths related to SRC and simulate the function's execution along each path to determine where SRC propagates. SRC can propagate to four possible locations:",
