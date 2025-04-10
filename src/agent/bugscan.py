@@ -210,7 +210,11 @@ class BugScanAgent(Agent):
     
     def start_scan(self) -> None:
         print("Start bug scanning...")
-    
+        
+        for seed_value, is_backward in self.seeds:
+            print(seed_value, is_backward)
+        return
+
         # Process each seed in parallel
         with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
             futures = [

@@ -2,6 +2,7 @@ import sys
 from os import path
 from pathlib import Path
 import copy
+import time
 from typing import List, Tuple, Dict, Set
 import tree_sitter
 from tree_sitter import Language
@@ -154,8 +155,8 @@ class TSAnalyzer(ABC):
         self.fileContentDic = {}
         self.glb_var_map = {}      # global var info
 
-        self.function_env = {}  
-        self.api_env = {}
+        self.function_env: dict[int, Function] = {}
+        self.api_env: dict[int, API] = {}
 
         # Results of call graph analysis
         ## Caller-callee relationship between user-defined functions
@@ -441,7 +442,7 @@ class TSAnalyzer(ABC):
         callee_ids = []
         for callee_id in temp_callee_ids:
             callee = self.function_env[callee_id]
-            paras = self.get_parameters_in_single_function(callee)
+            paras = callee.paras
             if len(paras) == len(arguments):
                 callee_ids.append(callee_id)
         return callee_ids
