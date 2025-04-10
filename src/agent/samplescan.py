@@ -3,6 +3,7 @@ import os
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
+from tqdm import tqdm
 
 from tstool.analyzer.TS_analyzer import *
 from tstool.analyzer.Cpp_TS_analyzer import *
@@ -277,11 +278,12 @@ class SampleScanAgent(Agent):
             slice_inliner_inputs: List[SliceInlinerInput] = self.__retrieve_slice_inliner_inputs(slice_scan_state)
 
             # Inline each instance to obtain the abstraction of buggy code snippets (consisting of slices in the relevant functions)
-            for slice_inliner_input in slice_inliner_inputs:
+            for slice_inliner_input in tqdm(slice_inliner_inputs, desc="Processing Slices", unit="slice"):
                 # (Key Step III): Inline the slices
                 slice_inliner_output: SliceInlinerOutput = self.slice_inliner.invoke(slice_inliner_input)
 
                 if slice_inliner_output is None:
+                    self.logger.print_console("Error: No slice inlined.")
                     continue
 
                 # (Key Step IV): Detect the bugs upon the inlined slices
@@ -292,10 +294,12 @@ class SampleScanAgent(Agent):
                     continue
 
                 # Construct the bug report and update the state
-                explanation = "Call tree: \n" + slice_inliner_input.tree_str + "\n" \
-                                + "After the abstraction, we have the following code snippet:\n" \
-                                + slice_inliner_output.inlined_snippet + "\n" \
-                                + intra_function_detector_output.explanation_str
+                explanation = (
+                    "Call tree: \n" + slice_inliner_input.tree_str + "\n"
+                    + "After the abstraction, we have the following code snippet:\n"
+                    + slice_inliner_output.inlined_snippet + "\n"
+                    + intra_function_detector_output.explanation_str
+                )
                 bug_report = BugReport(self.bug_type, seed_value, slice_inliner_input.relevant_functions, explanation)
                 self.state.update_bug_report(seed_value, bug_report)
 
@@ -349,21 +353,25 @@ class SampleScanAgent(Agent):
             seed_log_file.write("Target seed:\n")
             seed_log_file.write(target_seed_value_str + "\n")
 
-        self.logger.print_console("---------------------------------------------------")
-        self.logger.print_console("Step II: Start to analyze each seed in parallel...")
-        self.logger.print_console("---------------------------------------------------\n")
+        # Process each seed in parallel with a progress bar
+        total_seeds = len(self.sampled_seeds)
+        processed_seeds = 0
 
-        # Process each seed in parallel
-        with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
-            futures = [
-                executor.submit(self.__process_seed_parallel, seed_value, is_backward)
-                for (seed_value, is_backward) in self.sampled_seeds
-            ]
-            for future in as_completed(futures):
-                try:
-                    future.result()
-                except Exception as e:
-                    self.logger.print_console("Error processing seed:", e)
+        with tqdm(total=total_seeds, desc="Processing Seeds", unit="seed") as pbar:
+            with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
+                futures = [
+                    executor.submit(self.__process_seed_parallel, seed_value, is_backward)
+                    for (seed_value, is_backward) in self.sampled_seeds
+                ]
+                for future in as_completed(futures):
+                    try:
+                        future.result()
+                    except Exception as e:
+                        self.logger.print_console("Error processing seed:", e)
+                    finally:
+                        processed_seeds += 1
+                        pbar.update(1)  # Update the progress bar
+
 
         # Final summary
         self.logger.print_console(f"{len(self.state.bug_report_lines)} bug(s) was/were detected in total.")
