@@ -221,14 +221,7 @@ class TSAnalyzer(ABC):
         for function_id in self.function_env:
             pbar.update(1)
             current_function = self.function_env[function_id]
-            # DEBUG
-            print(f"Start analyzing function {current_function.function_name}")
-            start_time = time.time()
             self.extract_call_graph_edges(current_function)
-            print(f"Finish analyzing function {current_function.function_name}")
-            analysis_time = time.time() - start_time
-            if analysis_time > 3:
-                print(f"Function {current_function.function_name} takes {str(analysis_time)} to analyze")
         pbar.close()
 
     ###########################################
