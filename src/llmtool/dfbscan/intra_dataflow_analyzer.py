@@ -44,14 +44,15 @@ class IntraDataFlowAnalyzerOutput(LLMToolOutput):
 
 
 class IntraDataFlowAnalyzer(LLMTool):
-    def __init__(self, model_name: str, temperature: float, language: str, max_query_num: int) -> None:
+    def __init__(self, model_name: str, temperature: float, language: str, max_query_num: int, logger: Logger) -> None:
         """
         :param model_name: the model name
         :param temperature: the temperature
         :param language: the programming language
         :param max_query_num: the maximum number of queries if the model fails
+        :param logger: the logger
         """
-        super().__init__(model_name, temperature, language, max_query_num)
+        super().__init__(model_name, temperature, language, max_query_num, logger)
         self.prompt_file = f"{BASE_PATH}/prompt/{language}/dfbscan/intra_dataflow_analyzer.json"
         return
 
@@ -165,5 +166,5 @@ class IntraDataFlowAnalyzer(LLMTool):
             reachable_values.append(reachable_values_per_path)
 
         output = IntraDataFlowAnalyzerOutput(reachable_values)
-        print("Output of intra_dfa:\n", str(output))
+        self.logger.print_console("Output of intra_dfa:\n", str(output))
         return output

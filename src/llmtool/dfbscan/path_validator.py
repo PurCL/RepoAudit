@@ -29,14 +29,15 @@ class PathValidatorOutput(LLMToolOutput):
         return f"Is reachable: {self.is_reachable} \nExplanation: {self.explanation_str}"
 
 class PathValidator(LLMTool):
-    def __init__(self, model_name: str, temperature: float, language: str, max_query_num: int) -> None:
+    def __init__(self, model_name: str, temperature: float, language: str, max_query_num: int, logger: Logger) -> None:
         """
         :param model_name: the model name
         :param temperature: the temperature
         :param language: the programming language
         :param max_query_num: the maximum number of queries if the model fails
+        :param logger: the logger
         """
-        super().__init__(model_name, temperature, language, max_query_num)
+        super().__init__(model_name, temperature, language, max_query_num, logger)
         self.prompt_file = f"{BASE_PATH}/prompt/{language}/dfbscan/path_validator.json"
         return
 
@@ -69,8 +70,8 @@ class PathValidator(LLMTool):
         if answer_match:
             answer = answer_match.group(1).strip()
             output = PathValidatorOutput(answer == "Yes", response)
-            print("Output of path_validator:\n", str(output))
+            self.logger.print_log("Output of path_validator:\n", str(output))
         else:
-            print(f"Answer not found in output")
+            self.logger.print_log(f"Answer not found in output")
             output = None
         return output

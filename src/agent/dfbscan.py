@@ -2,6 +2,7 @@ import json
 import os
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from pathlib import Path
 
 from agent.agent import *
 
@@ -25,7 +26,8 @@ from memory.semantic.dfb_state import *
 from memory.syntactic.function import *
 from memory.syntactic.value import *
 
-from pathlib import Path
+from ui.logger import *
+
 BASE_PATH = Path(__file__).resolve().parents[2]
 
 
@@ -59,14 +61,15 @@ class DFBScanAgent(Agent):
         self.log_dir_path = f"{BASE_PATH}/log/dfbscan-{self.model_name}/{self.language}-{self.project_name}/{time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())}"
         if not os.path.exists(self.log_dir_path):
             os.makedirs(self.log_dir_path)
+        self.logger = Logger(self.log_dir_path + "/" + "dfbscan.log")
 
         self.result_dir_path = f"{BASE_PATH}/result/dfbscan-{self.model_name}/{self.language}-{self.project_name}/{time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())}"
         if not os.path.exists(self.result_dir_path):
             os.makedirs(self.result_dir_path)
 
         # LLM tools used by DFBScanAgent
-        self.intra_dfa = IntraDataFlowAnalyzer(self.model_name, self.temperature, self.language, self.MAX_QUERY_NUM)
-        self.path_validator = PathValidator(self.model_name, self.temperature, self.language, self.MAX_QUERY_NUM)
+        self.intra_dfa = IntraDataFlowAnalyzer(self.model_name, self.temperature, self.language, self.MAX_QUERY_NUM, self.logger)
+        self.path_validator = PathValidator(self.model_name, self.temperature, self.language, self.MAX_QUERY_NUM, self.logger)
 
         self.src_values, self.sink_values = self.__obtain_extractor().extract_all()
         self.state = DFBState(self.src_values, self.sink_values)
@@ -112,8 +115,6 @@ class DFBScanAgent(Agent):
 
         for value in output.reachable_values[path_index]:
             if value.label == ValueLabel.ARG:
-                print("===================01===================")
-                
                 callee_functions = self.ts_analyzer.get_all_callee_functions(function)
                 for callee_function in callee_functions:
                     is_called = False
@@ -142,7 +143,6 @@ class DFBScanAgent(Agent):
                     
                     for para in callee_function.paras:
                         if para.index == value.index:
-                            print("appned")
                             delta_worklist.append((para, callee_function, new_call_context))
                             self.state.update_external_value_match((value, call_context), set({(para, new_call_context)}))
                     
@@ -150,8 +150,6 @@ class DFBScanAgent(Agent):
                 # Consider side-effect. 
                 # Example: the parameter *p is used in the function: p->f = null; 
                 # We need to consider the side-effect of p.
-                print("===================02===================")
-
                 caller_function = self.ts_analyzer.get_all_caller_functions(function)
                 for caller_function in caller_function:
                     new_call_context = copy.deepcopy(call_context)
@@ -180,15 +178,11 @@ class DFBScanAgent(Agent):
                         args = self.ts_analyzer.get_arguments_at_callsite(caller_function, call_site_node)
                         for arg in args:
                             if arg.index == value.index:
-                                print("appned")
                                 delta_worklist.append((arg, caller_function, new_call_context))
                                 self.state.update_external_value_match((value, call_context), set({(arg, new_call_context)}))
                     
             if value.label == ValueLabel.RET:
-                print("===================03===================")
-
                 caller_functions = self.ts_analyzer.get_all_caller_functions(function)
-                print("The number of caller functions: ", len(caller_functions))
                 for caller_function in caller_functions:
                     new_call_context = copy.deepcopy(call_context)
                     top_unmatched_context_label = new_call_context.get_top_unmatched_context_label()
@@ -214,7 +208,6 @@ class DFBScanAgent(Agent):
                         new_call_context.add_and_check_context(append_context_label)
 
                         output_value = self.ts_analyzer.get_output_value_at_callsite(caller_function, call_site_node)
-                        print("append")
                         delta_worklist.append((output_value, caller_function, new_call_context))
                         self.state.update_external_value_match((value, call_context), set({(output_value, new_call_context)}))
  
@@ -247,7 +240,7 @@ class DFBScanAgent(Agent):
     
     # TOBE deprecated
     def start_scan_sequential(self) -> None:
-        print("Start data-flow bug scanning...")
+        self.logger.print_console("Start data-flow bug scanning...")
 
         for src_value in self.src_values:
             worklist = []
@@ -279,7 +272,6 @@ class DFBScanAgent(Agent):
                 # invoke the intra-procedural data-flow analysis
                 output = self.intra_dfa.invoke(input)
                 if output is None:
-                    print("The output of intra-procedural data-flow analysis is None.")
                     continue
 
                 for path_index in range(len(output.reachable_values)):
@@ -289,10 +281,7 @@ class DFBScanAgent(Agent):
                     self.state.update_reachable_values_per_path((start_value, call_context), reachable_values_in_single_path)
 
                     delta_worklist = self.__update_worklist(input, output, call_context, path_index)
-                    print("delta_worklist: ", len(delta_worklist))
-                    print("worklist: ", len(worklist))
                     worklist.extend(delta_worklist)
-                    print("new worklist: ", len(worklist))
 
             # Output tht reachable values per path
             self.state.print_reachable_values_per_path()
@@ -306,7 +295,6 @@ class DFBScanAgent(Agent):
                 output: PathValidatorOutput = self.path_validator.invoke(input)
 
                 if output is None:
-                    print("The output of path validator is None.")
                     continue
 
                 if output.is_reachable:
@@ -332,12 +320,12 @@ class DFBScanAgent(Agent):
                 json.dump(bug_report_dict, bug_info_file, indent=4)
 
             total_bug_number = sum(len(bug_list) for bug_list in self.state.bug_reports.values())
-            print(f"{total_bug_number} bug(s) was/were detected in total.")
-            print("The bug report(s) has/have been dumped to: ", self.result_dir_path + "/detect_info.json")
+            self.logger.print_console(f"{total_bug_number} bug(s) was/were detected in total.")
+            self.logger.print_console("The bug report(s) has/have been dumped to: ", self.result_dir_path + "/detect_info.json")
         return
     
     def start_scan(self) -> None:
-        print("Start data-flow bug scanning in parallel...")
+        self.logger.print_console("Start data-flow bug scanning in parallel...")
 
         # Process each source value in parallel
         with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
@@ -349,12 +337,12 @@ class DFBScanAgent(Agent):
                 try:
                     future.result()
                 except Exception as e:
-                    print("Error processing source value:", e)
+                    self.logger.print_log("Error processing source value:", e)
 
         # Final summary
         total_bug_number = sum(len(bug_list) for bug_list in self.state.bug_reports.values())
-        print(f"{total_bug_number} bug(s) was/were detected in total.")
-        print(f"The bug report(s) has/have been dumped to {self.result_dir_path}/detect_info.json")
+        self.logger.print_console(f"{total_bug_number} bug(s) was/were detected in total.")
+        self.logger.print_console(f"The bug report(s) has/have been dumped to {self.result_dir_path}/detect_info.json")
         return
 
     def __process_src_value(self, src_value: Value) -> None:
@@ -388,7 +376,6 @@ class DFBScanAgent(Agent):
             output = self.intra_dfa.invoke(input)
 
             if output is None:
-                print("The output of intra-procedural data-flow analysis is None.")
                 continue
 
             for path_index in range(len(output.reachable_values)):
@@ -409,7 +396,6 @@ class DFBScanAgent(Agent):
             output: PathValidatorOutput = self.path_validator.invoke(input)
 
             if output is None:
-                print("The output of path validator is None.")
                 continue
 
             if output.is_reachable:

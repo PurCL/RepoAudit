@@ -2,6 +2,7 @@ import json
 import os
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from pathlib import Path
 
 from agent.agent import *
 from agent.slicescan import *
@@ -30,7 +31,8 @@ from memory.semantic.bugscan_state import *
 from memory.syntactic.function import *
 from memory.syntactic.value import *
 
-from pathlib import Path
+from ui.logger import *
+
 BASE_PATH = Path(__file__).resolve().parents[2]
 
 
@@ -62,14 +64,15 @@ class BugScanAgent(Agent):
         self.log_dir_path = f"{BASE_PATH}/log/bugscan-{self.model_name}/{self.language}-{self.project_name}/{time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())}"
         if not os.path.exists(self.log_dir_path):
             os.makedirs(self.log_dir_path)
+        self.logger = Logger(self.log_dir_path + "/" + "bugscan.log")
 
         self.result_dir_path = f"{BASE_PATH}/result/bugscan-{self.model_name}/{self.language}-{self.project_name}/{time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())}"
         if not os.path.exists(self.result_dir_path):
             os.makedirs(self.result_dir_path)
 
         # LLM tools used by BugScanAgent
-        self.slice_inliner = SliceInliner(self.model_name, self.temperature, self.language, self.MAX_QUERY_NUM)
-        self.intra_detector = SliceBugDetector(self.bug_type, self.model_name, self.temperature, self.language, self.MAX_QUERY_NUM)
+        self.slice_inliner = SliceInliner(self.model_name, self.temperature, self.language, self.MAX_QUERY_NUM, self.logger)
+        self.intra_detector = SliceBugDetector(self.bug_type, self.model_name, self.temperature, self.language, self.MAX_QUERY_NUM, self.logger)
 
         # LLM Agent instances created by BugScanAgent
         self.SliceScanAgent: List[SliceScanAgent] = []
@@ -108,7 +111,7 @@ class BugScanAgent(Agent):
     def __retrieve_slice_inliner_inputs(self, slicescan_state: SliceScanState) -> List[SliceInlinerInput]:
         inputs = []
 
-        print("start to retrieve slice inliner inputs")
+        self.logger.print_console("start to retrieve slice inliner inputs")
 
         root_function_ids = []
         for relevant_function_id in slicescan_state.relevant_functions:
@@ -153,7 +156,7 @@ class BugScanAgent(Agent):
 
     # TOBE deprecated
     def start_scan_sequential(self) -> None:
-        print("Start bug scanning...")
+        self.logger.print_console("Start bug scanning...")
 
         # Analyze each seed value, which is potential buggy point or root cause
         for (seed_value, is_backward) in self.seeds:
@@ -179,7 +182,7 @@ class BugScanAgent(Agent):
                 slice_inliner_output: SliceInlinerOutput = self.slice_inliner.invoke(slice_inliner_input)
 
                 if slice_inliner_output is None:
-                    print("Slice inliner output is None")
+                    self.logger.print_log("Slice inliner output is None")
                     continue
 
                 # (Key Step III): Detect the bugs upon the inlined slices
@@ -187,7 +190,7 @@ class BugScanAgent(Agent):
                 intra_detector_output: SliceBugDetectorOutput = self.intra_detector.invoke(intra_detector_input)
 
                 if intra_detector_output is None:
-                    print("Intra detector output is None")
+                    self.logger.print_log("Intra detector output is None")
                     continue
 
                 # Construct the bug report and update the state
@@ -204,12 +207,12 @@ class BugScanAgent(Agent):
                 json.dump(bug_report_dict, bug_info_file, indent=4)
 
             total_bug_number = len(self.state.bug_reports)
-            print(f"{total_bug_number} bug(s) was/were detected in total.")
-            print(f"The bug report(s) has/have been dumped to {self.result_dir_path}/detect_info.json")
+            self.logger.print_console(f"{total_bug_number} bug(s) was/were detected in total.")
+            self.logger.print_console(f"The bug report(s) has/have been dumped to {self.result_dir_path}/detect_info.json")
         return
     
     def start_scan(self) -> None:
-        print("Start bug scanning...")
+        self.logger.print_console("Start bug scanning...")
     
         # Process each seed in parallel
         with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
@@ -221,12 +224,12 @@ class BugScanAgent(Agent):
                 try:
                     future.result()
                 except Exception as e:
-                    print("Error processing seed:", e)
+                    self.logger.print_log("Error processing seed:", e)
 
         # Final summary
         total_bug_number = len(self.state.bug_reports)
-        print(f"{total_bug_number} bug(s) was/were detected in total.")
-        print(f"The bug report(s) has/have been dumped to {self.result_dir_path}/detect_info.json")
+        self.logger.print_console(f"{total_bug_number} bug(s) was/were detected in total.")
+        self.logger.print_console(f"The bug report(s) has/have been dumped to {self.result_dir_path}/detect_info.json")
         return
 
     def __process_seed(self, seed_value: Value, is_backward: bool) -> None:
@@ -260,7 +263,7 @@ class BugScanAgent(Agent):
             slice_inliner_output: SliceInlinerOutput = self.slice_inliner.invoke(slice_inliner_input)
 
             if slice_inliner_output is None:
-                print("Slice inliner output is None")
+                self.logger.print_log("Slice inliner output is None")
                 continue
 
             # Detect bugs upon the inlined slices.
@@ -268,7 +271,7 @@ class BugScanAgent(Agent):
             intra_detector_output: SliceBugDetectorOutput = self.intra_detector.invoke(intra_detector_input)
 
             if intra_detector_output is None:
-                print("Intra detector output is None")
+                self.logger.print_log("Intra detector output is None")
                 continue
 
             # Construct the bug report and update the state.

@@ -33,7 +33,7 @@ class SliceScanAgent(Agent):
                  model_name: str,
                  temperature: float,
                  call_depth: int = 1,
-                 max_workers: int = 1
+                 max_workers: int = 1,
                  ) -> None:
         self.seed_values = seed_values
         self.is_backward = is_backward
@@ -54,23 +54,16 @@ class SliceScanAgent(Agent):
         self.log_dir_path = f"{BASE_PATH}/log/slicescan-{self.model_name}/{self.language}-{self.project_name}/{time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())}"
         if not os.path.exists(self.log_dir_path):
             os.makedirs(self.log_dir_path)
+        self.logger = Logger(self.log_dir_path + "/" + "slicescan.log")
 
         self.result_dir_path = f"{BASE_PATH}/result/slicescan-{self.model_name}/{self.language}-{self.project_name}/{time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())}"
         if not os.path.exists(self.result_dir_path):
             os.makedirs(self.result_dir_path)
-
-        # # TODO: For demo testing
-        # if len(self.seed_values) == 0:
-        #     for function_id in self.ts_analyzer.function_env:
-        #         if self.ts_analyzer.function_env[function_id].function_name == "Exec":
-        #             function = self.ts_analyzer.function_env[function_id]
-        #             rets = self.ts_analyzer.get_return_values_in_single_function(function)
-        #             self.seed_values = list(rets)
         
         self.seed_function = self.ts_analyzer.get_function_from_localvalue(self.seed_values[0])
 
         # LLM tool used by SliceScanAgent
-        self.intra_slicer = IntraSlicer(self.model_name, self.temperature, self.language, self.MAX_QUERY_NUM)
+        self.intra_slicer = IntraSlicer(self.model_name, self.temperature, self.language, self.MAX_QUERY_NUM, self.logger)
 
         self.state = SliceScanState(self.seed_function, self.seed_values, self.call_depth, self.is_backward)
         self.worklist_lock = threading.Lock()
@@ -127,7 +120,6 @@ class SliceScanAgent(Agent):
                             delta_worklist.append((new_slice_context, caller_function.function_id, output_value))
 
                 elif ext_val_type == "Argument":
-                    print("04")
                     callee_name = external_variable["callee_name"]
                     index = external_variable["index"]
                     callee_functions = [
@@ -211,7 +203,6 @@ class SliceScanAgent(Agent):
                         for call_site_node in call_sites:
                             file_content = self.ts_analyzer.code_in_files[function.file_path]
                             call_site_lower_line_number = file_content[:call_site_node.start_byte].count("\n") + 1
-                            print("caller->callee: ", function.function_name, "->", callee_function.function_name)
                             
                             new_slice_context = copy.deepcopy(slice_context)
                             context_label = ContextLabel(
@@ -252,8 +243,6 @@ class SliceScanAgent(Agent):
                                 Parenthesis.LEFT_PAR)
                             new_slice_context.add_and_check_context(append_context_label)
 
-                            print("caller->callee: ", caller_function.function_name, "->", function.function_name)
-
                             args = self.ts_analyzer.get_arguments_at_callsite(caller_function, call_site_node)
                             for arg in args:
                                 if arg.index == index:
@@ -286,8 +275,6 @@ class SliceScanAgent(Agent):
                             is_CFL_reachable = new_slice_context.add_and_check_context(context_label)
                             if not is_CFL_reachable:
                                 continue
-
-                            print("caller->callee: ", function.function_name, "->", callee_function.function_name)
                             
                             for para in callee_function.paras:
                                 if para.index == index:
@@ -297,7 +284,7 @@ class SliceScanAgent(Agent):
 
     # TOBE deprecated
     def start_scan_sequential(self) -> None:
-        print("Start slice scanning...")
+        self.logger.print_console("Start slice scanning...")
         worklist: List[Tuple[CallContext, int, Set[Value]]] = [] # The list of (slice_contxt, function_id, set of seed_value)
 
         # Initially, the call stack is empty.
@@ -308,30 +295,20 @@ class SliceScanAgent(Agent):
             if len(worklist) == 0:
                 break
 
-            print("==================================================")
-            print("Peek and analyze one item in worklist...")
-            print("# Remaining items in worklist: ", len(worklist))
-            print("==================================================")
-
             (slice_context, function_id, seed_set) = worklist.pop(0)
             if len(slice_context.context) > self.state.call_depth:
-                print("The call depth is reached. Skip slicing it.")
                 continue
 
             input: IntraSlicerInput = IntraSlicerInput(self.ts_analyzer.function_env[function_id], seed_set, self.is_backward)
             output: IntraSlicerOutput = self.intra_slicer.invoke(input)
 
             if output is None:
-                print("Error: No output from the intra-slicer.")
                 continue
 
             self.state.update_intra_slices_in_state(slice_context, self.ts_analyzer.function_env[function_id], seed_set, output.slice)
 
             # Add more functions to the worklist according to the external variables in the intra-slicing output
             delta_worklist = self.__update_worklist(input, output, slice_context)
-            print("length of delta_worklist: ", len(delta_worklist))
-            print("length of worklist: ", len(worklist))
-
             for (delta_slice_context, delta_function_id, delta_seed_value) in delta_worklist:
                 is_mergeable = False
                 for (worklist_slice_context, worklist_function_id, worklist_seed_set) in worklist:
@@ -355,14 +332,12 @@ class SliceScanAgent(Agent):
 
         # If call depth exceeds allowed limit, skip processing.
         if len(slice_context.context) >= self.state.call_depth:
-            print("The call depth is reached. Skipping slicing for function_id:", function_id)
             return []
 
         input_data = IntraSlicerInput(self.ts_analyzer.function_env[function_id], seed_set, self.is_backward)
         output = self.intra_slicer.invoke(input_data)
 
         if output is None:
-            print("Error: No output from the intra-slicer.")
             return []
 
         self.state.update_intra_slices_in_state(slice_context, self.ts_analyzer.function_env[function_id], seed_set, output.slice)
@@ -371,7 +346,7 @@ class SliceScanAgent(Agent):
         return delta_worklist
 
     def start_scan(self) -> None:
-        print("Start slice scanning in parallel...")
+        self.logger.print_console("Start slice scanning in parallel...")
         # worklist: list of tuples (CallContext, function_id, set of seed values)
         worklist: List[Tuple[CallContext, int, Set[Value]]] = []
         initial_context = CallContext(self.is_backward)
@@ -379,9 +354,6 @@ class SliceScanAgent(Agent):
 
         with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
             while worklist:
-                print("==================================================")
-                print("Current worklist size:", len(worklist))
-                print("==================================================")
                 futures = [executor.submit(self.__process_item, item) for item in worklist]
                 # Clear worklist for the next iteration
                 worklist = []
@@ -390,7 +362,6 @@ class SliceScanAgent(Agent):
                     try:
                         delta_items = future.result()
                     except Exception as e:
-                        print("Error processing an item:", e)
                         continue
 
                     # Protect the merging of new delta items into the worklist.
