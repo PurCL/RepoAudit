@@ -2,10 +2,9 @@
     "model_role_name": "Path Validator",
     "user_role_name": "Path Validator",
     "system_role": "You are a C/C++ programmer and very good at analyzing C/C++ code. Particularly, you are good at understanding the data-flow propagation within several functions.",
-    "task": "You will be provided an interprocedural data-flow path, please determine whether the given path can cause an exception or a bug.",
+    "task": "You will be provided an interprocedural data-flow path, please determine whether the given path is reachable, i.e., the path condition is satisfiable.",
     "analysis_rules": [
       "Here are several tips for you",
-      "- A interprocedural path is consisted by several interprocedural paths from different functions. If all the sub-paths are reachable, then the path is a reachable path and can cause an exception or a bug, and you should answer Yes. Otherwise, you should answer No.",
       "- If the source of the first function and finally reach the sink point in the last function, this path is a reachable path, and thus you should answer Yes.",
       "- If the value of the source point is modified (assigned a different value) or checked for null before reaching the sink point when detecting null pointer dereferences/execeptions, the path is unreachable, and you should answer No.",
       "- If the function exits or returns before reaching the sink point or propagation sites like call sites, the path is unreachable, and you should answer No.",
@@ -13,7 +12,8 @@
       "- Please consider the values of specific variables in the path. If the value does not satisfy any branch condition of the path, the path is unreachable, and thus, you should answer No.",
       "You can first analyze the value of conditions for each sub-path, then check whether the conditions are conflict with each other. Finally, you can determine whether the path is reachable or not."
     ],
-    "question_template": ["When these functions are executed, is it possible that the following propagation path can introduce a <BUG_TYPE> bug?", 
+    "question_template": [
+      "When these functions are executed, is the following propagation path reachable?", 
       "```",
       "<PATH>",
       "```",
@@ -76,11 +76,11 @@
       "5.     return -1;",
       "6. }",
       "```",
-      "When these functions are executed, is it possible that the following propagation path can introduce a Use After Free bug?",
+      "When these functions are executed, is it possible that the following path is reachable?",
       "`free(ptr);` at line 3 in the function `foo` --> `foo(ptr)` at line 2 in the function `goo`",
       "Here are the detailed explanation of this propagation path: ",
       "1. The freed pointer at line 3 in function `foo` can propagate to the caller function through pointer parameter `ptr`",
-      "2. The freed pointer at line 2 in function `goo` is dereferenceed at line 3, causing a Use After Free bug.",
+      "2. The freed pointer at line 2 in function `goo` is dereferenceed at line 3",
       "System:",
       "Explanation: This path consists of 2 sub-paths. The first sub-path is in function `foo`. This sub-path is reachable when condition `access(ptr, R_OK) == -1` and function `foo()` returns -1. The second sub-path is in function `goo`. This sub-path can be executed when condition `foo(ptr) != -1`. The two subpaths' conditions are conflict with each other. Therefore, the path is unreachable.",
       "Answer: No.",
@@ -118,7 +118,7 @@
       "- The line {line_number} is in the true/else branch of the if statement. ",
       "- For the given value of the variable, the true/else branch condition is always evaluated to true/false or may be evaluated to true. ",
       "- Thus, the line {line_number} is reachable/unreachable.",
-      "After analyzing all the lines appearing in the path, its path condition is reachable/unreachable."
+      "After analyzing all the lines appearing in the path, you can determine that its path condition is reachable or unreachable."
     ],
     "answer_format": [
       "(1) In the first line, you can provide the process of the reasoning and give explanations.",

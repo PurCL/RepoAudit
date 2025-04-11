@@ -121,8 +121,8 @@ class SliceInliner(LLMTool):
         match = pattern.search(response)
         if match:
             output = SliceInlinerOutput(match.group(1))
-            self.logger.print_console(f"Inlined result: {output.inlined_snippet}")
+            self.logger.print_log(f"Inlined result: {output.inlined_snippet}")
         else:
-            self.logger.print_console(f"Inline function not found in output")
+            self.logger.print_log(f"Inline function not found in output")
             output = None
         return output

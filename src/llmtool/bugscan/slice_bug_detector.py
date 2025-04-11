@@ -80,8 +80,8 @@ class SliceBugDetector(LLMTool):
         if answer_match:
             answer = answer_match.group(1).strip()
             output = SliceBugDetectorOutput(answer == "Yes", response)
-            self.logger.print_console("Output of intra_detector:\n", str(output))
+            self.logger.print_log("Output of intra_detector:\n", str(output))
         else:
-            self.logger.print_console(f"Answer not found in output")
+            self.logger.print_log(f"Answer not found in output")
             output = None
         return output

@@ -40,7 +40,8 @@ class LLMTool(ABC):
         self.total_query_num = 0
 
     def invoke(self, input: LLMToolInput) -> LLMToolOutput:
-        self.logger.print_log("LLM tool is invoked.")
+        class_name = type(self).__name__
+        self.logger.print_console(f"The LLM Tool {class_name} is invoked.")
         if input in self.cache:
             self.logger.print_log("Cache hit.")
             return self.cache[input]
@@ -55,12 +56,14 @@ class LLMTool(ABC):
                 break
             single_query_num += 1
             response, input_token_cost, output_token_cost = self.model.infer(prompt, True)
+            self.logger.print_log("Response:", "\n", response)
             self.input_token_cost += input_token_cost
             self.output_token_cost += output_token_cost
             output = self._parse_response(response, input)
+            
             if output is not None:
                 break
-        self.logger.print_log("Response:", "\n", response)
+        
 
         self.total_query_num += single_query_num
         if output is not None:
