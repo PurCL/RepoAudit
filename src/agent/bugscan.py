@@ -189,31 +189,6 @@ class BugScanAgent(Agent):
                     # (Key Step II): Inline the slices
                     slice_inliner_output: SliceInlinerOutput = self.slice_inliner.invoke(slice_inliner_input)
 
-<<<<<<< HEAD
-            total_bug_number = len(self.state.bug_reports)
-            print(f"{total_bug_number} bug(s) was/were detected in total.")
-            print(f"The bug report(s) has/have been dumped to {self.result_dir_path}/detect_info.json")
-        return
-    
-    def start_scan(self) -> None:
-        print("Start bug scanning...")
-        
-        for seed_value, is_backward in self.seeds:
-            print(seed_value, is_backward)
-        return
-
-        # Process each seed in parallel
-        with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
-            futures = [
-                executor.submit(self.__process_seed, seed_value, is_backward)
-                for (seed_value, is_backward) in self.seeds
-            ]
-            for future in as_completed(futures):
-                try:
-                    future.result()
-                except Exception as e:
-                    print("Error processing seed:", e)
-=======
                     if slice_inliner_output is None:
                         self.logger.print_log("Slice inliner output is None")
                         continue
@@ -243,7 +218,6 @@ class BugScanAgent(Agent):
 
                 # Update the progress bar
                 pbar.update(1)
->>>>>>> repoaudit-v1.0
 
         # Final summary
         total_bug_number = len(self.state.bug_reports)
