@@ -35,9 +35,9 @@ class MetaScanAgent(Agent):
         log_dir_path = str(
             Path(__file__).resolve().parent.parent.parent / f"result/metascan/{self.language}-{self.project_name}"
         )
-
         if not os.path.exists(log_dir_path):
             os.makedirs(log_dir_path)
+        self.logger = Logger(self.log_dir_path + "/" + "metascan.log")
 
         for function_id in self.ts_analyzer.function_env:
             function_meta_data = {}
@@ -129,10 +129,10 @@ class MetaScanAgent(Agent):
         for callee, callers in self.ts_analyzer.function_caller_api_callee_map.items():
             f2a_call_edge_num += len(callers)
 
-        print("Function Number: ", len(self.state.function_meta_data_dict))
-        print("API Number: ", len(self.ts_analyzer.api_env))
-        print("Function-Function Call Edge Number: ", f2f_call_edge_num)
-        print("Function-API Call Edge Number: ", f2a_call_edge_num)
+        self.logger.print_console("Function Number: ", len(self.state.function_meta_data_dict))
+        self.logger.print_console("API Number: ", len(self.ts_analyzer.api_env))
+        self.logger.print_console("Function-Function Call Edge Number: ", f2f_call_edge_num)
+        self.logger.print_console("Function-API Call Edge Number: ", f2a_call_edge_num)
         return
     
     def get_agent_state(self):

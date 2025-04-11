@@ -2,6 +2,8 @@ import json
 import os
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from pathlib import Path
+from tqdm import tqdm
 
 from agent.agent import *
 
@@ -25,7 +27,8 @@ from memory.semantic.dfb_state import *
 from memory.syntactic.function import *
 from memory.syntactic.value import *
 
-from pathlib import Path
+from ui.logger import *
+
 BASE_PATH = Path(__file__).resolve().parents[2]
 
 
@@ -59,14 +62,15 @@ class DFBScanAgent(Agent):
         self.log_dir_path = f"{BASE_PATH}/log/dfbscan-{self.model_name}/{self.language}-{self.project_name}/{time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())}"
         if not os.path.exists(self.log_dir_path):
             os.makedirs(self.log_dir_path)
+        self.logger = Logger(self.log_dir_path + "/" + "dfbscan.log")
 
         self.result_dir_path = f"{BASE_PATH}/result/dfbscan-{self.model_name}/{self.language}-{self.project_name}/{time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())}"
         if not os.path.exists(self.result_dir_path):
             os.makedirs(self.result_dir_path)
 
         # LLM tools used by DFBScanAgent
-        self.intra_dfa = IntraDataFlowAnalyzer(self.model_name, self.temperature, self.language, self.MAX_QUERY_NUM)
-        self.path_validator = PathValidator(self.model_name, self.temperature, self.language, self.MAX_QUERY_NUM)
+        self.intra_dfa = IntraDataFlowAnalyzer(self.model_name, self.temperature, self.language, self.MAX_QUERY_NUM, self.logger)
+        self.path_validator = PathValidator(self.model_name, self.temperature, self.language, self.MAX_QUERY_NUM, self.logger)
 
         self.src_values, self.sink_values = self.__obtain_extractor().extract_all()
         self.state = DFBState(self.src_values, self.sink_values)
@@ -112,8 +116,6 @@ class DFBScanAgent(Agent):
 
         for value in output.reachable_values[path_index]:
             if value.label == ValueLabel.ARG:
-                print("===================01===================")
-                
                 callee_functions = self.ts_analyzer.get_all_callee_functions(function)
                 for callee_function in callee_functions:
                     is_called = False
@@ -142,7 +144,6 @@ class DFBScanAgent(Agent):
                     
                     for para in callee_function.paras:
                         if para.index == value.index:
-                            print("appned")
                             delta_worklist.append((para, callee_function, new_call_context))
                             self.state.update_external_value_match((value, call_context), set({(para, new_call_context)}))
                     
@@ -150,8 +151,6 @@ class DFBScanAgent(Agent):
                 # Consider side-effect. 
                 # Example: the parameter *p is used in the function: p->f = null; 
                 # We need to consider the side-effect of p.
-                print("===================02===================")
-
                 caller_function = self.ts_analyzer.get_all_caller_functions(function)
                 for caller_function in caller_function:
                     new_call_context = copy.deepcopy(call_context)
@@ -180,15 +179,11 @@ class DFBScanAgent(Agent):
                         args = self.ts_analyzer.get_arguments_at_callsite(caller_function, call_site_node)
                         for arg in args:
                             if arg.index == value.index:
-                                print("appned")
                                 delta_worklist.append((arg, caller_function, new_call_context))
                                 self.state.update_external_value_match((value, call_context), set({(arg, new_call_context)}))
                     
             if value.label == ValueLabel.RET:
-                print("===================03===================")
-
                 caller_functions = self.ts_analyzer.get_all_caller_functions(function)
-                print("The number of caller functions: ", len(caller_functions))
                 for caller_function in caller_functions:
                     new_call_context = copy.deepcopy(call_context)
                     top_unmatched_context_label = new_call_context.get_top_unmatched_context_label()
@@ -214,7 +209,6 @@ class DFBScanAgent(Agent):
                         new_call_context.add_and_check_context(append_context_label)
 
                         output_value = self.ts_analyzer.get_output_value_at_callsite(caller_function, call_site_node)
-                        print("append")
                         delta_worklist.append((output_value, caller_function, new_call_context))
                         self.state.update_external_value_match((value, call_context), set({(output_value, new_call_context)}))
  
@@ -247,114 +241,124 @@ class DFBScanAgent(Agent):
     
     # TOBE deprecated
     def start_scan_sequential(self) -> None:
-        print("Start data-flow bug scanning...")
+        self.logger.print_console("Start data-flow bug scanning...")
 
-        for src_value in self.src_values:
-            worklist = []
-            src_function = self.ts_analyzer.get_function_from_localvalue(src_value)
-            if src_function is None:
-                continue
-            initial_context = CallContext(False)
-        
-            worklist.append((src_value, src_function, initial_context))
-            while len(worklist) > 0:
-                (start_value, start_function, call_context) = worklist.pop(0)
-                if len(call_context.context) >= self.call_depth:
+        # Total number of source values
+        total_src_values = len(self.src_values)
+
+        # Process each source value sequentially with a progress bar
+        with tqdm(total=total_src_values, desc="Processing Source Values", unit="src") as pbar:
+            for src_value in self.src_values:
+                worklist = []
+                src_function = self.ts_analyzer.get_function_from_localvalue(src_value)
+                if src_function is None:
+                    pbar.update(1)
                     continue
 
-                # construct the input for intra-procedural data-flow analysis
-                sinks_in_function = self.__obtain_extractor().extract_sinks(start_function)
-                sink_values = [(sink.name, sink.line_number - start_function.start_line_number + 1) for sink in sinks_in_function]
+                initial_context = CallContext(False)
+                worklist.append((src_value, src_function, initial_context))
 
-                call_statements = []
-                for call_site_node in start_function.function_call_site_nodes:
-                    file_content = self.ts_analyzer.code_in_files[start_function.file_path]
-                    call_site_line_number = file_content[: call_site_node.start_byte].count("\n") + 1
-                    call_site_name = file_content[call_site_node.start_byte: call_site_node.end_byte]
-                    call_statements.append((call_site_name, call_site_line_number))
+                while len(worklist) > 0:
+                    (start_value, start_function, call_context) = worklist.pop(0)
+                    if len(call_context.context) >= self.call_depth:
+                        continue
 
-                ret_values = [(ret.name, ret.line_number - start_function.start_line_number + 1) for ret in start_function.retvals]
-                input = IntraDataFlowAnalyzerInput(start_function, start_value, sink_values, call_statements, ret_values)
-            
-                # invoke the intra-procedural data-flow analysis
-                output = self.intra_dfa.invoke(input)
-                if output is None:
-                    print("The output of intra-procedural data-flow analysis is None.")
-                    continue
+                    # Construct the input for intra-procedural data-flow analysis
+                    sinks_in_function = self.__obtain_extractor().extract_sinks(start_function)
+                    sink_values = [(sink.name, sink.line_number - start_function.start_line_number + 1) for sink in sinks_in_function]
 
-                for path_index in range(len(output.reachable_values)):
-                    reachable_values_in_single_path = set([])
-                    for value in output.reachable_values[path_index]:
-                        reachable_values_in_single_path.add((value, call_context))
-                    self.state.update_reachable_values_per_path((start_value, call_context), reachable_values_in_single_path)
+                    call_statements = []
+                    for call_site_node in start_function.function_call_site_nodes:
+                        file_content = self.ts_analyzer.code_in_files[start_function.file_path]
+                        call_site_line_number = file_content[: call_site_node.start_byte].count("\n") + 1
+                        call_site_name = file_content[call_site_node.start_byte: call_site_node.end_byte]
+                        call_statements.append((call_site_name, call_site_line_number))
 
-                    delta_worklist = self.__update_worklist(input, output, call_context, path_index)
-                    print("delta_worklist: ", len(delta_worklist))
-                    print("worklist: ", len(worklist))
-                    worklist.extend(delta_worklist)
-                    print("new worklist: ", len(worklist))
+                    ret_values = [(ret.name, ret.line_number - start_function.start_line_number + 1) for ret in start_function.retvals]
+                    input = IntraDataFlowAnalyzerInput(start_function, start_value, sink_values, call_statements, ret_values)
 
-            # Output tht reachable values per path
-            self.state.print_reachable_values_per_path()
-            self.state.print_external_value_match()
+                    # Invoke the intra-procedural data-flow analysis
+                    output = self.intra_dfa.invoke(input)
+                    if output is None:
+                        continue
 
-            self.__collect_potential_buggy_paths((src_value, CallContext(False)))
-            self.state.print_potential_buggy_paths()
+                    for path_index in range(len(output.reachable_values)):
+                        reachable_values_in_single_path = set([])
+                        for value in output.reachable_values[path_index]:
+                            reachable_values_in_single_path.add((value, call_context))
+                        self.state.update_reachable_values_per_path((start_value, call_context), reachable_values_in_single_path)
 
-            for buggy_path in self.state.potential_buggy_paths.values():
-                input = PathValidatorInput(buggy_path, {value: self.ts_analyzer.get_function_from_localvalue(value) for value in buggy_path})
-                output: PathValidatorOutput = self.path_validator.invoke(input)
+                        delta_worklist = self.__update_worklist(input, output, call_context, path_index)
+                        worklist.extend(delta_worklist)
 
-                if output is None:
-                    print("The output of path validator is None.")
-                    continue
+                # Output the reachable values per path
+                self.state.print_reachable_values_per_path()
+                self.state.print_external_value_match()
 
-                if output.is_reachable:
-                    relevant_functions = {}
-                    for value in buggy_path:
-                        function = self.ts_analyzer.get_function_from_localvalue(value)
-                        if function is not None:
-                            relevant_functions[function.function_id] = function
+                self.__collect_potential_buggy_paths((src_value, CallContext(False)))
+                self.state.print_potential_buggy_paths()
 
-                    bug_report = BugReport(self.bug_type, src_value, relevant_functions, output.explanation_str)
-                    self.state.update_bug_reports(src_value, bug_report)
-            
-            # Dump bug reports
+                for buggy_path in self.state.potential_buggy_paths.values():
+                    input = PathValidatorInput(buggy_path, {value: self.ts_analyzer.get_function_from_localvalue(value) for value in buggy_path})
+                    output: PathValidatorOutput = self.path_validator.invoke(input)
 
-            self.bug_reports: dict[Value, List[BugReport]] = {}
+                    if output is None:
+                        continue
 
-            bug_report_dict = {
-                str(value): [bug.to_dict() for bug in bug_list]
-                for value, bug_list in self.state.bug_reports.items()
-            }
-            
-            with open(self.result_dir_path + "/detect_info.json", 'w') as bug_info_file:
-                json.dump(bug_report_dict, bug_info_file, indent=4)
+                    if output.is_reachable:
+                        relevant_functions = {}
+                        for value in buggy_path:
+                            function = self.ts_analyzer.get_function_from_localvalue(value)
+                            if function is not None:
+                                relevant_functions[function.function_id] = function
 
-            total_bug_number = sum(len(bug_list) for bug_list in self.state.bug_reports.values())
-            print(f"{total_bug_number} bug(s) was/were detected in total.")
-            print("The bug report(s) has/have been dumped to: ", self.result_dir_path + "/detect_info.json")
-        return
-    
-    def start_scan(self) -> None:
-        print("Start data-flow bug scanning in parallel...")
+                        bug_report = BugReport(self.bug_type, src_value, relevant_functions, output.explanation_str)
+                        self.state.update_bug_reports(src_value, bug_report)
 
-        # Process each source value in parallel
-        with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
-            futures = [
-                executor.submit(self.__process_src_value, src_value)
-                for src_value in self.src_values
-            ]
-            for future in as_completed(futures):
-                try:
-                    future.result()
-                except Exception as e:
-                    print("Error processing source value:", e)
+                # Dump bug reports
+                bug_report_dict = {
+                    str(value): [bug.to_dict() for bug in bug_list]
+                    for value, bug_list in self.state.bug_reports.items()
+                }
+                with open(self.result_dir_path + "/detect_info.json", 'w') as bug_info_file:
+                    json.dump(bug_report_dict, bug_info_file, indent=4)
+
+                # Update the progress bar
+                pbar.update(1)
 
         # Final summary
         total_bug_number = sum(len(bug_list) for bug_list in self.state.bug_reports.values())
-        print(f"{total_bug_number} bug(s) was/were detected in total.")
-        print(f"The bug report(s) has/have been dumped to {self.result_dir_path}/detect_info.json")
+        self.logger.print_console(f"{total_bug_number} bug(s) was/were detected in total.")
+        self.logger.print_console(f"The bug report(s) has/have been dumped to {self.result_dir_path}/detect_info.json")
+        return
+
+    
+    def start_scan(self) -> None:
+        self.logger.print_console("Start data-flow bug scanning in parallel...")
+
+        # Total number of source values
+        total_src_values = len(self.src_values)
+
+        # Process each source value in parallel with a progress bar
+        with tqdm(total=total_src_values, desc="Processing Source Values", unit="src") as pbar:
+            with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
+                futures = [
+                    executor.submit(self.__process_src_value, src_value)
+                    for src_value in self.src_values
+                ]
+                for future in as_completed(futures):
+                    try:
+                        future.result()
+                    except Exception as e:
+                        self.logger.print_log("Error processing source value:", e)
+                    finally:
+                        # Update the progress bar after each source value is processed
+                        pbar.update(1)
+
+        # Final summary
+        total_bug_number = sum(len(bug_list) for bug_list in self.state.bug_reports.values())
+        self.logger.print_console(f"{total_bug_number} bug(s) was/were detected in total.")
+        self.logger.print_console(f"The bug report(s) has/have been dumped to {self.result_dir_path}/detect_info.json")
         return
 
     def __process_src_value(self, src_value: Value) -> None:
@@ -388,7 +392,6 @@ class DFBScanAgent(Agent):
             output = self.intra_dfa.invoke(input)
 
             if output is None:
-                print("The output of intra-procedural data-flow analysis is None.")
                 continue
 
             for path_index in range(len(output.reachable_values)):
@@ -409,7 +412,6 @@ class DFBScanAgent(Agent):
             output: PathValidatorOutput = self.path_validator.invoke(input)
 
             if output is None:
-                print("The output of path validator is None.")
                 continue
 
             if output.is_reachable:

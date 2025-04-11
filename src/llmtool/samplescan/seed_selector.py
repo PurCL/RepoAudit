@@ -35,8 +35,8 @@ class SeedSelectorOutput(LLMToolOutput):
         return output_str
 
 class SeedSelector(LLMTool):
-    def __init__(self, model_name: str, temperature: float, language: str, bug_type: str, max_query_num: int) -> None:
-        super().__init__(model_name, temperature, language, max_query_num)
+    def __init__(self, model_name: str, temperature: float, language: str, bug_type: str, max_query_num: int, logger: Logger) -> None:
+        super().__init__(model_name, temperature, language, max_query_num, logger)
         self.bug_type = bug_type
         self.prompt_file = f"{BASE_PATH}/prompt/{language}/samplecan/{bug_type}_seed_selector.json"
         return
@@ -80,5 +80,5 @@ class SeedSelector(LLMTool):
                     if value.line_number == line_number + input.seed_function.start_line_number - 1:
                         seed_list.append(value)
             output = SeedSelectorOutput(seed_list)
-        print("Output of seed_selector:\n", str(output))
+        self.logger.print_log("Output of seed_selector:\n", str(output))
         return output

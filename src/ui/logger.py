@@ -1,5 +1,7 @@
+import sys
 import logging
 from pathlib import Path
+from typing import Any
 
 class Logger:
     def __init__(self, log_file_path: str, log_level=logging.INFO):
@@ -8,62 +10,64 @@ class Logger:
 
         Args:
             log_file_path (str): Path to the log file.
-            log_level (int): Logging level (e.g., logging.INFO, logging.DEBUG).
+            log_level (int, optional): Logging level, defaults to logging.INFO.
         """
+        # Ensure the log directory exists
         self.log_file_path = Path(log_file_path)
-        self.log_file_path.parent.mkdir(parents=True, exist_ok=True)  # Ensure the directory exists
-
-        # Create a logger
-        self.logger = logging.getLogger("RepoAuditLogger")
+        self.log_file_path.parent.mkdir(parents=True, exist_ok=True)
+        
+        # Create logger instance
+        self.logger = logging.getLogger(f"RepoAuditLogger-{log_file_path}")
         self.logger.setLevel(log_level)
-
-        # Create a formatter
+        
+        # Clear any existing handlers to avoid duplicate output
+        if self.logger.handlers:
+            self.logger.handlers.clear()
+        
+        # Create formatter
         formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
-
-        # Console handler
-        console_handler = logging.StreamHandler()
-        console_handler.setLevel(log_level)
-        console_handler.setFormatter(formatter)
-        self.logger.addHandler(console_handler)
-
+        
         # File handler
-        file_handler = logging.FileHandler(self.log_file_path, mode="a")
+        file_handler = logging.FileHandler(self.log_file_path, mode="a", encoding="utf-8")
         file_handler.setLevel(log_level)
         file_handler.setFormatter(formatter)
         self.logger.addHandler(file_handler)
-
-    def log_to_console(self, message: str, level=logging.INFO):
+        
+        # Console handler (for print_console method)
+        self.console_handler = logging.StreamHandler(sys.stdout)
+        self.console_handler.setLevel(log_level)
+        self.console_handler.setFormatter(formatter)
+        # Not adding console handler immediately, it will be added/removed dynamically as needed
+    
+    def print_log(self, *args: Any) -> None:
         """
-        Log a message to the console only.
-
-        Args:
-            message (str): The message to log.
-            level (int): Logging level (e.g., logging.INFO, logging.DEBUG).
-        """
-        for handler in self.logger.handlers:
-            if isinstance(handler, logging.StreamHandler):
-                handler.setLevel(level)
-        self.logger.log(level, message)
-
-    def log_to_file(self, message: str, level=logging.INFO):
-        """
-        Log a message to the file only.
+        Output messages to log file only.
 
         Args:
-            message (str): The message to log.
-            level (int): Logging level (e.g., logging.INFO, logging.DEBUG).
+            *args: Message parts to be logged, multiple parameters will be merged into a single string.
         """
-        for handler in self.logger.handlers:
-            if isinstance(handler, logging.FileHandler):
-                handler.setLevel(level)
-        self.logger.log(level, message)
-
-    def log(self, message: str, level=logging.INFO):
+        # Ensure console handler is not in logger
+        if self.console_handler in self.logger.handlers:
+            self.logger.removeHandler(self.console_handler)
+        
+        # Merge all arguments into a single message string
+        message = " ".join(map(str, args))
+        self.logger.info(message)
+    
+    def print_console(self, *args: Any) -> None:
         """
-        Log a message to both the console and the file.
+        Output messages to both console and log file.
 
         Args:
-            message (str): The message to log.
-            level (int): Logging level (e.g., logging.INFO, logging.DEBUG).
+            *args: Message parts to be logged, multiple parameters will be merged into a single string.
         """
-        self.logger.log(level, message)
+        # Ensure console handler is in logger
+        if self.console_handler not in self.logger.handlers:
+            self.logger.addHandler(self.console_handler)
+        
+        # Merge all arguments into a single message string
+        message = " ".join(map(str, args))
+        self.logger.info(message)
+        
+        # Remove console handler so messages go only to file by default
+        self.logger.removeHandler(self.console_handler)

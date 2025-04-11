@@ -66,17 +66,21 @@ class SliceInlinerOutput(LLMToolOutput):
         """
         self.inlined_snippet = inlined_snippet
         return
+    
+    def __str__(self):
+        return f"Inlined snippet: {self.inlined_snippet}"
 
 
 class SliceInliner(LLMTool):
-    def __init__(self, model_name: str, temperature: float, language: str, max_query_num: int) -> None:
+    def __init__(self, model_name: str, temperature: float, language: str, max_query_num: int, logger: Logger) -> None:
         """
         :param model_name: the model name
         :param temperature: the temperature
         :param language: the programming language
         :param max_query_num: the maximum number of queries if the model fails
+        :param logger: the logger
         """
-        super().__init__(model_name, temperature, language, max_query_num)
+        super().__init__(model_name, temperature, language, max_query_num, logger)
         self.prompt_file = f"{BASE_PATH}/prompt/{language}/bugscan/slice_inliner.json"
         return
 
@@ -117,7 +121,8 @@ class SliceInliner(LLMTool):
         match = pattern.search(response)
         if match:
             output = SliceInlinerOutput(match.group(1))
+            self.logger.print_log(f"Inlined result: {output.inlined_snippet}")
         else:
-            print(f"Inline function not found in output")
+            self.logger.print_log(f"Inline function not found in output")
             output = None
         return output

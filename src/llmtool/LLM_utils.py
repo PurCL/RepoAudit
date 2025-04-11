@@ -16,6 +16,7 @@ import json
 from botocore.config import Config
 from botocore.exceptions import BotoCoreError, ClientError
 import boto3
+from ui.logger import Logger
 
 
 class LLM:
@@ -30,6 +31,7 @@ class LLM:
     def __init__(
         self, 
         online_model_name: str,
+        logger: Logger,
         temperature: float = 0.0,
         system_role="You are a experienced programmer and good at understanding programs written in mainstream programming languages."
     ) -> None:
@@ -37,13 +39,14 @@ class LLM:
         self.encoding = tiktoken.encoding_for_model("gpt-3.5-turbo-0125") # We only use gpt-3.5 to measure token cost
         self.temperature = temperature
         self.systemRole = system_role
+        self.logger = logger
         return
 
 
     def infer(
         self, message: str, is_measure_cost: bool = False
     ) -> Tuple[str, int, int]:
-        print(self.online_model_name, "is running")
+        self.logger.print_log(self.online_model_name, "is running")
         output = ""
         if "gemini" in self.online_model_name:
             output = self.infer_with_gemini(message)
@@ -77,10 +80,10 @@ class LLM:
             try:
                 return future.result(timeout=timeout)
             except concurrent.futures.TimeoutError:
-                print("Operation timed out")
+                ("Operation timed out")
                 return ""
             except Exception as e:
-                print(f"Operation failed: {e}")
+                self.logger.print_log(f"Operation failed: {e}")
                 return ""
 
 
@@ -112,10 +115,10 @@ class LLM:
             try:
                 output = self.run_with_timeout(call_api, timeout=50)
                 if output:
-                    print("Inference succeeded...")
+                    self.logger.print_log("Inference succeeded...")
                     return output
             except Exception as e:
-                print(f"API error: {e}")
+                self.logger.print_log(f"API error: {e}")
             time.sleep(2)
         
         return ""
@@ -146,7 +149,7 @@ class LLM:
                 if output:
                     return output
             except Exception as e:
-                print(f"API error: {e}")
+                self.logger.print_log(f"API error: {e}")
             time.sleep(2)
         
         return ""
@@ -176,7 +179,7 @@ class LLM:
                 if output:
                     return output
             except Exception as e:
-                print(f"API error: {e}")
+                self.logger.print_log(f"API error: {e}")
             time.sleep(2)
         
         return ""
@@ -212,7 +215,7 @@ class LLM:
                 if output:
                     return output
             except Exception as e:
-                print(f"API error: {e}")
+                self.logger.print_log(f"API error: {e}")
             time.sleep(2)
         
         return ""
@@ -265,7 +268,7 @@ class LLM:
                 if output:
                     return output
             except Exception as e:
-                print(f"API error: {str(e)}")
+                self.logger.print_log(f"API error: {str(e)}")
             time.sleep(2)
         
         return ""

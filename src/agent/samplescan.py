@@ -2,6 +2,8 @@ import json
 import os
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from pathlib import Path
+from tqdm import tqdm
 
 from tstool.analyzer.TS_analyzer import *
 from tstool.analyzer.Cpp_TS_analyzer import *
@@ -31,7 +33,8 @@ from memory.semantic.samplescan_state import *
 from memory.syntactic.function import *
 from memory.syntactic.value import *
 
-from pathlib import Path
+from ui.logger import Logger
+
 BASE_PATH = Path(__file__).resolve().parents[2]
 
 
@@ -114,15 +117,16 @@ class SampleScanAgent(Agent):
         self.log_dir_path = f"{BASE_PATH}/log/samplescan-{self.slicing_model}/{self.language}-{self.project_name}/{time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())}"
         if not os.path.exists(self.log_dir_path):
             os.makedirs(self.log_dir_path)
+        self.logger = Logger(self.log_dir_path + "/" + "samplescan.log")
 
         self.result_dir_path = f"{BASE_PATH}/result/samplescan-{self.slicing_model}/{self.language}-{self.project_name}/{time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())}"
         if not os.path.exists(self.result_dir_path):
             os.makedirs(self.result_dir_path)
 
         # LLM tools used by SampleScanAgent
-        self.seed_selector = SeedSelector(self.seed_selection_model, self.temperature, self.language, self.bug_type, self.MAX_QUERY_NUM)
-        self.slice_inliner = SliceInliner(self.inlining_model, self.temperature, self.language, self.MAX_QUERY_NUM)
-        self.intra_detector = IntraFunctionDetector(self.bug_type, self.function_detection_model, self.temperature, self.language, self.MAX_QUERY_NUM)
+        self.seed_selector = SeedSelector(self.seed_selection_model, self.temperature, self.language, self.bug_type, self.MAX_QUERY_NUM, self.logger)
+        self.slice_inliner = SliceInliner(self.inlining_model, self.temperature, self.language, self.MAX_QUERY_NUM, self.logger)
+        self.intra_detector = IntraFunctionDetector(self.bug_type, self.function_detection_model, self.temperature, self.language, self.MAX_QUERY_NUM, self.logger)
 
         # LLM Agent instances created by SampleScanAgent
         self.SliceScanAgent: List[SliceScanAgent] = []
@@ -162,7 +166,7 @@ class SampleScanAgent(Agent):
     def __retrieve_slice_inliner_inputs(self, slicescan_state: SliceScanState) -> List[SliceInlinerInput]:
         inputs = []
 
-        print("start to retrieve slice inliner inputs")
+        self.logger.print_console("Start to retrieve slice inliner inputs")
 
         root_function_ids = []
         for relevant_function_id in slicescan_state.relevant_functions:
@@ -211,7 +215,7 @@ class SampleScanAgent(Agent):
 
     # TOBE deprecated
     def start_scan_squential(self) -> None:
-        print("Start bug scanning...")
+        self.logger.print_console("Start bug scanning...")
     
         # (Key Step I): Intra-procedural seed selection
         initial_seeds_in_functions = {}
@@ -230,7 +234,6 @@ class SampleScanAgent(Agent):
             output = self.seed_selector.invoke(input)
 
             if output is None:
-                print("No seed selected.")
                 continue
 
             for output_seed_value in output.seed_list:
@@ -275,12 +278,12 @@ class SampleScanAgent(Agent):
             slice_inliner_inputs: List[SliceInlinerInput] = self.__retrieve_slice_inliner_inputs(slice_scan_state)
 
             # Inline each instance to obtain the abstraction of buggy code snippets (consisting of slices in the relevant functions)
-            for slice_inliner_input in slice_inliner_inputs:
+            for slice_inliner_input in tqdm(slice_inliner_inputs, desc="Processing Slices", unit="slice"):
                 # (Key Step III): Inline the slices
                 slice_inliner_output: SliceInlinerOutput = self.slice_inliner.invoke(slice_inliner_input)
 
                 if slice_inliner_output is None:
-                    print("No slice inlined.")
+                    self.logger.print_console("Error: No slice inlined.")
                     continue
 
                 # (Key Step IV): Detect the bugs upon the inlined slices
@@ -288,34 +291,35 @@ class SampleScanAgent(Agent):
                 intra_function_detector_output: FunctionBugDetectorOutput = self.intra_detector.invoke(intra_function_detector_input)
 
                 if intra_function_detector_output is None:
-                    print("No bug detected.")
                     continue
 
                 # Construct the bug report and update the state
-                explanation = "Call tree: \n" + slice_inliner_input.tree_str + "\n" \
-                                + "After the abstraction, we have the following code snippet:\n" \
-                                + slice_inliner_output.inlined_snippet + "\n" \
-                                + intra_function_detector_output.explanation_str
+                explanation = (
+                    "Call tree: \n" + slice_inliner_input.tree_str + "\n"
+                    + "After the abstraction, we have the following code snippet:\n"
+                    + slice_inliner_output.inlined_snippet + "\n"
+                    + intra_function_detector_output.explanation_str
+                )
                 bug_report = BugReport(self.bug_type, seed_value, slice_inliner_input.relevant_functions, explanation)
                 self.state.update_bug_report(seed_value, bug_report)
 
             # Dump bug reports
             with open(self.result_dir_path + "/detect_info.json", 'w') as bug_info_file:
                 json.dump(self.state.bug_report_lines, bug_info_file, indent=4)
-            print(f"{len(self.state.bug_report_lines)} bug(s) was/were detected in total.")
-            print(f"The bug report(s) has/have been dumped to {self.result_dir_path}/detect_info.json")
+            self.logger.print_console(f"{len(self.state.bug_report_lines)} bug(s) was/were detected in total.")
+            self.logger.print_console(f"The bug report(s) has/have been dumped to {self.result_dir_path}/detect_info.json")
         return
     
 
     def start_scan(self) -> None:
-        print("==================================")
-        print("Start bug scanning in parallel...")
-        print("==================================\n")
+        self.logger.print_console("==================================")
+        self.logger.print_console("Start bug scanning in parallel...")
+        self.logger.print_console("==================================\n")
 
         # (Key Step I): Intra-procedural seed selection
-        print("---------------------------------------------------")
-        print("Step I: Start intra-procedural seed selection...")
-        print("---------------------------------------------------\n")
+        self.logger.print_console("---------------------------------------------------")
+        self.logger.print_console("Step I: Start intra-procedural seed selection...")
+        self.logger.print_console("---------------------------------------------------\n")
         initial_seeds_in_functions = {}
         for (seed_value, is_backward) in self.initial_seeds:
             seed_function = self.ts_analyzer.get_function_from_localvalue(seed_value)
@@ -332,7 +336,6 @@ class SampleScanAgent(Agent):
             output = self.seed_selector.invoke(input)
 
             if output is None:
-                print("No seed selected.")
                 continue
 
             for output_seed_value in output.seed_list:
@@ -350,25 +353,29 @@ class SampleScanAgent(Agent):
             seed_log_file.write("Target seed:\n")
             seed_log_file.write(target_seed_value_str + "\n")
 
-        print("---------------------------------------------------")
-        print("Step II: Start to analyze each seed in parallel...")
-        print("---------------------------------------------------\n")
+        # Process each seed in parallel with a progress bar
+        total_seeds = len(self.sampled_seeds)
+        processed_seeds = 0
 
-        # Process each seed in parallel
-        with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
-            futures = [
-                executor.submit(self.__process_seed_parallel, seed_value, is_backward)
-                for (seed_value, is_backward) in self.sampled_seeds
-            ]
-            for future in as_completed(futures):
-                try:
-                    future.result()
-                except Exception as e:
-                    print("Error processing seed:", e)
+        with tqdm(total=total_seeds, desc="Processing Seeds", unit="seed") as pbar:
+            with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
+                futures = [
+                    executor.submit(self.__process_seed_parallel, seed_value, is_backward)
+                    for (seed_value, is_backward) in self.sampled_seeds
+                ]
+                for future in as_completed(futures):
+                    try:
+                        future.result()
+                    except Exception as e:
+                        self.logger.print_console("Error processing seed:", e)
+                    finally:
+                        processed_seeds += 1
+                        pbar.update(1)  # Update the progress bar
+
 
         # Final summary
-        print(f"{len(self.state.bug_report_lines)} bug(s) was/were detected in total.")
-        print(f"The bug report(s) has/have been dumped to {self.result_dir_path}/detect_info.json")
+        self.logger.print_console(f"{len(self.state.bug_report_lines)} bug(s) was/were detected in total.")
+        self.logger.print_console(f"The bug report(s) has/have been dumped to {self.result_dir_path}/detect_info.json")
         return
     
 
@@ -385,10 +392,10 @@ class SampleScanAgent(Agent):
         if seed_function is None:
             return
         
-        print("---------------------------------------------------")
-        print("Step II: Start the inter-procedural slicing...")
-        print("Value info: ", str(seed_value))
-        print("---------------------------------------------------\n")
+        self.logger.print_console("---------------------------------------------------")
+        self.logger.print_console("Step II: Start the inter-procedural slicing...")
+        self.logger.print_console("Value info: ", str(seed_value))
+        self.logger.print_console("---------------------------------------------------\n")
 
         # (Key Step II): Start a slicescan agent for the seed
         slice_scan_agent = SliceScanAgent(
@@ -410,36 +417,35 @@ class SampleScanAgent(Agent):
         # Obtain all the inliner instances
         slice_inliner_inputs: List[SliceInlinerInput] = self.__retrieve_slice_inliner_inputs(slice_scan_state)
 
-        print("---------------------------------------------------")
-        print("Step III & IV: Start the detection upon inlined slice...")
-        print("Value info: ", str(seed_value))
-        print("slice number: ", len(slice_inliner_inputs))
-        print("---------------------------------------------------\n")
+        self.logger.print_console("---------------------------------------------------")
+        self.logger.print_console("Step III & IV: Start the detection upon inlined slice...")
+        self.logger.print_console("Value info: ", str(seed_value))
+        self.logger.print_console("slice number: ", len(slice_inliner_inputs))
+        self.logger.print_console("---------------------------------------------------\n")
 
         # Inline each instance to obtain the abstraction of buggy code snippets
         cnt = 0
         for slice_inliner_input in slice_inliner_inputs:
-            print("---------------------------------------------------")
-            print("Step III: Start the inlining...", f"{cnt + 1}/{len(slice_inliner_inputs)}")
-            print("---------------------------------------------------\n")
+            self.logger.print_console("---------------------------------------------------")
+            self.logger.print_console("Step III: Start the inlining...", f"{cnt + 1}/{len(slice_inliner_inputs)}")
+            self.logger.print_console("---------------------------------------------------\n")
 
             # (Key Step III): Inline the slices
             slice_inliner_output: SliceInlinerOutput = self.slice_inliner.invoke(slice_inliner_input)
 
             if slice_inliner_output is None:
-                print("Error: No slice inlined.")
+                self.logger.print_console("Error: No slice inlined.")
                 continue
 
-            print("---------------------------------------------------")
-            print("Step IV: Start the detection...", f"{cnt + 1}/{len(slice_inliner_inputs)}")
-            print("---------------------------------------------------\n")
+            self.logger.print_console("---------------------------------------------------")
+            self.logger.print_console("Step IV: Start the detection...", f"{cnt + 1}/{len(slice_inliner_inputs)}")
+            self.logger.print_console("---------------------------------------------------\n")
 
             # (Key Step IV): Detect the bugs upon the inlined slices
             intra_function_detector_input = FunctionBugDetectorInput(slice_inliner_output.inlined_snippet)
             intra_function_detector_output: FunctionBugDetectorOutput = self.intra_detector.invoke(intra_function_detector_input)
 
             if intra_function_detector_output is None:
-                print("Error: No bug detected.")
                 continue
 
             # Construct the bug report and update the state

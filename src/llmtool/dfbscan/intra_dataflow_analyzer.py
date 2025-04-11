@@ -44,14 +44,15 @@ class IntraDataFlowAnalyzerOutput(LLMToolOutput):
 
 
 class IntraDataFlowAnalyzer(LLMTool):
-    def __init__(self, model_name: str, temperature: float, language: str, max_query_num: int) -> None:
+    def __init__(self, model_name: str, temperature: float, language: str, max_query_num: int, logger: Logger) -> None:
         """
         :param model_name: the model name
         :param temperature: the temperature
         :param language: the programming language
         :param max_query_num: the maximum number of queries if the model fails
+        :param logger: the logger
         """
-        super().__init__(model_name, temperature, language, max_query_num)
+        super().__init__(model_name, temperature, language, max_query_num, logger)
         self.prompt_file = f"{BASE_PATH}/prompt/{language}/dfbscan/intra_dataflow_analyzer.json"
         return
 
@@ -90,34 +91,35 @@ class IntraDataFlowAnalyzer(LLMTool):
     def _parse_response(self, response: str, input: IntraDataFlowAnalyzerInput) -> IntraDataFlowAnalyzerOutput:
         """
         Parse the LLM response to extract all execution paths and their propagation details.
-        
-        Expected response format for each path:
-        
-        - Path <Path Number>: <Execution Path>.
-            - Type: <type>; Name: <name>; Function: <function>; Index: <index>; Line: <line>; Dependency: <dependency>
-            - (optionally, multiple propagation details per path)
-        
+
+        Args:
+            response (str): The response string from the LLM.
+            input (IntraDataFlowAnalyzerInput): The input object containing function details.
+
         Returns:
-            The output of the intra-procedural data-flow analyzer that contains a list of reachable values
+            IntraDataFlowAnalyzerOutput: The output containing reachable values for each path.
         """
         paths = []
-        
-        # Regex to match a path header line, e.g.,
-        # "- Path 0: Single execution path through lines 1 → 2 → 3."
-        path_header_re = re.compile(r"^- Path\s+(\d+):\s*(.+?)[\.;]$")
+
+        # Regex to match a path header line, e.g., "- Path 1: Lines 2 -> 3;"
+        path_header_re = re.compile(r"Path\s+(\d+):\s*(.+?);$")
         
         # Regex to match a propagation detail line, e.g.,
-        # "    - Type: Return; Name: null; Function: None; Index: 0; Line: 3; Dependency: SRC (null) is directly returned ... "
+        # "  - Type: Return; Name: getNullObject(); Function: None; Index: 0; Line: 3; Dependency: ..."
         detail_re = re.compile(
-            r"^\s*-\s*Type:\s*([^;]+);\s*Name:\s*([^;]+);\s*Function:\s*([^;]+);\s*Index:\s*([^;]+);\s*Line:\s*([^;]+);\s*Dependency:\s*(.+)$"
+            r"Type:\s*([^;]+);\s*"
+            r"Name:\s*([^;]+);\s*"
+            r"Function:\s*([^;]+);\s*"
+            r"Index:\s*([^;]+);\s*"
+            r"Line:\s*([^;]+);"
         )
-        
+
         current_path = None
         for line in response.splitlines():
-            line = line.strip("\n")
-            if not line.strip():
+            line = line.strip().lstrip("-").strip()
+            if not line:
                 continue
-                
+
             # Check for path header
             header_match = path_header_re.match(line)
             if header_match:
@@ -129,7 +131,7 @@ class IntraDataFlowAnalyzer(LLMTool):
                     "propagation_details": []
                 }
             else:
-                # Check for propagation detail line (should be indented)
+                # Check for propagation detail line
                 detail_match = detail_re.match(line)
                 if detail_match and current_path is not None:
                     detail = {
@@ -137,33 +139,36 @@ class IntraDataFlowAnalyzer(LLMTool):
                         "name": detail_match.group(2).strip(),
                         "function": detail_match.group(3).strip(),
                         "index": detail_match.group(4).strip(),
-                        "line": detail_match.group(5).strip(),
-                        "dependency": detail_match.group(6).strip()
+                        "line": detail_match.group(5).strip()
                     }
                     current_path["propagation_details"].append(detail)
-        
-        # Append last path if not yet added
+            
+                elif current_path is not None:
+                    paths.append(current_path)
+                    current_path = None
+
         if current_path:
             paths.append(current_path)
 
+        # Process paths to extract reachable values
         reachable_values = []
         file_path = input.function.file_path
         start_line_number = input.function.start_line_number
 
         for single_path in paths:
-            reachable_values_per_path = set([])
+            reachable_values_per_path = set()
             for detail in single_path["propagation_details"]:
-                
+                line_number = int(detail["line"]) + start_line_number - 1
                 if detail["type"] == "Argument":
-                    reachable_values_per_path.add(Value(detail["name"], int(detail["line"]) + start_line_number - 1, ValueLabel.ARG, file_path, int(detail["index"])))
-                if detail["type"] == "Parameter":
-                    reachable_values_per_path.add(Value(detail["name"], int(detail["line"]) + start_line_number - 1, ValueLabel.PARA, file_path, int(detail["index"])))
-                if detail["type"] == "Return":
-                    reachable_values_per_path.add(Value(detail["name"], int(detail["line"]) + start_line_number - 1, ValueLabel.RET, file_path, int(detail["index"])))
-                if detail["type"] == "Sink":
-                    reachable_values_per_path.add(Value(detail["name"], int(detail["line"]) + start_line_number - 1, ValueLabel.SINK, file_path))
+                    reachable_values_per_path.add(Value(detail["name"], line_number, ValueLabel.ARG, file_path, int(detail["index"])))
+                elif detail["type"] == "Parameter":
+                    reachable_values_per_path.add(Value(detail["name"], line_number, ValueLabel.PARA, file_path, int(detail["index"])))
+                elif detail["type"] == "Return":
+                    reachable_values_per_path.add(Value(detail["name"], line_number, ValueLabel.RET, file_path, int(detail["index"])))
+                elif detail["type"] == "Sink":
+                    reachable_values_per_path.add(Value(detail["name"], line_number, ValueLabel.SINK, file_path))
             reachable_values.append(reachable_values_per_path)
 
         output = IntraDataFlowAnalyzerOutput(reachable_values)
-        print("Output of intra_dfa:\n", str(output))
+        self.logger.print_log("Output of intra-procedural data-flow analyzer:", output.reachable_values)
         return output

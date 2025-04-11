@@ -102,8 +102,8 @@ class IntraSlicerOutput(LLMToolOutput):
 
 
 class IntraSlicer(LLMTool):
-    def __init__(self, model_name: str, temperature: float, language: str, max_query_num: int) -> None:
-        super().__init__(model_name, temperature, language, max_query_num)
+    def __init__(self, model_name: str, temperature: float, language: str, max_query_num: int, logger: Logger) -> None:
+        super().__init__(model_name, temperature, language, max_query_num, logger)
         self.backward_prompt_file = f"{BASE_PATH}/prompt/{language}/slicescan/backward_slicer.json"
         self.forward_prompt_file = f"{BASE_PATH}/prompt/{language}/slicescan/forward_slicer.json"
         return
@@ -147,7 +147,7 @@ class IntraSlicer(LLMTool):
             output_slice = slice_match.group(1).strip()
         else:
             format_error = "Slice not found"
-            print(f"Format error: {format_error}")
+            self.logger.print_log(f"Format error: {format_error}")
             return None
 
         output_ext_values = []
@@ -177,5 +177,5 @@ class IntraSlicer(LLMTool):
                         ext_value["index"] = None
                 output_ext_values.append(ext_value)
         output = IntraSlicerOutput(output_slice, output_ext_values)
-        print("Output of intra_slicer:\n", str(output))
+        self.logger.print_log("Output of intra_slicer:\n", str(output))
         return output
