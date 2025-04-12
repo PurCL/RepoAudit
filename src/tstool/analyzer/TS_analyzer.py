@@ -100,7 +100,7 @@ class CallContext:
         """
         Convert the context to a string representation.
         """
-        return f"{self.is_backward}" + "\n" + " - ".join([str(label) + "\n" for label in self.context])
+        return f"{self.is_backward}" + " -> ".join([str(label) for label in self.context])
     
     def __eq__(self, other: 'CallContext') -> bool:
         return self.__str__() == other.__str__()

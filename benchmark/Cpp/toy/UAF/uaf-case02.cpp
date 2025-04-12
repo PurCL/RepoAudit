@@ -11,7 +11,7 @@ void processData(bool shouldFree, char* buffer) {
         buffer[0] = 'A';
         
         if (shouldFree) {
-            delete[] buffer;
+            free(buffer);
             std::cout << "Memory freed" << std::endl;
         }
     }

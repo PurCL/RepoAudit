@@ -10,7 +10,8 @@ from memory.syntactic.api import *
 BASE_PATH = Path(__file__).resolve().parent.parent.parent
 
 class PathValidatorInput(LLMToolInput):
-    def __init__(self, values: List[Value], values_to_functions: Dict[Value, Function]) -> None:
+    def __init__(self, bug_type: str, values: List[Value], values_to_functions: Dict[Value, Function]) -> None:
+        self.bug_type = bug_type
         self.values = values
         self.values_to_functions = values_to_functions
         return
@@ -60,6 +61,7 @@ class PathValidator(LLMTool):
             value_line += " in the function " + function.function_name + " at the line " + str(value.line_number - function.start_line_number + 1)
             value_lines.append(value_line)
         prompt = prompt.replace("<PATH>", "\n".join(value_lines))
+        prompt = prompt.replace("<BUG_TYPE>", input.bug_type)
 
         program = "\n".join(["```\n" + func.lined_code + "\n```\n" for func in input.values_to_functions.values()])
         prompt = prompt.replace("<PROGRAM>", program)

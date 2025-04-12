@@ -23,7 +23,7 @@ void processData(int size) {
     }
     
     std::cout << "Data processed successfully" << std::endl;
-    delete[] data;
+    free(data);
 }
 
 int main() {

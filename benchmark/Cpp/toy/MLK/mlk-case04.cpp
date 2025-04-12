@@ -22,7 +22,7 @@ void handleData(const std::string& data) {
     
     if (success) {
         std::cout << "Processing completed successfully" << std::endl;
-        delete[] buffer;
+        free(buffer);
     }
 }
 

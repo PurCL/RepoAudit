@@ -196,8 +196,6 @@ class RepoAudit:
                 err_messages.append("Error: --model-name is required for dfbscan.")
             if not self.args.bug_type:
                 err_messages.append("Error: --bug -type is required for dfbscan.")
-            if not self.args.is_reachable:
-                err_messages.append("Error: --is-reachable is required for dfbscan.")
             if self.args.bug_type not in default_dfbscan_checkers[self.args.language]:
                 err_messages.append("Error: Invalid bug type provided.")
         elif self.args.scan_type == "samplescan":
