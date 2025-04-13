@@ -302,7 +302,7 @@ class SampleScanAgent(Agent):
                         + intra_function_detector_output.explanation_str
                     )
                     bug_report = BugReport(self.bug_type, seed_value, slice_inliner_input.relevant_functions, explanation)
-                    self.state.update_state(bug_report)
+                    self.state.update_bug_report(seed_value, bug_report)
 
             # Dump bug reports
             with open(self.result_dir_path + "/detect_info.json", 'w') as bug_info_file:
@@ -464,7 +464,6 @@ class SampleScanAgent(Agent):
                     + intra_function_detector_output.explanation_str
                 )
                 bug_report = BugReport(self.bug_type, seed_value, slice_inliner_input.relevant_functions, explanation)
-                self.state.update_state(bug_report)
             
             # Write to detect_info.json for the current seed. Use lock to protect the file during writes
             with self.file_lock:
