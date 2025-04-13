@@ -14,7 +14,7 @@
   ],
   "meta_prompts": [
      "Here is the list of functions: \n```\n<FUNCTION>\n``` \n\n",
-     "Please inline these functions into one function",
+     "Please inline these functions into one function.",
      "Your answer should follow the following format: \n<ANSWER>\n",
      "During the inlining process, you should also inline the global variables.",
      "Attention: When you inline functions, do not fix any bugs in original functions even if you find any."

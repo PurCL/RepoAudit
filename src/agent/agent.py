@@ -1,6 +1,7 @@
 from memory.semantic.state import State
 from abc import ABC, abstractmethod
 from typing import Dict
+from typing import List, Optional
 
 
 class Agent(ABC):

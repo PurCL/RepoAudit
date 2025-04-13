@@ -32,7 +32,7 @@ void conditionalDelete(Resource* res) {
     std::cout << "Value: " << value << std::endl;
     
     if (value % 2 == 0) {
-        delete res;
+        free(res);
     }
 }
 

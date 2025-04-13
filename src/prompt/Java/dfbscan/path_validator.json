@@ -1,23 +1,23 @@
 {
   "model_role_name": "Path Validator",
   "user_role_name": "Path Validator",
-  "system_role": "You are a Java programmer and very good at analyzing Java code. Particularly, you are skilled at understanding data-flow propagation across multiple methods.",
-  "task": "You will be provided an interprocedural data-flow path, please determine whether the given path is reachable, i.e., the path condition is satisfiable.",
+  "system_role": "You are a Java programmer and very good at analyzing Java code. In particular, you are skilled at understanding how data flows across multiple methods.",
+  "task": "You will be provided with an interprocedural data-flow path along with a specified <BUG_TYPE>. Your task is to decide whether the given propagation path is reachable – that is, whether its path condition is satisfiable. For example, for NPD detection, if the dereferenced object is guarded by a branch condition such as 'p != null', then the path should be deemed unreachable.",
   "analysis_rules": [
-    "Here are several tips for you",
-    "- If the source of the first function and finally reach the sink point in the last function, this path is a reachable path, and thus you should answer Yes.",
-    "- If the value of the source point is modified (assigned a different value) or checked for null before reaching the sink point when detecting null pointer dereferences/execeptions, the path is unreachable, and you should answer No.",
-    "- If the function exits or returns before reaching the sink point or propagation sites like call sites, the path is unreachable, and you should answer No.",
-    "- Pay attention to conditions. For each sub-path in a function, you should infer the value of the condition based on the branch information and keep them in the memory. Finally, you should check whether the conditions of each sub-path are conflict with each otehr. If so, the path is unreachable and you should answer No.",
-    "- Please consider the values of specific variables in the path. If the value does not satisfy any branch condition of the path, the path is unreachable, and thus, you should answer No.",
-    "You can first analyze the value of conditions for each sub-path, then check whether the conditions are conflict with each other. Finally, you can determine whether the path is reachable or not."
+    "Keep the following guidelines in mind:",
+    "- If the source in the first method flows to the sink in the last method without any interference, then the path is reachable and your answer should be Yes.",
+    "- For NPD detection, if the source value is modified or its null state is verified (for example, via an explicit check like 'p != null') before reaching the sink, then the path is unreachable and you should answer No.",
+    "- If a method exits or returns before the sink or other propagation sites (such as method calls) are reached, the path is unreachable; answer No in such cases.",
+    "- Analyze conditions within each method: infer the outcome of branch statements and then verify whether the conditions across different sub-paths conflict. If conflicts exist, the overall path is unreachable.",
+    "- Consider the values of relevant variables; if those values contradict the necessary branch conditions for triggering the bug, the path is unreachable and you should answer No.",
+    "In summary, assess the conditions in every sub-path, check for conflicts, and decide whether the entire propagation path is reachable."
   ],
   "question_template": [
-    "When these functions are executed, is the following propagation path reachable?", 
+    "When these methods are executed, is the following data-flow propagation path reachable for BUG_TYPE?",
     "```",
     "<PATH>",
     "```",
-    "Here are the detailed explanation of this propagation path:",
+    "Provide your detailed explanation for this propagation path:",
     "<EXPLANATION>",
     ""
   ],
@@ -39,7 +39,7 @@
     "}",
     "```",
     "Propagation Path: 'array' at line 2 in getArray --> 'array' used at line 2 in getElement",
-    "Explanation: In getArray, if length <= 0, array remains null and is returned. In getElement, if array is null then accessing array[index] will cause a NullPointerException. However, if length > 0, array is non-null. The conditions conflict if length must be both <= 0 and > 0 to occur simultaneously. Therefore, the path is unreachable.",
+    "Explanation: In getArray, if length <= 0, array remains null and is returned. In getElement, a null array would trigger a NullPointerException when accessed at line 2. However, when length > 0, the array is non-null. Since the conditions for array being null and non-null conflict, this propagation path is unreachable.",
     "Answer: No",
     "",
     "Example 2:",
@@ -58,28 +58,34 @@
     "    myObj.toString();",
     "}",
     "```",
-    "Propagation Path: 'obj' at parameter in foo --> returned by foo --> used in bar causing a method call on null",
-    "Explanation: The method foo returns null when the input is null. In bar, null is assigned to myObj, which then leads to a method call on a null reference, causing a NullPointerException. Since there is no conflicting condition, the propagation path is reachable.",
+    "Propagation Path: Parameter 'obj' in foo --> foo returns null --> myObj assigned null in bar, which then gets dereferenced causing a method call on null",
+    "Explanation: The method foo returns null when passed a null input. In bar, this leads to myObj being null, which in turn causes a NullPointerException when calling toString(). As there is no conflicting branch condition preventing this case, the propagation path is reachable.",
     "Answer: Yes"
   ],
   "additional_fact": [
-    "I may also provide you several important facts about the lines appearing in the path, including whether they are in if-statements and the line numbers of the if-conditions. For each line appearing in the provided path, you can reason this problem step by step according to the following paradigm: ",
-    "- The line {line_number} is in the true/else branch of the if statement. ",
-    "- For the given value of the variable, the true/else branch condition is always evaluated to true/false or may be evaluated to true. ",
-    "- Thus, the line {line_number} is reachable/unreachable.",
-    "After analyzing all the lines appearing in the path, you can determine that its path condition is reachable or unreachable."
+    "Additional details may include whether specific lines fall within if-statements and the corresponding line numbers for those conditions.",
+    "For each line in the provided path, follow this reasoning:",
+    "- Indicate whether line {line_number} is inside the 'true' or 'else' branch of an if-statement.",
+    "- State whether, given the variable values, the branch condition will always be evaluated as true, always as false, or is indeterminate.",
+    "- Conclude whether line {line_number} is reachable.",
+    "After analyzing each line, decide if the overall path's condition is satisfiable (reachable) or not."
   ],
   "answer_format": [
-    "(1) In the first line, you can provide the process of the reasoning and give explanations.",
-    "(2) The second line should be a just one word, i.e., Yes or No.",
-    "Here is an example answer if you need to answer a question:",
-    "Explanation: {Your Explanation.}",
+    "(1) In the first line, provide your detailed reasoning and explanation.",
+    "(2) In the second line, simply state Yes or No.",
+    "Example:",
+    "Explanation: {Your detailed explanation.}",
     "Answer: Yes"
   ],
   "meta_prompts": [
-     "Now I will give you the program as follows: \n```\n<PROGRAM>\n``` \n",
-     "Please Answer the following questions:\n<QUESTION>\n",
-     "Your answer should follow the following format: \n<ANSWER>\n",
-     "Lastly, I want to emphasize that you should not assume the bahavior and return values of external functions that are not provided. You only need to consider the conditions in the given functions.\n"
+    "Now I will provide you with the program:",
+    "```",
+    "<PROGRAM>",
+    "```",
+    "Please answer the following question:",
+    "<QUESTION>",
+    "Your answer should follow this format:",
+    "<ANSWER>",
+    "Remember: Do not assume the behavior or return values of external methods not provided in the program. Only evaluate the conditions present in the given code."
   ]
 }

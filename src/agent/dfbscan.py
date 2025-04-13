@@ -220,23 +220,56 @@ class DFBScanAgent(Agent):
     def __collect_potential_buggy_paths(self, 
                                         current_value_with_context: Tuple[Value, CallContext],
                                         path_with_unknown_status: List[Value] = []) -> None:
-        (current_value, call_context) = current_value_with_context
-        if current_value_with_context not in self.state.reachable_values_per_path:
-            if not self.is_reachable:
-                self.state.update_potential_buggy_paths(path_with_unknown_status)
-            return
+        """
+        Recursively collect potential buggy paths based on the propagation details.
         
-        reachable_values_paths: List[Set[Tuple[Value, CallContext]]] = self.state.reachable_values_per_path[current_value_with_context]
-        for i in range(len(reachable_values_paths)):
-            for (value, ctx) in reachable_values_paths[i]:
-                if value.label == ValueLabel.SINK:
-                    # source must not reach sink, e.g., null pointer dereference
-                    if self.is_reachable:
-                        self.state.update_potential_buggy_paths(path_with_unknown_status + [value])
-                elif value.label in {ValueLabel.PARA, ValueLabel.RET, ValueLabel.ARG, ValueLabel.OUT}:
-                    if (value, ctx) in self.state.external_value_match:
-                        for (value_next, ctx_next) in self.state.external_value_match[(value, ctx)]:
-                            self.__collect_potential_buggy_paths((value_next, ctx_next), path_with_unknown_status + [value, value_next])
+        This function updates the state with buggy paths if the propagation from the source
+        meets the criteria based on the bug type (reachability). If the current_value_with_context
+        is neither in reachable values nor in external value matches, it returns immediately.
+        
+        Args:
+            current_value_with_context (Tuple[Value, CallContext]): 
+                The current value along with its call context.
+            path_with_unknown_status (List[Value], optional): 
+                The propagation path accumulated so far.
+        """
+        # If no propagation information exists for the current value, stop further processing.
+        if (current_value_with_context not in self.state.reachable_values_per_path and 
+            current_value_with_context not in self.state.external_value_match):
+            return
+
+        # Process if the current value has reachable paths.
+        if current_value_with_context in self.state.reachable_values_per_path:
+            reachable_values_paths: List[Set[Tuple[Value, CallContext]]] = \
+                self.state.reachable_values_per_path[current_value_with_context]
+            for path_set in reachable_values_paths:
+                if not path_set:
+                    # For memory leak-style bug types we only update when the path is empty.
+                    if not self.is_reachable:
+                        self.state.update_potential_buggy_paths(path_with_unknown_status)
+                    continue
+                for (value, ctx) in path_set:
+                    if value.label == ValueLabel.SINK:
+                        # For NPD-style bug types
+                        if self.is_reachable:
+                            self.state.update_potential_buggy_paths(path_with_unknown_status + [value])
+                    elif value.label in {ValueLabel.PARA, ValueLabel.RET, ValueLabel.ARG, ValueLabel.OUT}:
+                        # For other propagation types, check further external matches.
+                        if (value, ctx) in self.state.external_value_match:
+                            for (value_next, ctx_next) in self.state.external_value_match[(value, ctx)]:
+                                self.__collect_potential_buggy_paths(
+                                    (value_next, ctx_next), 
+                                    path_with_unknown_status + [value, value_next]
+                                )
+
+        # Process if the current value has external value matches.
+        if current_value_with_context in self.state.external_value_match:
+            for (value_next, ctx_next) in self.state.external_value_match[current_value_with_context]:
+                value, _ = current_value_with_context
+                self.__collect_potential_buggy_paths(
+                    (value_next, ctx_next), 
+                    path_with_unknown_status + [value, value_next]
+                )
         return
     
     # TOBE deprecated
@@ -291,15 +324,10 @@ class DFBScanAgent(Agent):
                         delta_worklist = self.__update_worklist(input, output, call_context, path_index)
                         worklist.extend(delta_worklist)
 
-                # Output the reachable values per path
-                self.state.print_reachable_values_per_path()
-                self.state.print_external_value_match()
-
                 self.__collect_potential_buggy_paths((src_value, CallContext(False)))
-                self.state.print_potential_buggy_paths()
 
                 for buggy_path in self.state.potential_buggy_paths.values():
-                    input = PathValidatorInput(buggy_path, {value: self.ts_analyzer.get_function_from_localvalue(value) for value in buggy_path})
+                    input = PathValidatorInput(self.bug_type, buggy_path, {value: self.ts_analyzer.get_function_from_localvalue(value) for value in buggy_path})
                     output: PathValidatorOutput = self.path_validator.invoke(input)
 
                     if output is None:
@@ -330,6 +358,9 @@ class DFBScanAgent(Agent):
         total_bug_number = sum(len(bug_list) for bug_list in self.state.bug_reports.values())
         self.logger.print_console(f"{total_bug_number} bug(s) was/were detected in total.")
         self.logger.print_console(f"The bug report(s) has/have been dumped to {self.result_dir_path}/detect_info.json")
+        self.logger.print_console("The log files are as follows:")
+        for log_file in self.get_log_files():
+            self.logger.print_console(log_file)
         return
 
     
@@ -359,6 +390,9 @@ class DFBScanAgent(Agent):
         total_bug_number = sum(len(bug_list) for bug_list in self.state.bug_reports.values())
         self.logger.print_console(f"{total_bug_number} bug(s) was/were detected in total.")
         self.logger.print_console(f"The bug report(s) has/have been dumped to {self.result_dir_path}/detect_info.json")
+        self.logger.print_console("The log files are as follows:")
+        for log_file in self.get_log_files():
+            self.logger.print_console(log_file)
         return
 
     def __process_src_value(self, src_value: Value) -> None:
@@ -408,7 +442,7 @@ class DFBScanAgent(Agent):
 
         # Validate buggy paths and generate bug reports
         for buggy_path in self.state.potential_buggy_paths.values():
-            input = PathValidatorInput(buggy_path, {value: self.ts_analyzer.get_function_from_localvalue(value) for value in buggy_path})
+            input = PathValidatorInput(self.bug_type, buggy_path, {value: self.ts_analyzer.get_function_from_localvalue(value) for value in buggy_path})
             output: PathValidatorOutput = self.path_validator.invoke(input)
 
             if output is None:
@@ -442,3 +476,8 @@ class DFBScanAgent(Agent):
 
     def get_agent_state(self) -> DFBState:
         return self.state
+    
+    def get_log_files(self) -> List[str]:
+        log_files = []
+        log_files.append(self.log_dir_path + "/" + "dfbscan.log")
+        return log_files

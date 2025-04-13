@@ -382,3 +382,8 @@ class SliceScanAgent(Agent):
 
     def get_agent_state(self) -> SliceScanState:
         return self.state
+    
+    def get_log_files(self) -> List[str]:
+        log_files = []
+        log_files.append(self.log_dir_path + "/" + "slicescan.log")
+        return log_files

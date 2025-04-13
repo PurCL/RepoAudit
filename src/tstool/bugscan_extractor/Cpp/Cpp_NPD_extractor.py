@@ -18,13 +18,16 @@ class Cpp_NPD_Extractor(BugScanExtractor):
         Extract the potential null values as seeds from the source code.
         """
         seeds = []
+        spec_apis = {"malloc"}        # specific user-defined APIs that can return NULL
+
         for node in nodes:
             is_seed_node = False
             if node.type == "call_expression":
                 for child in node.children:
                     if child.type == "identifier":
                         name = source_code[child.start_byte : child.end_byte]
-                        is_seed_node = True
+                        if name in spec_apis:
+                            is_seed_node = True
             else:
                 for child in node.children:
                     if child.type == "null":

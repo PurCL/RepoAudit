@@ -129,7 +129,7 @@ class SampleScanAgent(Agent):
         self.intra_detector = IntraFunctionDetector(self.bug_type, self.function_detection_model, self.temperature, self.language, self.MAX_QUERY_NUM, self.logger)
 
         # LLM Agent instances created by SampleScanAgent
-        self.SliceScanAgent: List[SliceScanAgent] = []
+        self.slice_scan_agents: List[SliceScanAgent] = []
 
         self.initial_seeds: List[Tuple[Value, bool]] = self.__obtain_extractor().extract_all()
         self.sampled_seeds = []
@@ -269,7 +269,7 @@ class SampleScanAgent(Agent):
             slice_scan_agent = SliceScanAgent([seed_value], is_backward, self.project_path, \
                                               self.language, self.ts_analyzer, \
                                               self.slicing_model, self.temperature, self.call_depth, self.max_workers)
-            self.SliceScanAgent.append(slice_scan_agent)
+            self.slice_scan_agents.append(slice_scan_agent)
 
             slice_scan_agent.start_scan()
             slice_scan_state = slice_scan_agent.get_agent_state()
@@ -293,21 +293,25 @@ class SampleScanAgent(Agent):
                 if intra_function_detector_output is None:
                     continue
 
-                # Construct the bug report and update the state
-                explanation = (
-                    "Call tree: \n" + slice_inliner_input.tree_str + "\n"
-                    + "After the abstraction, we have the following code snippet:\n"
-                    + slice_inliner_output.inlined_snippet + "\n"
-                    + intra_function_detector_output.explanation_str
-                )
-                bug_report = BugReport(self.bug_type, seed_value, slice_inliner_input.relevant_functions, explanation)
-                self.state.update_bug_report(seed_value, bug_report)
+                if intra_function_detector_output.is_buggy:
+                    # Construct the bug report and update the state
+                    explanation = (
+                        "Call tree: \n" + slice_inliner_input.tree_str + "\n"
+                        + "After the abstraction, we have the following code snippet:\n"
+                        + slice_inliner_output.inlined_snippet + "\n"
+                        + intra_function_detector_output.explanation_str
+                    )
+                    bug_report = BugReport(self.bug_type, seed_value, slice_inliner_input.relevant_functions, explanation)
+                    self.state.update_state(bug_report)
 
             # Dump bug reports
             with open(self.result_dir_path + "/detect_info.json", 'w') as bug_info_file:
                 json.dump(self.state.bug_report_lines, bug_info_file, indent=4)
             self.logger.print_console(f"{len(self.state.bug_report_lines)} bug(s) was/were detected in total.")
             self.logger.print_console(f"The bug report(s) has/have been dumped to {self.result_dir_path}/detect_info.json")
+            self.logger.print_console("The log files are as follows:")
+            for log_file in self.get_log_files():
+                self.logger.print_console(log_file)
         return
     
 
@@ -376,6 +380,9 @@ class SampleScanAgent(Agent):
         # Final summary
         self.logger.print_console(f"{len(self.state.bug_report_lines)} bug(s) was/were detected in total.")
         self.logger.print_console(f"The bug report(s) has/have been dumped to {self.result_dir_path}/detect_info.json")
+        self.logger.print_console("The log files are as follows:")
+        for log_file in self.get_log_files():
+            self.logger.print_console(log_file)
         return
     
 
@@ -409,7 +416,7 @@ class SampleScanAgent(Agent):
             self.call_depth,
             self.max_workers
         )
-        self.SliceScanAgent.append(slice_scan_agent)
+        self.slice_scan_agents.append(slice_scan_agent)
 
         slice_scan_agent.start_scan()
         slice_scan_state = slice_scan_agent.get_agent_state()
@@ -448,12 +455,16 @@ class SampleScanAgent(Agent):
             if intra_function_detector_output is None:
                 continue
 
-            # Construct the bug report and update the state
-            explanation = "Call tree: \n" + slice_inliner_input.tree_str + "\n" \
-                        + "After the abstraction, we have the following code snippet:\n" \
-                        + slice_inliner_output.inlined_snippet + "\n" \
-                        + intra_function_detector_output.explanation_str
-            bug_report = BugReport(self.bug_type, seed_value, slice_inliner_input.relevant_functions, explanation)
+            if intra_function_detector_output.is_buggy:
+                # Construct the bug report and update the state
+                explanation = (
+                    "Call tree: \n" + slice_inliner_input.tree_str + "\n"
+                    + "After the abstraction, we have the following code snippet:\n"
+                    + slice_inliner_output.inlined_snippet + "\n"
+                    + intra_function_detector_output.explanation_str
+                )
+                bug_report = BugReport(self.bug_type, seed_value, slice_inliner_input.relevant_functions, explanation)
+                self.state.update_state(bug_report)
             
             # Write to detect_info.json for the current seed. Use lock to protect the file during writes
             with self.file_lock:
@@ -464,3 +475,10 @@ class SampleScanAgent(Agent):
 
     def get_agent_state(self) -> SampleScanState:
         return self.state
+
+    def get_log_files(self) -> List[str]:
+        log_files = []
+        log_files.append(self.log_dir_path + "/" + "samplescan.log")
+        for slice_scan_agent in self.slice_scan_agents:
+            log_files.append(slice_scan_agent.log_dir_path + "/" + "slicescan.log")
+        return log_files

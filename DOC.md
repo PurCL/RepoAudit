@@ -2,11 +2,11 @@
 
 ## Multi-Lingual Support
 
-### DFAScan Checker
+### DFBScan Checker
 
 | Bug Type                    | C   | C++ | Java | Python | Go  |
 |-----------------------------|-----|-----|------|--------|-----|
-| Null Pointer Dereference    | ✓   | ✓   |      |        |     |
+| Null Pointer Dereference    | ✓   | ✓   | ✓    | ✓      | ✓   |
 | Memory Leak                 | ✓   | ✓   |      |        |     |
 | Use After Free              | ✓   | ✓   |      |        |     |
 
@@ -15,7 +15,7 @@
 
 | Bug Type                    | C   | C++ | Java | Python | Go  |
 |-----------------------------|-----|-----|------|--------|-----|
-| Null Pointer Dereference    |     |     | ✓    | ✓      | ✓   |
+| Null Pointer Dereference    | ✓   | ✓   | ✓    | ✓      | ✓   |
 | Memory Leak                 | ✓   | ✓   |      |        |     |
-| Use After Free              |     |     |      |        |     |
+| Use After Free              | ✓   | ✓   |      |        |     |
 | Buffer Overflow             | ✓   | ✓   |      |        | ✓   |
