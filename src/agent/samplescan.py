@@ -129,7 +129,7 @@ class SampleScanAgent(Agent):
         self.intra_detector = IntraFunctionDetector(self.bug_type, self.function_detection_model, self.temperature, self.language, self.MAX_QUERY_NUM, self.logger)
 
         # LLM Agent instances created by SampleScanAgent
-        self.SliceScanAgent: List[SliceScanAgent] = []
+        self.slice_scan_agents: List[SliceScanAgent] = []
 
         self.initial_seeds: List[Tuple[Value, bool]] = self.__obtain_extractor().extract_all()
         self.sampled_seeds = []
@@ -269,7 +269,7 @@ class SampleScanAgent(Agent):
             slice_scan_agent = SliceScanAgent([seed_value], is_backward, self.project_path, \
                                               self.language, self.ts_analyzer, \
                                               self.slicing_model, self.temperature, self.call_depth, self.max_workers)
-            self.SliceScanAgent.append(slice_scan_agent)
+            self.slice_scan_agents.append(slice_scan_agent)
 
             slice_scan_agent.start_scan()
             slice_scan_state = slice_scan_agent.get_agent_state()
@@ -416,7 +416,7 @@ class SampleScanAgent(Agent):
             self.call_depth,
             self.max_workers
         )
-        self.SliceScanAgent.append(slice_scan_agent)
+        self.slice_scan_agents.append(slice_scan_agent)
 
         slice_scan_agent.start_scan()
         slice_scan_state = slice_scan_agent.get_agent_state()
