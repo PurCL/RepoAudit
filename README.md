@@ -50,22 +50,22 @@ For the detailed project structure, please refer to [ARCHITECTURE.md](ARCHITECTU
 
 ## Quick Start
 
-1. We have prepare several benchmark programs in the directory `benchmark` for you to have a quick start. Several of them are sub-modules. You may need to clone them using the following commands:
+1. We have prepared several benchmark programs in the `benchmark` directory for a quick start. Some of these are submodules, so you may need to initialize them using the following commands:
 
    ```sh
    cd RepoAudit
    git submodule update --init --recursive
    ```
 
-2. We offer the script `src/run_repoaudit.sh` that can scan the files in `benchmark/Java/toy/NPD` directory. You can execute the following commands:
+2. We provide the script `src/run_repoaudit.sh` to scan files in the `benchmark/Java/toy/NPD` directory. You can run the following commands:
 
    ```sh
    cd src
    sh run_repoaudit.sh dfbscan # Use the agent DFBScan
    sh run_repoaudit.sh bugscan # Use the agent BugScan
    ```
-   
-3. You can check the result json files and log files after finishing the scanning.
+
+3. After the scanning is complete, you can check the resulting JSON and log files.
 
 
 ## Parallel Auditing Support
