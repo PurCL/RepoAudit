@@ -1,155 +1,84 @@
-# RepoAudit-Plus
+# RepoAudit
 
-RepoAudit-Plus is a repo-level bug detector for general bugs. Currently it supports the detection of 4 types of bug: Null Pointer Dereference (NPD), Memory Leak (MLK), Use After Free (UAF), and Buffer Overflow (BOF). It leverages [LLMSCAN](https://github.com/PurCL/LLMSCAN) to parse the codebase and use LLM to simulate the program's execution to analyze the data-flow facts starting with the designated source points. Particularly, RepoAudit-Plus is a strengthened version of [RepoAudit](https://arxiv.org/pdf/2501.18160).
+RepoAudit is a repo-level bug detector for general bugs. Currently, it supports the detection of diverse bug types (such as Null Pointer Dereference, Memory Leak, and Use After Free) in multiple programming languages (including C/C++, Java, Python, and Go). It leverages [LLMSCAN](https://github.com/PurCL/LLMSCAN) to parse the codebase and uses LLM to mimic the process of manual code auditing. Compared with existing code auditing tools, RepoAudit offers the following advantages:
 
-
-## Features
-
-- Compilation Free Analysis
-- Multi-Linguistic Support
+- Compilation-Free Analysis
+- Multi-Lingual Support
 - Multiple Bug Type Detection
-- Detailed Bug Reports
-- Convenient WebUI Interface (TODO)
+- Customization Support
 
+## Agents in RepoAudit
+
+RepoAudit is a multi-agent framework for code auditing. We offer five agent instances in our current version:
+
+- **MetaScanAgent** in `metascan.py`: Scan the project using tree-sitter–powered parsing-based analyzers and obtains the basic syntactic properties of the program.
+
+- **DFBScanAgent** in `dfbscan.py`: Perform inter-procedural data-flow analysis as described in this [preprint](https://arxiv.org/abs/2501.18160). It detects data-flow bugs, including source-must-reach-sink bugs (e.g., Null Pointer Dereference) and source-must-not-reach-sink bugs (e.g., Memory Leak).
+
+- **SliceScanAgent** in `slicescan.py`: An inter-procedural forward/backward slicing agent.
+
+- **BugScanAgent** in `bugscan.py`: A general bug detector not restricted to data-flow bugs. Currently, it supports the detection of buffer overflow.
+
+- **SampleScanAgent** in `samplescan.py`: An enhanced version of BugScanAgent that focuses on the most potentially buggy program locations. We attempt to detect bugs in [DARPA and ARPA-H's AIxCC Nginx Challenge Project](https://github.com/aixcc-public/challenge-004-nginx-source) using this agent.
+
+For the detailed project structure, please refer to [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ## Installation
 
-1. Clone the repository:
+1. Install the required dependencies:
 
    ```sh
-   git clone git@github.com:PurCL/RepoAudit-Plus.git --recursive
-   cd RepoAudit-Plus
-   ```
-
-2. Install the required dependencies:
-
-   ```sh
+   cd RepoAudit
    pip install -r requirements.txt
    ```
 
-3. Ensure you have the Tree-sitter library and language bindings installed:
+2. Ensure you have the Tree-sitter library and language bindings installed:
 
    ```sh
    cd lib
    python build.py
    ```
 
-4. Configure LLM API keys. For Claude3.5, we use the model hosted by Amazon Bedrock.
+3. Configure the OpenAI API key. 
 
    ```sh
    export OPENAI_API_KEY=xxxxxx >> ~/.bashrc
-   export DEEPSEEK_API_KEY=xxxxxx >> ~/.bashrc
    ```
 
+   For Claude3.5, we use the model hosted by Amazon Bedrock. If you want to use Claude-3.5 and Claude-3.7, you may need to set up the environment first.
 
 
 ## Quick Start
 
-1. Prepare the project that you want to analyze and store them in directory `banchmark`. Here we've provided two projects for testing
-
-   * sofa-pbrpc (NPD)
-   * memcached (ML)
-   * zstd (Buffer Overflow)
-
-
-2. (Option1) Command Line: Run `run.sh` in the all-in-one mode.
+1. We have prepare several benchmark programs in the directory `benchmark` for you to have a quick start. Several of them are sub-modules. You may need to clone them using the following commands:
 
    ```sh
-   > cd src
-   
-   # For buffer overflow detection
-   > ./run.sh
+   cd RepoAudit
+   git submodule update --init --recursive
    ```
-   
-3. (Option2) Command Line: Run the extractor and scanner separately.
+
+2. We offer the script `src/run_repoaudit.sh` that can scan the files in `benchmark/Java/toy/NPD` directory. You can execute the following commands:
 
    ```sh
-   > cd src
+   cd src
+   sh run_repoaudit.sh dfbscan # Use the agent DFBScan
+   sh run_repoaudit.sh bugscan # Use the agent BugScan
+   ```
    
-   # For buffer overflow detection
-   > ./extract.sh
-
-   > ./bugscan.sh
-   ```
-
-The extracted source and sink lists are dumped in the directory `result/extract`. The detection results are dumped in the directory `result/detect-{model_name}`.
+3. You can check the result json files and log files after finishing the scanning.
 
 
-## Result
-### Buggy Trace Report Format
+## Parallel Auditing Support
 
-**Key: Buggy trace**  
-Each key represents a unique buggy trace propagation path, detailing how a bug propagates through function calls and code execution. The structure is as follows:
-
-```
-{
-    Explanation: Detailed explanation of the propagation path.
-    Path: Array of steps along the trace, where each step is an object with:
-          {
-              source:      The source code fragment or operation (e.g., "return NULL;"),
-              src_line:    The corresponding line number in the source file,
-              function_name: The name of the function where the step occurs,
-              function_code: The full code of the function (providing context),
-              file_name:   The file path where the function is located
-          }
-    Vali_LLM:    The validation result produced by the LLM (e.g., "True" or "False"),
-    Vali_human:  The human validation result (typically empty until reviewed)
-}
-```
-
-### WebUI
-
-You can also use our webUI to quickly check the detection results.
-
-   ```sh
-   cd src/webUI
-   streamlit run Home.py
-   ```
-
-## Architecture
-
-```sh
-# In src directory
-├── agent                # Directory containing different agents for different uses
-│   ├── bugscan.py       # Bug scanning agent
-│   └── metascan.py      # Meta data extractor
-├── memory               # Directory containing utilities in the agent memory
-│   ├── function.py      # Utility: Program function
-│   ├── localvalue.py    # Utility: Local value
-│   └── state.py         # Utility: Program state
-├── tstool               # Directory containing tree-sitter-based tools
-│   ├── analyzer         # Parsing-based analyzers
-│   │   ├── C_TS_analyzer.py # Script for parsing and analyzing C programs
-│   │   ├── Go_TS_analyzer.py # Script for parsing and analyzing Go programs
-│   │   └── TS_analyzer.py    # Base analyzer
-│   └── extractor        # Extractors identifying sources and sinks for different bug types
-│       ├── C_BOF_extractor.py # Extractor for Buffer Overflow Detection in C programs
-│       ├── C_ML_extractor.py  # Extractor for Memory Leak Detection in C programs
-│       ├── C_NPD_extractor.py # Extractor for Null Pointer Dereference in C programs
-│       └── C_UAF_extractor.py # Extractor for Use-After-Free in C programs
-├── llmtool              # Directory for LLM-based analyzers
-│   ├── LLM_tool.py      # Base analyzer
-│   ├── LLM_utils.py     # Utility class invoking different LLMs
-│   ├── backward_slicer.py # Tool for backward slicing
-│   └── forward_slicer.py # Tool for forward slicing
-├── prompt               # Directory containing prompt templates
-│   ├── detection        # Prompts for detection
-│   │   └── BOF_prompt.json # Prompt for Buffer Overflow Detection
-│   └── llmtool          # Prompts for LLM-based analysis
-│       ├── backward_prompt.json # Prompt for backward slicing
-│       ├── forward_prompt.json # Prompt for forward slicing
-│       └── inline_prompt.json   # Prompt for function inlining
-├── repoaudit.py         # Entry of RepoAudit
-├── bugscan.sh           # Main script to start the bug scan
-└── extract.sh           # Main script to start the extraction of sensitive values as sources
-├── run.sh               # Main script to run RepoAudit
-```
-
-
+For some programs, a sequential analysis process may be quite time-consuming. To accelerate the analysis, you can choose parallel auditing. Specifically, you can set the option `--max-workers` to a larger value. By default, this option is set to 6 for parallel auditing.
 
 ## More
 
-The technical report/paper of RepoAudit-Plus has not been ready. 
-For more information, 
-please refer this paper: [RepoAudit: An Autonomous LLM-Agent for Repository-Level Code Auditing](https://arxiv.org/pdf/2501.18160v2).
-We will release the paper of RepoAudit-Plus as soon as possible.
+We currently open-source the implementation of [dfbscan](https://github.com/PurCL/RepoAudit). We will release more technical reports/research papers and open-source other agents in RepoAudit very soon. For more information, please refer to our website: [RepoAudit: Auditing Code As Human](https://repoaudit-home.github.io/).
+
+
+## License
+
+This project is licensed under the **GNU General Public License v2.0 (GPLv2)**.  You are free to use, modify, and distribute the software under the terms of this license, provided that derivative works are also distributed under the same license.
+
+For full details, see the [LICENSE](LICENSE) file or visit the official license page: [https://www.gnu.org/licenses/old-licenses/gpl-2.0.html](https://www.gnu.org/licenses/old-licenses/gpl-2.0.html)

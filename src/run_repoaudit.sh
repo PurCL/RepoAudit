@@ -14,7 +14,7 @@ case "$SCAN_TYPE" in
         python3 repoaudit.py \
           --language Java \
           --model-name claude-3.7 \
-          --project-path ../benchmark/Java/toy/toy_NPD_single \
+          --project-path ../benchmark/Java/toy/NPD \
           --bug-type NPD \
           --temperature 0.0 \
           --scan-type bugscan \
@@ -25,7 +25,7 @@ case "$SCAN_TYPE" in
         python3 repoaudit.py \
           --language Java \
           --model-name claude-3.7 \
-          --project-path ../benchmark/Java/toy/toy_NPD_single \
+          --project-path ../benchmark/Java/toy/NPD \
           --bug-type NPD \
           --is-reachable \
           --temperature 0.0 \
