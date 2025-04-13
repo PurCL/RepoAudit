@@ -13,7 +13,7 @@ RepoAudit is a multi-agent framework for code auditing. We offer five agent inst
 
 - **MetaScanAgent** in `metascan.py`: Scan the project using tree-sitter–powered parsing-based analyzers and obtains the basic syntactic properties of the program.
 
-- **DFBScanAgent** in `dfbscan.py`: Perform inter-procedural data-flow analysis as described in this [preprint](https://arxiv.org/abs/2501.18160). It detects data-flow bugs, including source-must-reach-sink bugs (e.g., Null Pointer Dereference) and source-must-not-reach-sink bugs (e.g., Memory Leak).
+- **DFBScanAgent** in `dfbscan.py`: Perform inter-procedural data-flow analysis as described in this [preprint](https://arxiv.org/abs/2501.18160). It detects data-flow bugs, including source-must-not-reach-sink bugs (e.g., Null Pointer Dereference) and source-must-reach-sink bugs (e.g., Memory Leak).
 
 - **SliceScanAgent** in `slicescan.py`: An inter-procedural forward/backward slicing agent.
 
