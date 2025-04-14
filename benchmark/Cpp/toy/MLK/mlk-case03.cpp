@@ -1,7 +1,7 @@
 #include <iostream>
 #include <stdexcept>
 
-void initializeData(int* data, int size) {
+void mlk_case_03_initializeData(int* data, int size) {
     if (size > 1000) {
         throw std::runtime_error("Size too large");
     }
@@ -11,11 +11,11 @@ void initializeData(int* data, int size) {
     }
 }
 
-void processData(int size) {
+void mlk_case_03_processData(int size) {
     int* data = new int[size];
     
     try {
-        initializeData(data, size);
+        mlk_case_03_initializeData(data, size);
     }
     catch (const std::exception& e) {
         std::cerr << "Error: " << e.what() << std::endl;
@@ -27,7 +27,7 @@ void processData(int size) {
 }
 
 int main() {
-    processData(500); 
-    processData(1500);
+    mlk_case_03_processData(500); 
+    mlk_case_03_processData(1500);
     return 0;
 }

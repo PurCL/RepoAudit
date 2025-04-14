@@ -1,7 +1,7 @@
 #include <iostream>
 #include <cstring>
 
-char* processData(const char* input) {
+char* mlk_case_02_processData(const char* input) {
     char* buffer = new char[100];
     
     if (input == nullptr) {
@@ -12,16 +12,16 @@ char* processData(const char* input) {
     return buffer;
 }
 
-void handleRequest(const char* input) {
-    char* result = processData(input);
+void mlk_case_02_handleRequest(const char* input) {
+    char* result = mlk_case_02_processData(input);
     
     if (result) {
         std::cout << "Result: " << result << std::endl;
     }
 }
 
-int main() {
-    handleRequest("Hello");
-    handleRequest(nullptr);
+int mlk_case_02_main() {
+    mlk_case_02_handleRequest("Hello");
+    mlk_case_02_handleRequest(nullptr);
     return 0;
 }

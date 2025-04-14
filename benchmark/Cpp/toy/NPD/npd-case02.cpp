@@ -1,6 +1,6 @@
 #include <stdlib.h>
 
-int* foo(int x) {
+int* npd_case_02_foo(int x) {
     if (x > 10) {
         return malloc(sizeof(int));
     } else {
@@ -8,12 +8,12 @@ int* foo(int x) {
     }
 }
 
-void goo(int* ptr) {
+void npd_case_02_goo(int* ptr) {
     *ptr = 42;
 }
 
-int main() {
-    int* ptr = foo(5);
-    goo(ptr);
+int npd_case_02_main() {
+    int* ptr = npd_case_02_foo(5);
+    npd_case_02_goo(ptr);
     return 0;
 }

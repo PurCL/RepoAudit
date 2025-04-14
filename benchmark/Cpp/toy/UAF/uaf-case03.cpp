@@ -8,35 +8,35 @@ typedef struct {
     int data;
 } Handler;
 
-void actual_callback() {
+void uaf_case03_actual_callback() {
     printf("Callback executed\n");
 }
 
-Handler* create_handler() {
+Handler* uaf_case03_create_handler() {
     Handler* handler = (Handler*)malloc(sizeof(Handler));
-    handler->callback = actual_callback;
+    handler->callback = uaf_case03_actual_callback;
     handler->data = 42;
     printf("Handler created\n");
     return handler;
 }
 
-void destroy_handler(Handler* handler) {
+void uaf_case03_destroy_handler(Handler* handler) {
     if (handler != NULL) {
         free(handler);
         printf("Handler destroyed\n");
     }
 }
 
-void execute_callback(Handler* handler) {
+void uaf_case03_execute_callback(Handler* handler) {
     if (handler != NULL) {
         handler->callback();
         printf("Handler data: %d\n", handler->data);
     }
 }
 
-int main() {
-    Handler* handler = create_handler();
-    destroy_handler(handler);
-    execute_callback(handler);
+int uaf_case03_main() {
+    Handler* handler = uaf_case03_create_handler();
+    uaf_case03_destroy_handler(handler);
+    uaf_case03_execute_callback(handler);
     return 0;
 }
