@@ -42,7 +42,7 @@ class DFBScanAgent(Agent):
                  model_name,
                  temperature,
                  call_depth,
-                 max_workers=1
+                 max_neural_workers=1
                  ) -> None:
         self.bug_type = bug_type
         self.is_reachable = is_reachable
@@ -55,7 +55,7 @@ class DFBScanAgent(Agent):
         self.temperature = temperature
         
         self.call_depth = call_depth
-        self.max_workers = max_workers
+        self.max_neural_workers = max_neural_workers
         self.MAX_QUERY_NUM = 5
 
         self.project_name = project_path.split("/")[-1]
@@ -372,7 +372,7 @@ class DFBScanAgent(Agent):
 
         # Process each source value in parallel with a progress bar
         with tqdm(total=total_src_values, desc="Processing Source Values", unit="src") as pbar:
-            with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
+            with ThreadPoolExecutor(max_workers=self.max_neural_workers) as executor:
                 futures = [
                     executor.submit(self.__process_src_value, src_value)
                     for src_value in self.src_values

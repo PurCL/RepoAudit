@@ -83,7 +83,7 @@ class SampleScanAgent(Agent):
                  function_detection_model,
                  temperature,
                  call_depth,
-                 max_workers=1
+                 max_neural_workers=1
                  ) -> None:
 
         self.project_path = project_path
@@ -111,7 +111,7 @@ class SampleScanAgent(Agent):
         self.temperature = temperature
         
         self.call_depth = call_depth
-        self.max_workers = max_workers
+        self.max_neural_workers = max_neural_workers
         self.MAX_QUERY_NUM = 5
 
         self.log_dir_path = f"{BASE_PATH}/log/samplescan-{self.slicing_model}/{self.language}-{self.project_name}/{time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())}"
@@ -268,7 +268,7 @@ class SampleScanAgent(Agent):
             # (Key Step II): Start a slicescan agent for each seed
             slice_scan_agent = SliceScanAgent([seed_value], is_backward, self.project_path, \
                                               self.language, self.ts_analyzer, \
-                                              self.slicing_model, self.temperature, self.call_depth, self.max_workers)
+                                              self.slicing_model, self.temperature, self.call_depth, self.max_neural_workers)
             self.slice_scan_agents.append(slice_scan_agent)
 
             slice_scan_agent.start_scan()
@@ -362,7 +362,7 @@ class SampleScanAgent(Agent):
         processed_seeds = 0
 
         with tqdm(total=total_seeds, desc="Processing Seeds", unit="seed") as pbar:
-            with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
+            with ThreadPoolExecutor(max_workers=self.max_neural_workers) as executor:
                 futures = [
                     executor.submit(self.__process_seed_parallel, seed_value, is_backward)
                     for (seed_value, is_backward) in self.sampled_seeds
@@ -414,7 +414,7 @@ class SampleScanAgent(Agent):
             self.slicing_model,
             self.temperature,
             self.call_depth,
-            self.max_workers
+            self.max_neural_workers
         )
         self.slice_scan_agents.append(slice_scan_agent)
 

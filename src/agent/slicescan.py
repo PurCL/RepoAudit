@@ -33,7 +33,7 @@ class SliceScanAgent(Agent):
                  model_name: str,
                  temperature: float,
                  call_depth: int = 1,
-                 max_workers: int = 1,
+                 max_neural_workers: int = 1,
                  ) -> None:
         self.seed_values = seed_values
         self.is_backward = is_backward
@@ -48,7 +48,7 @@ class SliceScanAgent(Agent):
         self.temperature = temperature
 
         self.call_depth = call_depth
-        self.max_workers = max_workers
+        self.max_neural_workers = max_neural_workers
         self.MAX_QUERY_NUM = 5
 
         self.log_dir_path = f"{BASE_PATH}/log/slicescan-{self.model_name}/{self.language}-{self.project_name}/{time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())}"
@@ -352,7 +352,7 @@ class SliceScanAgent(Agent):
         initial_context = CallContext(self.is_backward)
         worklist.append((initial_context, self.seed_function.function_id, self.seed_values))
 
-        with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
+        with ThreadPoolExecutor(max_workers=self.max_neural_workers) as executor:
             while worklist:
                 futures = [executor.submit(self.__process_item, item) for item in worklist]
                 # Clear worklist for the next iteration

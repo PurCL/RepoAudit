@@ -30,8 +30,8 @@ class Function:
         self.api_call_site_nodes = []        # call site info of library APIs
 
         ## Results of AST node type analysis
-        self.pasras = set([])        # A set of parameters
-        self.retvals = set([])           # A set of returned values
+        self.paras = None            # A set of parameters
+        self.retvals = None           # A set of returned values
 
         ## Results of intraprocedural control flow analysis
         self.if_statements = {}     # if statement info

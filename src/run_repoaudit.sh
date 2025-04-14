@@ -12,26 +12,26 @@ SCAN_TYPE=$1
 case "$SCAN_TYPE" in
     bugscan)
         python3 repoaudit.py \
-          --language Java \
+          --language Cpp \
           --model-name claude-3.7 \
-          --project-path ../benchmark/Java/toy/NPD \
+          --project-path ../benchmark/Cpp/php-src \
           --bug-type NPD \
           --temperature 0.0 \
           --scan-type bugscan \
           --call-depth 6 \
-          --max-workers 1
+          --max-neural-workers 1
         ;;
     dfbscan)
         python3 repoaudit.py \
-          --language Java \
+          --language Cpp \
           --model-name claude-3.7 \
-          --project-path ../benchmark/Java/toy/NPD \
+          --project-path ../benchmark/Cpp/php-src \
           --bug-type NPD \
           --is-reachable \
           --temperature 0.0 \
           --scan-type dfbscan \
           --call-depth 6 \
-          --max-workers 1
+          --max-neural-workers 1
         ;;
     *)
         echo "Unknown scan type: $SCAN_TYPE"

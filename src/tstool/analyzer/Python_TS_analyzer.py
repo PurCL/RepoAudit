@@ -117,7 +117,9 @@ class Python_TSAnalyzer(TSAnalyzer):
         :param current_function: The function to be analyzed.
         :return: A set of parameters as values
         """
-        paras = set([])
+        if current_function.paras is not None:
+            return current_function.paras
+        current_function.paras = set([])
         file_content = self.code_in_files[current_function.file_path]
         parameters = find_nodes_by_type(current_function.parse_tree_root_node, "parameters")
         index = 0
@@ -129,9 +131,9 @@ class Python_TSAnalyzer(TSAnalyzer):
                     break
             if parameter_name != "" and parameter_name != "self":
                 line_number = file_content[:sub_node.start_byte].count("\n") + 1
-                paras.add(Value(parameter_name, line_number, ValueLabel.PARA, current_function.file_path, index))
+                current_function.paras.add(Value(parameter_name, line_number, ValueLabel.PARA, current_function.file_path, index))
                 index += 1
-        return paras
+        return current_function.paras
     
     def get_return_values_in_single_function(self, current_function: Function) -> Set[Value]:
         """
@@ -139,7 +141,10 @@ class Python_TSAnalyzer(TSAnalyzer):
         :param current_function: The function to be analyzed.
         :return: A set of return values
         """
-        retvalues = set([])
+        if current_function.retvals is not None:
+            return current_function.retvals
+
+        current_function.retvals = set([])
         file_content = self.code_in_files[current_function.file_path]
         retnodes = find_nodes_by_type(current_function.parse_tree_root_node, "return_statement")
         for retnode in retnodes:
@@ -150,14 +155,14 @@ class Python_TSAnalyzer(TSAnalyzer):
                 expression_list_index = sub_node_types.index("expression_list")
                 for expression_node in retnode.children[expression_list_index].children:
                     if expression_node.type != ",":
-                        retvalues.add(Value(file_content[expression_node.start_byte:expression_node.end_byte], line_number, ValueLabel.RET, current_function.file_path, index))
+                        current_function.retvals.add(Value(file_content[expression_node.start_byte:expression_node.end_byte], line_number, ValueLabel.RET, current_function.file_path, index))
                         index += 1
             elif len(sub_node_types) == 1:
-                retvalues.add(Value("None", line_number, ValueLabel.RET, current_function.file_path, 0))
+                current_function.retvals.add(Value("None", line_number, ValueLabel.RET, current_function.file_path, 0))
             elif len(sub_node_types) == 2:
                 ret_value_node = retnode.children[1]
-                retvalues.add(Value(file_content[ret_value_node.start_byte:ret_value_node.end_byte], line_number, ValueLabel.RET, current_function.file_path, 0)) 
-        return retvalues
+                current_function.retvals.add(Value(file_content[ret_value_node.start_byte:ret_value_node.end_byte], line_number, ValueLabel.RET, current_function.file_path, 0)) 
+        return current_function.retvals
 
     def get_if_statements(self, function: Function, source_code: str) -> Dict[Tuple, Tuple]:
         """

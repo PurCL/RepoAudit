@@ -52,7 +52,8 @@ class RepoAudit:
         self.model_name = args.model_name
         self.temperature = args.temperature
         self.call_depth = args.call_depth
-        self.max_workers = args.max_workers
+        self.max_symbolic_workers = args.max_symbolic_workers
+        self.max_neural_workers = args.max_neural_workers
 
         self.seed_selection_model = args.seed_selection_model
         self.slicing_model = args.slicing_model
@@ -79,13 +80,13 @@ class RepoAudit:
         self.travese_files(self.project_path, suffixs)
 
         if self.language == "Cpp":
-            self.ts_analyzer = Cpp_TSAnalyzer(self.code_in_files, self.language)
+            self.ts_analyzer = Cpp_TSAnalyzer(self.code_in_files, self.language, self.max_symbolic_workers)
         elif self.language == "Go":
-            self.ts_analyzer = Go_TSAnalyzer(self.code_in_files, self.language)
+            self.ts_analyzer = Go_TSAnalyzer(self.code_in_files, self.language, self.max_symbolic_workers)
         elif self.language == "Java":
-            self.ts_analyzer = Java_TSAnalyzer(self.code_in_files, self.language)
+            self.ts_analyzer = Java_TSAnalyzer(self.code_in_files, self.language, self.max_symbolic_workers)
         elif self.language == "Python":
-            self.ts_analyzer = Python_TSAnalyzer(self.code_in_files, self.language)
+            self.ts_analyzer = Python_TSAnalyzer(self.code_in_files, self.language, self.max_symbolic_workers)
         return
 
     def start_repo_auditing(self) -> None:
@@ -111,7 +112,7 @@ class RepoAudit:
                 self.model_name,
                 self.temperature,
                 self.call_depth,
-                self.max_workers
+                self.max_neural_workers
             )
             bugscan_agent.start_scan()
 
@@ -125,7 +126,7 @@ class RepoAudit:
                 self.model_name,
                 self.temperature,
                 self.call_depth,
-                self.max_workers
+                self.max_neural_workers
             )
             slicescan_agent.start_scan()
             print(slicescan_agent.get_agent_result())
@@ -140,7 +141,7 @@ class RepoAudit:
                 self.model_name,
                 self.temperature,
                 self.call_depth,
-                self.max_workers
+                self.max_neural_workers
             )
             dfbscan_agent.start_scan()
 
@@ -155,7 +156,7 @@ class RepoAudit:
                 self.function_detection_model,
                 self.temperature,
                 self.call_depth,
-                self.max_workers
+                self.max_neural_workers
             )
             samplescan_agent.start_scan()
         return
@@ -222,12 +223,14 @@ def configure_args():
     # Common parameters of metascan, slicescan, bugscan, and dfbscan
     parser.add_argument("--project-path", required=True, help="Project path")
     parser.add_argument("--language", required=True, help="Programming language")
+    parser.add_argument("--max-symbolic-workers", type=int, default=10, help="Max symbolic workers for parsing-based analysis")
+    
 
     # Common parameters for slicescan, bugscan, and dfbscan
     parser.add_argument("--model-name", help="The name of LLMs")
     parser.add_argument("--temperature", type=float, default=0.5, help="Temperature for inference")
     parser.add_argument("--call-depth", type=int, default=3, help="Call depth setting")
-    parser.add_argument("--max-workers", type=int, default=1, help="Max workers to use for scan")
+    parser.add_argument("--max-neural-workers", type=int, default=1, help="Max neural workers for prompting-based analysis")
 
     # Parameters for samplescan
     parser.add_argument("--seed-selection-model", help="The name of LLMs identifying the seed values")

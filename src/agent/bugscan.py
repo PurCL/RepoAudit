@@ -46,8 +46,9 @@ class BugScanAgent(Agent):
                  model_name,
                  temperature,
                  call_depth,
-                 max_workers=1
+                 max_neural_workers=1
                  ) -> None:
+        exit(0)
         self.bug_type = bug_type
 
         self.project_path = project_path
@@ -59,7 +60,7 @@ class BugScanAgent(Agent):
         self.temperature = temperature
         
         self.call_depth = call_depth
-        self.max_workers = max_workers
+        self.max_neural_workers = max_neural_workers
         self.MAX_QUERY_NUM = 5
 
         self.log_dir_path = f"{BASE_PATH}/log/bugscan-{self.model_name}/{self.language}-{self.project_name}/{time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())}"
@@ -174,7 +175,7 @@ class BugScanAgent(Agent):
                 slice_scan_agent = SliceScanAgent(
                     [seed_value], is_backward, self.project_path,
                     self.language, self.ts_analyzer,
-                    self.model_name, self.temperature, self.call_depth, self.max_workers
+                    self.model_name, self.temperature, self.call_depth, self.max_neural_workers
                 )
                 self.slice_scan_agents.append(slice_scan_agent)
 
@@ -236,7 +237,7 @@ class BugScanAgent(Agent):
         # Process each seed in parallel with a progress bar
         total_seeds = len(self.seeds)
         with tqdm(total=total_seeds, desc="Processing Seeds", unit="seed") as pbar:
-            with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
+            with ThreadPoolExecutor(max_workers=self.max_neural_workers) as executor:
                 futures = [
                     executor.submit(self.__process_seed, seed_value, is_backward)
                     for (seed_value, is_backward) in self.seeds
@@ -273,7 +274,7 @@ class BugScanAgent(Agent):
             self.model_name,
             self.temperature,
             self.call_depth,
-            self.max_workers
+            self.max_neural_workers
         )
         self.slice_scan_agents.append(slice_scan_agent)
 
