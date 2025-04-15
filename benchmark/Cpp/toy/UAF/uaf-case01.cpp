@@ -7,18 +7,18 @@ public:
     int value = 42;
 };
 
-Resource* allocateAndFree() {
+Resource* uaf_case01_allocateAndFree() {
     Resource* res = new Resource();
     free(res);
     return res;
 }
 
-void useResource(Resource* res) {
+void uaf_case01_useResource(Resource* res) {
     std::cout << "Resource value: " << res->value << "\n";
 }
 
-int main() {
-    Resource* ptr = allocateAndFree();
-    useResource(ptr);
+int uaf_case01_main() {
+    Resource* ptr = uaf_case01_allocateAndFree();
+    uaf_case01_useResource(ptr);
     return 0;
 }

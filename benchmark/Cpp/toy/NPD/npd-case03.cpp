@@ -4,19 +4,19 @@ typedef struct {
     int* data;
 } Container;
 
-Container* moo() {
+Container* npd_case_03_moo() {
     Container* c = (Container*)malloc(sizeof(Container));
     c->data = NULL; 
     return c;
 }
 
-void goo(Container* c) {
+void npd_case_03_goo(Container* c) {
     *(c->data) = 42; 
 }
 
-int main() {
-    Container* container = moo();
-    goo(container);
+int npd_case_03_main() {
+    Container* container = npd_case_03_moo();
+    npd_case_03_goo(container);
     free(container);
     return 0;
 }

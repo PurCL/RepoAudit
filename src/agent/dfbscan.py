@@ -42,12 +42,13 @@ class DFBScanAgent(Agent):
                  model_name,
                  temperature,
                  call_depth,
-                 max_workers=1
+                 max_neural_workers=1
                  ) -> None:
         self.bug_type = bug_type
         self.is_reachable = is_reachable
         
         self.project_path = project_path
+        self.project_name = project_path.split("/")[-1]
         self.language = language if language not in {"C", "Cpp"} else "Cpp"
         self.ts_analyzer = ts_analyzer
 
@@ -55,18 +56,20 @@ class DFBScanAgent(Agent):
         self.temperature = temperature
         
         self.call_depth = call_depth
-        self.max_workers = max_workers
+        self.max_neural_workers = max_neural_workers
         self.MAX_QUERY_NUM = 5
 
-        self.project_name = project_path.split("/")[-1]
-        self.log_dir_path = f"{BASE_PATH}/log/dfbscan-{self.model_name}/{self.language}-{self.project_name}/{time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())}"
-        if not os.path.exists(self.log_dir_path):
-            os.makedirs(self.log_dir_path)
-        self.logger = Logger(self.log_dir_path + "/" + "dfbscan.log")
+        self.lock = threading.Lock()
 
-        self.result_dir_path = f"{BASE_PATH}/result/dfbscan-{self.model_name}/{self.language}-{self.project_name}/{time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())}"
-        if not os.path.exists(self.result_dir_path):
-            os.makedirs(self.result_dir_path)
+        with self.lock:
+            self.log_dir_path = f"{BASE_PATH}/log/dfbscan-{self.model_name}/{self.language}-{self.project_name}/{time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())}"
+            self.res_dir_path = f"{BASE_PATH}/result/dfbscan-{self.model_name}/{self.language}-{self.project_name}/{time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())}"
+            if not os.path.exists(self.log_dir_path):
+                os.makedirs(self.log_dir_path)
+            self.logger = Logger(self.log_dir_path + "/" + "dfbscan.log")
+            
+            if not os.path.exists(self.res_dir_path):
+                os.makedirs(self.res_dir_path)
 
         # LLM tools used by DFBScanAgent
         self.intra_dfa = IntraDataFlowAnalyzer(self.model_name, self.temperature, self.language, self.MAX_QUERY_NUM, self.logger)
@@ -74,8 +77,6 @@ class DFBScanAgent(Agent):
 
         self.src_values, self.sink_values = self.__obtain_extractor().extract_all()
         self.state = DFBState(self.src_values, self.sink_values)
-
-        self.file_lock = threading.Lock()
         return
         
 
@@ -348,7 +349,7 @@ class DFBScanAgent(Agent):
                     str(value): [bug.to_dict() for bug in bug_list]
                     for value, bug_list in self.state.bug_reports.items()
                 }
-                with open(self.result_dir_path + "/detect_info.json", 'w') as bug_info_file:
+                with open(self.res_dir_path + "/detect_info.json", 'w') as bug_info_file:
                     json.dump(bug_report_dict, bug_info_file, indent=4)
 
                 # Update the progress bar
@@ -357,7 +358,7 @@ class DFBScanAgent(Agent):
         # Final summary
         total_bug_number = sum(len(bug_list) for bug_list in self.state.bug_reports.values())
         self.logger.print_console(f"{total_bug_number} bug(s) was/were detected in total.")
-        self.logger.print_console(f"The bug report(s) has/have been dumped to {self.result_dir_path}/detect_info.json")
+        self.logger.print_console(f"The bug report(s) has/have been dumped to {self.res_dir_path}/detect_info.json")
         self.logger.print_console("The log files are as follows:")
         for log_file in self.get_log_files():
             self.logger.print_console(log_file)
@@ -372,7 +373,7 @@ class DFBScanAgent(Agent):
 
         # Process each source value in parallel with a progress bar
         with tqdm(total=total_src_values, desc="Processing Source Values", unit="src") as pbar:
-            with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
+            with ThreadPoolExecutor(max_workers=self.max_neural_workers) as executor:
                 futures = [
                     executor.submit(self.__process_src_value, src_value)
                     for src_value in self.src_values
@@ -389,7 +390,7 @@ class DFBScanAgent(Agent):
         # Final summary
         total_bug_number = sum(len(bug_list) for bug_list in self.state.bug_reports.values())
         self.logger.print_console(f"{total_bug_number} bug(s) was/were detected in total.")
-        self.logger.print_console(f"The bug report(s) has/have been dumped to {self.result_dir_path}/detect_info.json")
+        self.logger.print_console(f"The bug report(s) has/have been dumped to {self.res_dir_path}/detect_info.json")
         self.logger.print_console("The log files are as follows:")
         for log_file in self.get_log_files():
             self.logger.print_console(log_file)
@@ -459,18 +460,13 @@ class DFBScanAgent(Agent):
                 self.state.update_bug_reports(src_value, bug_report)
 
         # Dump bug reports for the current seed
-        bug_report_dict = {
-            str(value): [bug.to_dict() for bug in bug_list]
-            for value, bug_list in self.state.bug_reports.items()
-        }
-        result_path = os.path.join(self.result_dir_path, "detect_info.json")
-        with self.file_lock:  # Ensure thread-safe file writing
+        with self.lock:  # Ensure thread-safe file writing
             bug_report_dict = {
                 str(value): [bug.to_dict() for bug in bug_list]
                 for value, bug_list in self.state.bug_reports.items()
             }
             
-            with open(self.result_dir_path + "/detect_info.json", 'w') as bug_info_file:
+            with open(self.res_dir_path + "/detect_info.json", 'w') as bug_info_file:
                 json.dump(bug_report_dict, bug_info_file, indent=4)
         return
 

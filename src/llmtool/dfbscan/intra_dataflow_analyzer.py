@@ -102,7 +102,7 @@ class IntraDataFlowAnalyzer(LLMTool):
         paths = []
 
         # Regex to match a path header line, e.g., "- Path 1: Lines 2 -> 3;"
-        path_header_re = re.compile(r"Path\s+(\d+):\s*(.+?);$")
+        path_header_re = re.compile(r"Path\s+(\d+):\s*(.+?);?$")
         
         # Regex to match a propagation detail line, e.g.,
         # "  - Type: Return; Name: getNullObject(); Function: None; Index: 0; Line: 3; Dependency: ..."

@@ -69,7 +69,7 @@ class TestDFScan:
             scanners=["DFscan"],
             bug_type=self.bug_type,
             boundary=3,
-            max_workers=5
+            max_neural_workers=1
         )
 
         batch_scan.start_batch_scan()

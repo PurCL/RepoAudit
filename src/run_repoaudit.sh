@@ -7,10 +7,10 @@ if [[ $# -lt 1 ]]; then
 fi
 
 SCAN_TYPE=$1
-LANGUAGE=Cpp
-MODEL=claude-3.5
-BUG_TYPE=BOF
-PROJECT=zstd
+LANGUAGE=Java
+MODEL=claude-3.7
+BUG_TYPE=NPD
+PROJECT=toy/NPD
 
 # For demo/test run
 case "$SCAN_TYPE" in
@@ -22,8 +22,8 @@ case "$SCAN_TYPE" in
           --bug-type $BUG_TYPE \
           --temperature 0.0 \
           --scan-type bugscan \
-          --call-depth 4 \
-          --max-workers 1
+          --call-depth 3 \
+          --max-neural-workers 10
         ;;
     dfbscan)
         python3 repoaudit.py \
@@ -34,8 +34,8 @@ case "$SCAN_TYPE" in
           --is-reachable \
           --temperature 0.0 \
           --scan-type dfbscan \
-          --call-depth 4 \
-          --max-workers 1
+          --call-depth 3 \
+          --max-neural-workers 1
         ;;
     *)
         echo "Unknown scan type: $SCAN_TYPE"

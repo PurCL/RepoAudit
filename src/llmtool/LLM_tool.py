@@ -11,6 +11,9 @@ class LLMToolInput(ABC):
     def __hash__(self):
         pass
 
+    def __eq__(self, value):
+        return self.__hash__() == value.__hash__()
+
 
 class LLMToolOutput(ABC):
     def __init__(self):

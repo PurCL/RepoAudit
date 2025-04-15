@@ -1,11 +1,11 @@
 #include <iostream>
 #include <string>
 
-char* allocateBuffer(int size) {
+char* mlk_case_04_allocateBuffer(int size) {
     return new char[size];
 }
 
-bool processBuffer(char* buffer, const std::string& data) {
+bool mlk_case_04_processBuffer(char* buffer, const std::string& data) {
     if (data.empty()) {
         std::cout << "Empty data, skipping processing" << std::endl;
         return false;
@@ -15,10 +15,10 @@ bool processBuffer(char* buffer, const std::string& data) {
     return true;
 }
 
-void handleData(const std::string& data) {
-    char* buffer = allocateBuffer(1024);
+void mlk_case_04_handleData(const std::string& data) {
+    char* buffer = mlk_case_04_allocateBuffer(1024);
     
-    bool success = processBuffer(buffer, data);
+    bool success = mlk_case_04_processBuffer(buffer, data);
     
     if (success) {
         std::cout << "Processing completed successfully" << std::endl;
@@ -26,8 +26,8 @@ void handleData(const std::string& data) {
     }
 }
 
-int main() {
-    handleData("Hello World");  
-    handleData("");              
+int mlk_case_04_main() {
+    mlk_case_04_handleData("Hello World");  
+    mlk_case_04_handleData("");              
     return 0;
 }

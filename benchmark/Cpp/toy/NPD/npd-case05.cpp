@@ -1,25 +1,25 @@
 #include <stdlib.h>
 
-int* foo(int flag) {
+int* npd_case_05_foo(int flag) {
     if (flag) {
         return (int*)malloc(sizeof(int));
     }
     return NULL;
 }
 
-void process(int* ptr) {
+void npd_case_05_process(int* ptr) {
    
 }
 
-void goo(int* ptr, int val) {
+void npd_case_05_goo(int* ptr, int val) {
     if (val > 10) {
-        process(ptr);
+        npd_case_05_process(ptr);
     }
     *ptr = 42;
 }
 
-int main() {
-    int* ptr = foo(0);
-    goo(ptr, 15);
+int npd_case_05_main() {
+    int* ptr = npd_case_05_foo(0);
+    npd_case_05_goo(ptr, 15);
     return 0;
 }

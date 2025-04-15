@@ -46,7 +46,7 @@ class BugScanAgent(Agent):
                  model_name,
                  temperature,
                  call_depth,
-                 max_workers=1
+                 max_neural_workers=1
                  ) -> None:
         self.bug_type = bug_type
 
@@ -59,17 +59,20 @@ class BugScanAgent(Agent):
         self.temperature = temperature
         
         self.call_depth = call_depth
-        self.max_workers = max_workers
+        self.max_neural_workers = max_neural_workers
         self.MAX_QUERY_NUM = 5
 
-        self.log_dir_path = f"{BASE_PATH}/log/bugscan-{self.model_name}/{self.language}-{self.project_name}/{time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())}"
-        if not os.path.exists(self.log_dir_path):
-            os.makedirs(self.log_dir_path)
-        self.logger = Logger(self.log_dir_path + "/" + "bugscan.log")
+        self.lock = threading.Lock()
 
-        self.result_dir_path = f"{BASE_PATH}/result/bugscan-{self.model_name}/{self.language}-{self.project_name}/{time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())}"
-        if not os.path.exists(self.result_dir_path):
-            os.makedirs(self.result_dir_path)
+        with self.lock:
+            self.log_dir_path = f"{BASE_PATH}/log/bugscan-{self.model_name}/{self.language}-{self.project_name}/{time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())}"
+            self.res_dir_path = f"{BASE_PATH}/result/bugscan-{self.model_name}/{self.language}-{self.project_name}/{time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())}"
+            if not os.path.exists(self.log_dir_path):
+                os.makedirs(self.log_dir_path)
+            self.logger = Logger(self.log_dir_path + "/" + "bugscan.log")
+            
+            if not os.path.exists(self.res_dir_path):
+                os.makedirs(self.res_dir_path)
 
         # LLM tools used by BugScanAgent
         self.slice_inliner = SliceInliner(self.model_name, self.temperature, self.language, self.MAX_QUERY_NUM, self.logger)
@@ -80,8 +83,6 @@ class BugScanAgent(Agent):
 
         self.seeds: List[Tuple[Value, bool]] = self.__obtain_extractor().extract_all()
         self.state = BugScanState(self.seeds)
-
-        self.file_lock = threading.Lock()
         return
     
     def __obtain_extractor(self) -> BugScanExtractor:
@@ -174,7 +175,7 @@ class BugScanAgent(Agent):
                 slice_scan_agent = SliceScanAgent(
                     [seed_value], is_backward, self.project_path,
                     self.language, self.ts_analyzer,
-                    self.model_name, self.temperature, self.call_depth, self.max_workers
+                    self.model_name, self.temperature, self.call_depth, self.max_neural_workers
                 )
                 self.slice_scan_agents.append(slice_scan_agent)
 
@@ -214,7 +215,7 @@ class BugScanAgent(Agent):
 
                 # Dump bug reports
                 bug_report_dict = {bug_report_id: bug.to_dict() for bug_report_id, bug in self.state.bug_reports.items()}
-                with open(self.result_dir_path + "/detect_info.json", 'w') as bug_info_file:
+                with open(self.res_dir_path + "/detect_info.json", 'w') as bug_info_file:
                     json.dump(bug_report_dict, bug_info_file, indent=4)
 
                 # Update the progress bar
@@ -223,7 +224,7 @@ class BugScanAgent(Agent):
         # Final summary
         total_bug_number = len(self.state.bug_reports)
         self.logger.print_console(f"{total_bug_number} bug(s) was/were detected in total.")
-        self.logger.print_console(f"The bug report(s) has/have been dumped to {self.result_dir_path}/detect_info.json")
+        self.logger.print_console(f"The bug report(s) has/have been dumped to {self.res_dir_path}/detect_info.json")
         self.logger.print_console("The log files are as follows:")
         for log_file in self.get_log_files():
             self.logger.print_console(log_file)
@@ -236,7 +237,7 @@ class BugScanAgent(Agent):
         # Process each seed in parallel with a progress bar
         total_seeds = len(self.seeds)
         with tqdm(total=total_seeds, desc="Processing Seeds", unit="seed") as pbar:
-            with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
+            with ThreadPoolExecutor(max_workers=self.max_neural_workers) as executor:
                 futures = [
                     executor.submit(self.__process_seed, seed_value, is_backward)
                     for (seed_value, is_backward) in self.seeds
@@ -252,7 +253,7 @@ class BugScanAgent(Agent):
         # Final summary
         total_bug_number = len(self.state.bug_reports)
         self.logger.print_console(f"{total_bug_number} bug(s) was/were detected in total.")
-        self.logger.print_console(f"The bug report(s) has/have been dumped to {self.result_dir_path}/detect_info.json")
+        self.logger.print_console(f"The bug report(s) has/have been dumped to {self.res_dir_path}/detect_info.json")
         self.logger.print_console("The log files are as follows:")
         for log_file in self.get_log_files():
             self.logger.print_console(log_file)
@@ -273,7 +274,7 @@ class BugScanAgent(Agent):
             self.model_name,
             self.temperature,
             self.call_depth,
-            self.max_workers
+            self.max_neural_workers
         )
         self.slice_scan_agents.append(slice_scan_agent)
 
@@ -312,9 +313,9 @@ class BugScanAgent(Agent):
                 self.state.update_state(bug_report)
 
         # Write to detect_info.json for the current seed. Use lock to protect the file during writes.
-        with self.file_lock:
+        with self.lock:
             bug_report_dict = {bug_report_id: bug.to_dict() for bug_report_id, bug in self.state.bug_reports.items()}
-            with open(self.result_dir_path + "/detect_info.json", 'w') as bug_info_file:
+            with open(self.res_dir_path + "/detect_info.json", 'w') as bug_info_file:
                 json.dump(bug_report_dict, bug_info_file, indent=4)
         return
         

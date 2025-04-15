@@ -2,13 +2,14 @@ import sys
 from os import path
 from pathlib import Path
 import copy
-import time
+import concurrent.futures
 from typing import List, Tuple, Dict, Set
+from abc import ABC, abstractmethod
+
 import tree_sitter
 from tree_sitter import Language
 from tqdm import tqdm
 import networkx as nx
-from abc import ABC, abstractmethod
 
 sys.path.append(path.dirname(path.dirname(path.dirname(path.abspath(__file__)))))
 
@@ -54,15 +55,6 @@ class CallContext:
             self.simplified_context.append(label)
             self.context.append(label)
             return is_CFL_reachable
-        
-        # Avoid recursion
-        is_recursion = False
-        for context_label in self.context:
-            if context_label.file_name == label.file_name and context_label.function_id == label.function_id and context_label.parenthesis == label.parenthesis:
-                is_recursion = True
-                break
-        if is_recursion:
-            return False
 
         # Get the top element from the context stack
         top_label = self.get_top_unmatched_context_label()
@@ -120,6 +112,7 @@ class TSAnalyzer(ABC):
         self,
         code_in_files: Dict[str, str],
         language_name: str,
+        max_symbolic_workers_num = 10
     ) -> None:
         """
         Initialize TSAnalyzer with the project source code and language.
@@ -130,6 +123,7 @@ class TSAnalyzer(ABC):
         cwd = Path(__file__).resolve().parent.absolute()
         TSPATH = cwd / "../../../lib/build/"
         language_path = TSPATH / "my-languages.so"
+        self.max_symbolic_workers_num = max_symbolic_workers_num
 
         # Initialize tree-sitter parser
         self.parser = tree_sitter.Parser()
@@ -172,57 +166,98 @@ class TSAnalyzer(ABC):
 
         # Analyze stage II: Call graph analysis
         self.analyze_call_graph()
+        return
 
+    def _parse_single_file(self, file_path: str, source_code: str) -> Tuple[str, str]:
+        """
+        Helper function to parse a single file.
+        """
+        try:
+            tree = self.parser.parse(bytes(source_code, "utf8"))
+        except Exception as e:
+            print(self.parser)
+            print(f"Error parsing {file_path}: {e}")
+            exit(0)
+        # Call user-defined processing.
+        self.extract_function_info(file_path, source_code, tree)
+        self.extract_global_info(file_path, source_code, tree)
+        return file_path, source_code
+
+    def _analyze_single_function(self, function_id: int, raw_data: Tuple) -> Tuple[int, 'Function']:
+        """
+        Helper function to analyze a single function.
+        """
+        (name, start_line_number, end_line_number, function_node) = raw_data
+        file_name = self.functionToFile[function_id]
+        file_content = self.fileContentDic[file_name]
+        function_code = file_content[function_node.start_byte:function_node.end_byte]
+        current_function = Function(
+            function_id,
+            name,
+            function_code,
+            start_line_number,
+            end_line_number,
+            function_node,
+            file_name
+        )
+        current_function = self.extract_meta_data_in_single_function(current_function)
+        return function_id, current_function
 
     def parse_project(self) -> None:
         """
         Parse all project files using tree-sitter.
         """
-        pbar = tqdm(total=len(self.code_in_files), desc="Parsing files")
-        for file_path in self.code_in_files:
-            pbar.update(1)
-            source_code = self.code_in_files[file_path]
-            try:
-                tree = self.parser.parse(bytes(source_code, "utf8"))
-            except Exception as e:
-                print(self.parser)
-                print(f"Error parsing {file_path}: {e}")
-                exit(0)
-            self.extract_function_info(file_path, source_code, tree)
-            self.extract_global_info(file_path, source_code, tree)
-            self.fileContentDic[file_path] = source_code
-        pbar.close()
+        with concurrent.futures.ThreadPoolExecutor(max_workers=self.max_symbolic_workers_num) as executor:
+            futures = {}
+            pbar = tqdm(total=len(self.code_in_files), desc="Parsing files")
+            for file_path, source_code in self.code_in_files.items():
+                # Submit a task for each file.
+                future = executor.submit(self._parse_single_file, file_path, source_code)
+                futures[future] = file_path
+            # Collect results.
+            for future in concurrent.futures.as_completed(futures):
+                file_path, source = future.result()
+                self.fileContentDic[file_path] = source
+                pbar.update(1)
+            pbar.close()
 
-        pbar = tqdm(total=len(self.functionRawDataDic), desc="Analyzing functions")
-        for function_id in self.functionRawDataDic:
-            pbar.update(1)
-            (name, start_line_number, end_line_number, function_node) = (
-                self.functionRawDataDic[function_id]
-            )
-            file_name = self.functionToFile[function_id]
-            file_content = self.fileContentDic[file_name]
-            function_code = file_content[function_node.start_byte:function_node.end_byte]
-            current_function = Function(
-                function_id, name, function_code, start_line_number, end_line_number, function_node, file_name
-            )
-            current_function = self.extract_meta_data_in_single_function(current_function)
-            self.function_env[function_id] = current_function
-        pbar.close()
-
+        with concurrent.futures.ThreadPoolExecutor(max_workers=self.max_symbolic_workers_num) as executor:
+            futures = {}
+            pbar = tqdm(total=len(self.functionRawDataDic), desc="Analyzing functions")
+            for function_id, raw_data in self.functionRawDataDic.items():
+                future = executor.submit(
+                    self._analyze_single_function,
+                    function_id,
+                    raw_data
+                )
+                futures[future] = function_id
+            
+            for future in concurrent.futures.as_completed(futures):
+                func_id, current_function = future.result()
+                self.function_env[func_id] = current_function
+                pbar.update(1)
+            pbar.close()
+        return
 
     def analyze_call_graph(self) -> None:
         """
         Compute two kinds of caller-callee relationships:
         1. Between user-defined functions.
         2. Between user-defined functions and library APIs.
-        Note that library APIs are collected on the fly
+        Note that library APIs are collected on the fly.
+        This method parallelizes the extraction of call graph edges.
         """
-        pbar = tqdm(total=len(self.functionRawDataDic), desc="Analyzing call graphs")
-        for function_id in self.function_env:
-            pbar.update(1)
-            current_function = self.function_env[function_id]
-            self.extract_call_graph_edges(current_function)
-        pbar.close()
+        with concurrent.futures.ThreadPoolExecutor(max_workers=self.max_symbolic_workers_num) as executor:
+            futures = {}
+            pbar = tqdm(total=len(self.function_env), desc="Analyzing call graphs")
+            for function_id, current_function in self.function_env.items():
+                future = executor.submit(self.extract_call_graph_edges, current_function)
+                futures[future] = function_id
+            for future in concurrent.futures.as_completed(futures):
+                # Optionally, process or log each completed task here.
+                pbar.update(1)
+            pbar.close()
+        return
 
     ###########################################
     # Helper function for project AST parsing #
@@ -434,8 +469,8 @@ class TSAnalyzer(ABC):
         callee_name = self.get_callee_name_at_call_site(call_site_node, source_code)
         arguments = self.get_arguments_at_callsite(current_function, call_site_node)
         temp_callee_ids = []
-        while callee_name in self.glb_var_map:
-            callee_name = self.glb_var_map[callee_name]
+        # while callee_name in self.glb_var_map:
+        #     callee_name = self.glb_var_map[callee_name]
         if callee_name in self.functionNameToId:
             temp_callee_ids.extend(list(self.functionNameToId[callee_name]))
         # Check parameter count matches the arguments count.
@@ -459,8 +494,8 @@ class TSAnalyzer(ABC):
         callee_name = self.get_callee_name_at_call_site(call_site_node, source_code)
         arguments = self.get_arguments_at_callsite(current_function, call_site_node)
         callee_ids = []
-        while callee_name in self.glb_var_map:
-            callee_name = self.glb_var_map[callee_name]
+        # while callee_name in self.glb_var_map:
+        #     callee_name = self.glb_var_map[callee_name]
         tmp_api = API(-1, callee_name, len(arguments))
         for api_id in self.api_env:
             if self.api_env[api_id] == tmp_api:

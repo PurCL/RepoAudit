@@ -70,7 +70,7 @@ For the detailed project structure, please refer to [ARCHITECTURE.md](ARCHITECTU
 
 ## Parallel Auditing Support
 
-For some programs, a sequential analysis process may be quite time-consuming. To accelerate the analysis, you can choose parallel auditing. Specifically, you can set the option `--max-workers` to a larger value. By default, this option is set to 6 for parallel auditing.
+For some programs, a sequential analysis process may be quite time-consuming. To accelerate the analysis, you can choose parallel auditing. Specifically, you can set the option `--max-neural-workers` to a larger value. By default, this option is set to 6 for parallel auditing.
 
 ## More
 
