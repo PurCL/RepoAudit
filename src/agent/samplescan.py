@@ -114,14 +114,17 @@ class SampleScanAgent(Agent):
         self.max_neural_workers = max_neural_workers
         self.MAX_QUERY_NUM = 5
 
-        self.log_dir_path = f"{BASE_PATH}/log/samplescan-{self.slicing_model}/{self.language}-{self.project_name}/{time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())}"
-        if not os.path.exists(self.log_dir_path):
-            os.makedirs(self.log_dir_path)
-        self.logger = Logger(self.log_dir_path + "/" + "samplescan.log")
+        self.lock = threading.Lock()
 
-        self.result_dir_path = f"{BASE_PATH}/result/samplescan-{self.slicing_model}/{self.language}-{self.project_name}/{time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())}"
-        if not os.path.exists(self.result_dir_path):
-            os.makedirs(self.result_dir_path)
+        with self.lock:
+            self.log_dir_path = f"{BASE_PATH}/log/samplescan-{self.model_name}/{self.language}-{self.project_name}/{time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())}"
+            self.res_dir_path = f"{BASE_PATH}/result/samplescan-{self.model_name}/{self.language}-{self.project_name}/{time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())}"
+            if not os.path.exists(self.log_dir_path):
+                os.makedirs(self.log_dir_path)
+            self.logger = Logger(self.log_dir_path + "/" + "samplescan.log")
+            
+            if not os.path.exists(self.res_dir_path):
+                os.makedirs(self.res_dir_path)
 
         # LLM tools used by SampleScanAgent
         self.seed_selector = SeedSelector(self.seed_selection_model, self.temperature, self.language, self.bug_type, self.MAX_QUERY_NUM, self.logger)
@@ -134,8 +137,6 @@ class SampleScanAgent(Agent):
         self.initial_seeds: List[Tuple[Value, bool]] = self.__obtain_extractor().extract_all()
         self.sampled_seeds = []
         self.state = SampleScanState(self.sampled_seeds)
-
-        self.file_lock = threading.Lock()
         return
     
     def __obtain_extractor(self) -> BugScanExtractor:
@@ -305,10 +306,10 @@ class SampleScanAgent(Agent):
                     self.state.update_bug_report(seed_value, bug_report)
 
             # Dump bug reports
-            with open(self.result_dir_path + "/detect_info.json", 'w') as bug_info_file:
+            with open(self.res_dir_path + "/detect_info.json", 'w') as bug_info_file:
                 json.dump(self.state.bug_report_lines, bug_info_file, indent=4)
             self.logger.print_console(f"{len(self.state.bug_report_lines)} bug(s) was/were detected in total.")
-            self.logger.print_console(f"The bug report(s) has/have been dumped to {self.result_dir_path}/detect_info.json")
+            self.logger.print_console(f"The bug report(s) has/have been dumped to {self.res_dir_path}/detect_info.json")
             self.logger.print_console("The log files are as follows:")
             for log_file in self.get_log_files():
                 self.logger.print_console(log_file)
@@ -379,7 +380,7 @@ class SampleScanAgent(Agent):
 
         # Final summary
         self.logger.print_console(f"{len(self.state.bug_report_lines)} bug(s) was/were detected in total.")
-        self.logger.print_console(f"The bug report(s) has/have been dumped to {self.result_dir_path}/detect_info.json")
+        self.logger.print_console(f"The bug report(s) has/have been dumped to {self.res_dir_path}/detect_info.json")
         self.logger.print_console("The log files are as follows:")
         for log_file in self.get_log_files():
             self.logger.print_console(log_file)
@@ -468,7 +469,7 @@ class SampleScanAgent(Agent):
             # Write to detect_info.json for the current seed. Use lock to protect the file during writes
             with self.file_lock:
                 self.state.update_bug_report(seed_value, bug_report)
-                with open(self.result_dir_path + "/detect_info.json", 'w') as bug_info_file:
+                with open(self.res_dir_path + "/detect_info.json", 'w') as bug_info_file:
                     json.dump(self.state.bug_report_lines, bug_info_file, indent=4)
 
 

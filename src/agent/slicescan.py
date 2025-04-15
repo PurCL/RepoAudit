@@ -51,22 +51,25 @@ class SliceScanAgent(Agent):
         self.max_neural_workers = max_neural_workers
         self.MAX_QUERY_NUM = 5
 
-        self.log_dir_path = f"{BASE_PATH}/log/slicescan-{self.model_name}/{self.language}-{self.project_name}/{time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())}"
-        if not os.path.exists(self.log_dir_path):
-            os.makedirs(self.log_dir_path)
-        self.logger = Logger(self.log_dir_path + "/" + "slicescan.log")
+        self.lock = threading.Lock()
 
-        self.result_dir_path = f"{BASE_PATH}/result/slicescan-{self.model_name}/{self.language}-{self.project_name}/{time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())}"
-        if not os.path.exists(self.result_dir_path):
-            os.makedirs(self.result_dir_path)
+        with self.lock:
+            self.log_dir_path = f"{BASE_PATH}/log/slicescan-{self.model_name}/{self.language}-{self.project_name}/{time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())}"
+            self.res_dir_path = f"{BASE_PATH}/result/slicescan-{self.model_name}/{self.language}-{self.project_name}/{time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())}"
+            if not os.path.exists(self.log_dir_path):
+                os.makedirs(self.log_dir_path)
+            self.logger = Logger(self.log_dir_path + "/" + "slicescan.log")
+
+            if not os.path.exists(self.res_dir_path):
+                os.makedirs(self.res_dir_path)
         
         self.seed_function = self.ts_analyzer.get_function_from_localvalue(self.seed_values[0])
 
         # LLM tool used by SliceScanAgent
         self.intra_slicer = IntraSlicer(self.model_name, self.temperature, self.language, self.MAX_QUERY_NUM, self.logger)
 
+        # State of the agent
         self.state = SliceScanState(self.seed_function, self.seed_values, self.call_depth, self.is_backward)
-        self.worklist_lock = threading.Lock()
         return
 
 
@@ -365,7 +368,7 @@ class SliceScanAgent(Agent):
                         continue
 
                     # Protect the merging of new delta items into the worklist.
-                    with self.worklist_lock:
+                    with self.lock:
                         for (delta_slice_context, delta_function_id, delta_seed_value) in delta_items:
                             is_mergeable = False
                             for i, (wl_slice_context, wl_function_id, wl_seed_set) in enumerate(worklist):

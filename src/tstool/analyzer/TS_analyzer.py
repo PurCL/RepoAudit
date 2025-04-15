@@ -55,15 +55,6 @@ class CallContext:
             self.simplified_context.append(label)
             self.context.append(label)
             return is_CFL_reachable
-        
-        # Avoid recursion
-        is_recursion = False
-        for context_label in self.context:
-            if context_label.file_name == label.file_name and context_label.function_id == label.function_id and context_label.parenthesis == label.parenthesis:
-                is_recursion = True
-                break
-        if is_recursion:
-            return False
 
         # Get the top element from the context stack
         top_label = self.get_top_unmatched_context_label()
