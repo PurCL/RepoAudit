@@ -6,7 +6,7 @@ from tstool.analyzer.TS_analyzer import *
 from typing import List, Tuple, Dict
     
 
-class DFBState(State):
+class DFBScanState(State):
     def __init__(self, src_values: List[Value], sink_values: List[Value]) -> None:
         self.src_values = src_values
         self.sink_values = sink_values
@@ -14,7 +14,7 @@ class DFBState(State):
         self.reachable_values_per_path: Dict[Tuple[Value, CallContext], List[Set[Tuple[Value, CallContext]]]] = {}
         self.external_value_match: Dict[Tuple[Value, CallContext], Set[Tuple[Value, CallContext]]] = {}
         
-        self.potential_buggy_paths: Dict[str, List[Value]] = {}
+        self.potential_buggy_paths: Dict[Value, Dict[str, List[Value]]] = {}   # src value -> {path_str -> path}
         self.bug_reports: dict[Value, List[BugReport]] = {}
         self.total_bug_count = 0
         return
@@ -39,12 +39,13 @@ class DFBState(State):
         self.external_value_match[external_start].update(external_ends)
         return
     
-    def update_potential_buggy_paths(self, path: List[Value]) -> None:
+    def update_potential_buggy_paths(self, src_value: Value, path: List[Value]) -> None:
         """
         Update the buggy paths
         """
-        path_str = str(path)
-        self.potential_buggy_paths[path_str] = path
+        if src_value not in self.potential_buggy_paths:
+            self.potential_buggy_paths[src_value] = {}
+        self.potential_buggy_paths[src_value][str(path)] = path
         return
 
     def update_bug_reports(self, value: Value, bug_report: BugReport) -> None:
@@ -103,13 +104,11 @@ class DFBState(State):
         print("=====================================")
         print("Potential Buggy Paths:")
         print("=====================================")
-        path_id = 0
-        for path_str, path in self.potential_buggy_paths.items():
+        for src_value, paths in self.potential_buggy_paths.items():
             print("-------------------------------------")
-            print(f"Path ID: {path_id}")
-            path_id += 1
-            for value in path:
-                print(f"  Value: {value}")
+            print(f"Source Value: {src_value}")
+            for path_str, path in paths.items():
+                print(f"Path: {path_str}")
+                print(f"  Path: {path}")
             print("-------------------------------------")
-        print("=====================================\n")
         return

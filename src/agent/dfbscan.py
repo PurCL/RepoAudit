@@ -23,7 +23,7 @@ from llmtool.LLM_utils import *
 from llmtool.dfbscan.intra_dataflow_analyzer import *
 from llmtool.dfbscan.path_validator import *
 
-from memory.semantic.dfb_state import *
+from memory.semantic.dfbscan_state import *
 from memory.syntactic.function import *
 from memory.syntactic.value import *
 
@@ -76,7 +76,7 @@ class DFBScanAgent(Agent):
         self.path_validator = PathValidator(self.model_name, self.temperature, self.language, self.MAX_QUERY_NUM, self.logger)
 
         self.src_values, self.sink_values = self.__obtain_extractor().extract_all()
-        self.state = DFBState(self.src_values, self.sink_values)
+        self.state = DFBScanState(self.src_values, self.sink_values)
         return
         
 
@@ -219,6 +219,7 @@ class DFBScanAgent(Agent):
         return delta_worklist
 
     def __collect_potential_buggy_paths(self, 
+                                        src_value: Value,
                                         current_value_with_context: Tuple[Value, CallContext],
                                         path_with_unknown_status: List[Value] = []) -> None:
         """
@@ -229,6 +230,8 @@ class DFBScanAgent(Agent):
         is neither in reachable values nor in external value matches, it returns immediately.
         
         Args:
+            src_value (Value): 
+                The source value from which the propagation starts.
             current_value_with_context (Tuple[Value, CallContext]): 
                 The current value along with its call context.
             path_with_unknown_status (List[Value], optional): 
@@ -247,18 +250,19 @@ class DFBScanAgent(Agent):
                 if not path_set:
                     # For memory leak-style bug types we only update when the path is empty.
                     if not self.is_reachable:
-                        self.state.update_potential_buggy_paths(path_with_unknown_status)
+                        self.state.update_potential_buggy_paths(src_value, path_with_unknown_status)
                     continue
                 for (value, ctx) in path_set:
                     if value.label == ValueLabel.SINK:
                         # For NPD-style bug types
                         if self.is_reachable:
-                            self.state.update_potential_buggy_paths(path_with_unknown_status + [value])
+                            self.state.update_potential_buggy_paths(src_value, path_with_unknown_status + [value])
                     elif value.label in {ValueLabel.PARA, ValueLabel.RET, ValueLabel.ARG, ValueLabel.OUT}:
                         # For other propagation types, check further external matches.
                         if (value, ctx) in self.state.external_value_match:
                             for (value_next, ctx_next) in self.state.external_value_match[(value, ctx)]:
                                 self.__collect_potential_buggy_paths(
+                                    src_value,
                                     (value_next, ctx_next), 
                                     path_with_unknown_status + [value, value_next]
                                 )
@@ -268,6 +272,7 @@ class DFBScanAgent(Agent):
             for (value_next, ctx_next) in self.state.external_value_match[current_value_with_context]:
                 value, _ = current_value_with_context
                 self.__collect_potential_buggy_paths(
+                    src_value,
                     (value_next, ctx_next), 
                     path_with_unknown_status + [value, value_next]
                 )
@@ -325,9 +330,13 @@ class DFBScanAgent(Agent):
                         delta_worklist = self.__update_worklist(input, output, call_context, path_index)
                         worklist.extend(delta_worklist)
 
-                self.__collect_potential_buggy_paths((src_value, CallContext(False)))
+                self.__collect_potential_buggy_paths(src_value, (src_value, CallContext(False)))
 
-                for buggy_path in self.state.potential_buggy_paths.values():
+                if src_value not in self.state.potential_buggy_paths:
+                    pbar.update(1)
+                    continue
+
+                for buggy_path in self.state.potential_buggy_paths[src_value].values():
                     input = PathValidatorInput(self.bug_type, buggy_path, {value: self.ts_analyzer.get_function_from_localvalue(value) for value in buggy_path})
                     output: PathValidatorOutput = self.path_validator.invoke(input)
 
@@ -367,6 +376,7 @@ class DFBScanAgent(Agent):
     
     def start_scan(self) -> None:
         self.logger.print_console("Start data-flow bug scanning in parallel...")
+        self.logger.print_console(f"Max number of workers: {self.max_neural_workers}")
 
         # Total number of source values
         total_src_values = len(self.src_values)
@@ -439,10 +449,14 @@ class DFBScanAgent(Agent):
                 worklist.extend(delta_worklist)
 
         # Collect potential buggy paths
-        self.__collect_potential_buggy_paths((src_value, CallContext(False)))
+        self.__collect_potential_buggy_paths(src_value, (src_value, CallContext(False)))
+
+        # If no potential buggy paths are found, return early
+        if src_value not in self.state.potential_buggy_paths:
+            return
 
         # Validate buggy paths and generate bug reports
-        for buggy_path in self.state.potential_buggy_paths.values():
+        for buggy_path in self.state.potential_buggy_paths[src_value].values():
             input = PathValidatorInput(self.bug_type, buggy_path, {value: self.ts_analyzer.get_function_from_localvalue(value) for value in buggy_path})
             output: PathValidatorOutput = self.path_validator.invoke(input)
 
@@ -470,7 +484,7 @@ class DFBScanAgent(Agent):
                 json.dump(bug_report_dict, bug_info_file, indent=4)
         return
 
-    def get_agent_state(self) -> DFBState:
+    def get_agent_state(self) -> DFBScanState:
         return self.state
     
     def get_log_files(self) -> List[str]:
