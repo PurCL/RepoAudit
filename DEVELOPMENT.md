@@ -1,77 +1,41 @@
 # Development Plan
 
+## Functionality
 
-## Open-Source Preparation
+- (Implementation) Support more language features, such as OOP features and the ones in Go
 
-### Detection Agent
+- (Implementation) More bug types: Writing more prompts and checkers, especially taint-style bugs
 
-- BugScan (DONE)
+- (Implementation) Automatic prompt synthesis
 
-- DFAScan (ICML submission version, TODO) (Jinyao & Chengpeng)
+- (Research) SFA lifting and detection (PatInf) by Jiasheng
 
-### UI 
+- (Research) Functional bug detection via doc-code inconsistency analysis (DocDif) by Mingwei
 
-- DFAScan
+- (Research) All-in-one detection
 
-  - Data-flow spec customization (source/sink): Interaction with LLMs  (Chengpeng)
+- (Research) General functional bug detection
 
-  - Analysis UI
+- (Research) Concurrency program analysis
 
-    - Terminal UI (Chengpeng)
+## Testing and Maintainence
 
-    - Web UI (Jinyao)
+- Constructing test cases and automating testing
 
+- Website maintainence: Updating bug lists, etc
 
-### Analyze
+## UI
 
-- Global variables and class member values
+- Naive console UI
 
-- Different data-flow propagation rules
+- VSCode extension by Hanxi
 
-- Refactor the output/ret, para/arg conversion
+- (Optional) WebUI by Jinyao
 
-- Parallelization
-
-
-### Doc
+## Doc
 
 - Quick Start
 
 - Project Architecture
 
-- Add New Bug Detectors
-
-- Support New Languages
-
-
-## Maintenance
-
-### Testing
-
-- Benchmark construction (e.g., small toy programs in five languages)
-
-- Regression testing
-
-
-### Prompt
-
-- Prompt synthesis
-
-- Modular design
-
-
-## Research
-
-### Multi-Modal Support
-
-- Specification Inference Agent
-
-  - PatInf: Infer SFA from code (Jiasheng)
-
-  - DocInfer: Infer protocol spec from doc (Mingwei)
-
-### Functional Bug Detection
-
-- Java: Defect4j benchmark
-
-- Performance bug detection
+- How to extend: More bug types and more programming languages
