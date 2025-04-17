@@ -12,7 +12,7 @@ class LLMToolInput(ABC):
         pass
 
     def __eq__(self, value):
-        return self.__hash__() == value.__hash__()
+        return self.__hash__() 
 
 
 class LLMToolOutput(ABC):

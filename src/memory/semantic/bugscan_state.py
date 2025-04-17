@@ -11,11 +11,12 @@ class BugScanState(State):
         :param seed_values: the seed values indicating the potential buggy points or root causes
         """
         self.seed_values = seed_values
+        self.seed_values_in_scope = []
         self.bug_reports: dict[int, BugReport] = {}
         self.total_bug_count = 0
         return
     
-    def update_state(self, bug_report: BugReport) -> None:
+    def update_bug_report(self, bug_report: BugReport) -> None:
         """
         Update the bug scan state with the bug report
         :param bug_report: the bug report
@@ -23,3 +24,12 @@ class BugScanState(State):
         self.bug_reports[self.total_bug_count] = bug_report
         self.total_bug_count += 1
         return
+    
+    def update_seed_values_in_scope(self, seed_values_in_scope: List[Tuple[Value, bool]]) -> None:
+        """
+        Update the seed values in scope
+        :param seed_values_in_scope: the seed values in scope
+        """
+        self.seed_values_in_scope = seed_values_in_scope
+        return
+    

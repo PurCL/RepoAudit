@@ -63,6 +63,7 @@ class RepoAudit:
         self.bug_type = args.bug_type
         self.is_reachable = args.is_reachable
         self.is_backward = args.is_backward
+        self.is_iterative = args.is_iterative
 
         suffixs = []
         if self.language == "Cpp":
@@ -104,17 +105,23 @@ class RepoAudit:
             metascan_pipeline.start_scan()
         
         if self.args.scan_type == "bugscan":
-            bugscan_agent = BugScanAgent(
-                self.bug_type,
-                self.project_path,
-                self.language,
-                self.ts_analyzer,
-                self.model_name,
-                self.temperature,
-                self.call_depth,
-                self.max_neural_workers
-            )
-            bugscan_agent.start_scan()
+            while True:            
+                bugscan_agent = BugScanAgent(
+                    self.bug_type,
+                    self.project_path,
+                    self.language,
+                    self.ts_analyzer,
+                    self.model_name,
+                    self.temperature,
+                    self.call_depth,
+                    self.max_neural_workers
+                )
+                if self.is_iterative:
+                    bugscan_agent.formulate_audit_request()
+                    bugscan_agent.start_scan()
+                else:
+                    bugscan_agent.start_scan()
+                    break
 
         if self.args.scan_type == "slicescan":
             slicescan_agent = SliceScanAgent(
@@ -246,6 +253,9 @@ def configure_args():
 
     # Parameters for dfbscan
     parser.add_argument("--is-reachable", action="store_true", help="Flag for bugscan reachability")
+
+    # Parameters for bugscan
+    parser.add_argument("--is-iterative", action="store_true", help="Flag for iterative analysis with multiple rounds")
 
     args = parser.parse_args()
     return args
