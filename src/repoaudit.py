@@ -6,6 +6,7 @@ from agent.bugscan import *
 from agent.slicescan import *
 from agent.dfbscan import *
 from agent.samplescan import *
+from agent.debugscan import *
 
 from tstool.analyzer.TS_analyzer import *
 from tstool.analyzer.Cpp_TS_analyzer import *
@@ -159,6 +160,18 @@ class RepoAudit:
                 self.max_neural_workers
             )
             samplescan_agent.start_scan()
+
+        if self.args.scan_type == "debugscan":
+            debugscan_agent = DebugScanAgent(
+                self.project_path,
+                self.language,
+                self.ts_analyzer,
+                self.model_name,
+                self.temperature,
+                self.call_depth,
+                self.max_neural_workers
+            )
+            debugscan_agent.start_scan()
         return
     
 
@@ -206,6 +219,9 @@ class RepoAudit:
                 err_messages.append("Error: --slicing-model is required for samplescan.")
             if not self.args.function_detection_model:
                 err_messages.append("Error: --function-detection-model is required for samplescan.")
+        elif self.args.scan_type == "debugscan":
+            if not self.args.model_name:
+                err_messages.append("Error: --model-name is required for debugscan.")
         else:
             err_messages.append("Error: Unknown scan type provided.")
         return (len(err_messages) == 0, err_messages)
@@ -217,7 +233,7 @@ def configure_args():
     parser.add_argument(
         "--scan-type",
         required=True,
-        choices=["metascan", "slicescan", "bugscan", "dfbscan", "samplescan"],
+        choices=["metascan", "slicescan", "bugscan", "dfbscan", "samplescan", "debugscan"],
         help="The type of scan to perform."
     )
     # Common parameters of metascan, slicescan, bugscan, and dfbscan

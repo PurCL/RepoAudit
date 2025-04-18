@@ -2,15 +2,15 @@
 # filepath: /Users/xiangqian/Documents/CodeBase/RepoAudit-Plus/src/run_repoaudit.sh
 
 if [[ $# -lt 1 ]]; then
-    echo "Usage: $0 {bugscan|dfbscan}"
+    echo "Usage: $0 {bugscan|dfbscan|debugscan}"
     exit 1
 fi
 
 SCAN_TYPE=$1
 LANGUAGE=Java
-MODEL=claude-3.7
+MODEL=claude-3.5
 BUG_TYPE=NPD
-PROJECT=toy/NPD
+PROJECT=toy/debug
 
 # For demo/test run
 case "$SCAN_TYPE" in
@@ -35,6 +35,16 @@ case "$SCAN_TYPE" in
           --temperature 0.0 \
           --scan-type dfbscan \
           --call-depth 3 \
+          --max-neural-workers 1
+        ;;
+    debugscan)
+        python3 repoaudit.py \
+          --language $LANGUAGE \
+          --model-name $MODEL \
+          --project-path ../benchmark/${LANGUAGE}/${PROJECT} \
+          --temperature 0.0 \
+          --scan-type debugscan \
+          --call-depth 2 \
           --max-neural-workers 1
         ;;
     *)
