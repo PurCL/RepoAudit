@@ -42,7 +42,8 @@ class DFBScanAgent(Agent):
                  model_name,
                  temperature,
                  call_depth,
-                 max_neural_workers=1
+                 max_neural_workers = 1,
+                 agent_id: int = 0,
                  ) -> None:
         self.bug_type = bug_type
         self.is_reachable = is_reachable
@@ -62,8 +63,8 @@ class DFBScanAgent(Agent):
         self.lock = threading.Lock()
 
         with self.lock:
-            self.log_dir_path = f"{BASE_PATH}/log/dfbscan-{self.model_name}/{self.language}-{self.project_name}/{time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())}"
-            self.res_dir_path = f"{BASE_PATH}/result/dfbscan-{self.model_name}/{self.language}-{self.project_name}/{time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())}"
+            self.log_dir_path = f"{BASE_PATH}/log/dfbscan-{self.model_name}/{self.language}-{self.project_name}/{time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())}-{agent_id}"
+            self.res_dir_path = f"{BASE_PATH}/result/dfbscan-{self.model_name}/{self.language}-{self.project_name}/{time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())}-{agent_id}"
             if not os.path.exists(self.log_dir_path):
                 os.makedirs(self.log_dir_path)
             self.logger = Logger(self.log_dir_path + "/" + "dfbscan.log")

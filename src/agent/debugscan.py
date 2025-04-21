@@ -36,7 +36,8 @@ class DebugScanAgent(Agent):
                  model_name,
                  temperature,
                  call_depth,
-                 max_neural_workers=1
+                 max_neural_workers = 1,
+                 agent_id: int = 0,
                  ) -> None:
         self.project_path = project_path
         self.project_name = project_path.split("/")[-1]
@@ -53,8 +54,8 @@ class DebugScanAgent(Agent):
         self.lock = threading.Lock()
 
         with self.lock:
-            self.log_dir_path = f"{BASE_PATH}/log/debugscan-{self.model_name}/{self.language}-{self.project_name}/{time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())}"
-            self.res_dir_path = f"{BASE_PATH}/result/debugscan-{self.model_name}/{self.language}-{self.project_name}/{time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())}"
+            self.log_dir_path = f"{BASE_PATH}/log/debugscan-{self.model_name}/{self.language}-{self.project_name}/{time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())}-{agent_id}"
+            self.res_dir_path = f"{BASE_PATH}/result/debugscan-{self.model_name}/{self.language}-{self.project_name}/{time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())}-{agent_id}"
             if not os.path.exists(self.log_dir_path):
                 os.makedirs(self.log_dir_path)
             self.logger = Logger(self.log_dir_path + "/" + "debugscan.log")

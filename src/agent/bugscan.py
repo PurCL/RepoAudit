@@ -1,5 +1,6 @@
 import json
 import os
+import sys
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
@@ -27,6 +28,7 @@ from tstool.bugscan_extractor.Python.Python_NPD_extractor import *
 from llmtool.LLM_utils import *
 from llmtool.bugscan.slice_inliner import *
 from llmtool.bugscan.slice_bug_detector import *
+from llmtool.utility.audit_request_formulator import *
 
 from memory.semantic.bugscan_state import *
 from memory.syntactic.function import *
@@ -46,7 +48,8 @@ class BugScanAgent(Agent):
                  model_name,
                  temperature,
                  call_depth,
-                 max_neural_workers=1
+                 max_neural_workers = 1,
+                 agent_id: int = 0,
                  ) -> None:
         self.bug_type = bug_type
 
@@ -65,8 +68,8 @@ class BugScanAgent(Agent):
         self.lock = threading.Lock()
 
         with self.lock:
-            self.log_dir_path = f"{BASE_PATH}/log/bugscan-{self.model_name}/{self.language}-{self.project_name}/{time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())}"
-            self.res_dir_path = f"{BASE_PATH}/result/bugscan-{self.model_name}/{self.language}-{self.project_name}/{time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())}"
+            self.log_dir_path = f"{BASE_PATH}/log/bugscan-{self.model_name}/{self.language}-{self.project_name}/{time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())}-{agent_id}"
+            self.res_dir_path = f"{BASE_PATH}/result/bugscan-{self.model_name}/{self.language}-{self.project_name}/{time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())}-{agent_id}"
             if not os.path.exists(self.log_dir_path):
                 os.makedirs(self.log_dir_path)
             self.logger = Logger(self.log_dir_path + "/" + "bugscan.log")
@@ -75,14 +78,67 @@ class BugScanAgent(Agent):
                 os.makedirs(self.res_dir_path)
 
         # LLM tools used by BugScanAgent
+        self.audit_request_formulator = AuditRequestFormulator("claude-3.5", self.temperature, self.language, self.bug_type, self.MAX_QUERY_NUM, self.logger)
         self.slice_inliner = SliceInliner(self.model_name, self.temperature, self.language, self.MAX_QUERY_NUM, self.logger)
         self.intra_detector = SliceBugDetector(self.bug_type, self.model_name, self.temperature, self.language, self.MAX_QUERY_NUM, self.logger)
 
         # LLM Agent instances created by BugScanAgent
         self.slice_scan_agents: List[SliceScanAgent] = []
+        self.target_files = set(self.ts_analyzer.code_in_files.keys())
 
         self.seeds: List[Tuple[Value, bool]] = self.__obtain_extractor().extract_all()
         self.state = BugScanState(self.seeds)
+        return
+    
+    def formulate_audit_request(self) -> None:
+        self.logger.print_console("Please enter your analysis request:")
+
+        is_valid_input = False
+        while True:
+            sys.stdout.write(">>> ")
+            sys.stdout.flush()
+            user_prompt_str = sys.stdin.readline().strip()
+            if user_prompt_str == "":
+                self.logger.print_console("User prompt is empty")
+                return None
+            audit_input = AuditRequestFormulatorInput(user_prompt_str)
+            audit_output: AuditRequestFormulatorOutput = self.audit_request_formulator.invoke(audit_input)
+            if audit_output is not None:
+                target_files = []
+                if audit_output.scope.type == "FileLevel":
+                    for file_path in audit_output.scope.file_paths:
+                        full_file_path = os.path.join(self.project_path, file_path)
+                        if not os.path.isfile(full_file_path):
+                            self.logger.print_console(f"File {full_file_path} does not exist.")
+                            break
+                        else:
+                            target_files.append(full_file_path)
+                    is_valid_input = True
+                elif audit_output.scope.type == "DirectoryLevel":
+                    for dir_path in audit_output.scope.directory_paths:
+                        full_dir_path = os.path.join(self.project_path, dir_path)
+                        if not os.path.isdir(full_dir_path):
+                            self.logger.print_console(f"Directory {full_dir_path} does not exist.")
+                            break
+                        else:
+                            target_files.extend([os.path.join(full_dir_path, file) for file in os.listdir(full_dir_path)])
+                    is_valid_input = True
+                elif audit_output.scope.type == "RepoLevel":
+                    target_files = self.ts_analyzer.code_in_files
+                    is_valid_input = True
+
+            if is_valid_input:
+                break
+            
+            self.logger.print_console("Please specify valid relative paths of files or directories and bug types.")
+            self.logger.print_console("RepoAudit can support the following bug types:")
+            self.logger.print_console("- Null Pointer Dereference")
+            self.logger.print_console("- Memory Leak")
+            self.logger.print_console("- Buffer Overflow")
+            self.logger.print_console("- Use After Free")
+            self.logger.print_console("Please describe your auditing request again:")
+
+        self.target_files = set(target_files)
         return
     
     def __obtain_extractor(self) -> BugScanExtractor:
@@ -160,12 +216,16 @@ class BugScanAgent(Agent):
     def start_scan_sequential(self) -> None:
         self.logger.print_console("Start bug scanning...")
 
-        # Total number of seeds
-        total_seeds = len(self.seeds)
+        self.seeds_in_scope = []
+        for seed_value, is_backward in self.seeds:
+            if seed_value.file in self.target_files:
+                self.seeds_in_scope.append((seed_value, is_backward))
+
+        self.state.update_seed_values_in_scope(self.seeds_in_scope)
 
         # Process each seed sequentially with a progress bar
-        with tqdm(total=total_seeds, desc="Processing Seeds", unit="seed") as pbar:
-            for (seed_value, is_backward) in self.seeds:
+        with tqdm(total=len(self.seeds_in_scope), desc="Processing Seeds", unit="seed") as pbar:
+            for (seed_value, is_backward) in self.seeds_in_scope:
                 seed_function = self.ts_analyzer.get_function_from_localvalue(seed_value)
                 if seed_function is None:
                     pbar.update(1)
@@ -211,7 +271,7 @@ class BugScanAgent(Agent):
                             + intra_detector_output.explanation_str
                         )
                         bug_report = BugReport(self.bug_type, seed_value, slice_inliner_input.relevant_functions, explanation)
-                        self.state.update_state(bug_report)
+                        self.state.update_bug_report(bug_report)
 
                 # Dump bug reports
                 bug_report_dict = {bug_report_id: bug.to_dict() for bug_report_id, bug in self.state.bug_reports.items()}
@@ -230,17 +290,22 @@ class BugScanAgent(Agent):
             self.logger.print_console(log_file)
         return
     
-    
     def start_scan(self) -> None:
         self.logger.print_console("Start bug scanning...")
 
         # Process each seed in parallel with a progress bar
-        total_seeds = len(self.seeds)
-        with tqdm(total=total_seeds, desc="Processing Seeds", unit="seed") as pbar:
+        self.seeds_in_scope = []
+        for seed_value, is_backward in self.seeds:
+            if seed_value.file in self.target_files:
+                self.seeds_in_scope.append((seed_value, is_backward))
+
+        self.state.update_seed_values_in_scope(self.seeds_in_scope)
+
+        with tqdm(total=len(self.seeds_in_scope), desc="Processing Seeds", unit="seed") as pbar:
             with ThreadPoolExecutor(max_workers=self.max_neural_workers) as executor:
                 futures = [
-                    executor.submit(self.__process_seed, seed_value, is_backward)
-                    for (seed_value, is_backward) in self.seeds
+                    executor.submit(self.__process_seed, seed_value, is_backward, index)
+                    for index, (seed_value, is_backward) in enumerate(self.seeds_in_scope)
                 ]
                 for future in as_completed(futures):
                     try:
@@ -259,7 +324,7 @@ class BugScanAgent(Agent):
             self.logger.print_console(log_file)
         return
 
-    def __process_seed(self, seed_value: Value, is_backward: bool) -> None:
+    def __process_seed(self, seed_value: Value, is_backward: bool, seed_index: int) -> None:
         seed_function = self.ts_analyzer.get_function_from_localvalue(seed_value)
         if seed_function is None:
             return
@@ -274,7 +339,8 @@ class BugScanAgent(Agent):
             self.model_name,
             self.temperature,
             self.call_depth,
-            self.max_neural_workers
+            self.max_neural_workers,
+            seed_index
         )
         self.slice_scan_agents.append(slice_scan_agent)
 
@@ -310,7 +376,7 @@ class BugScanAgent(Agent):
                     + intra_detector_output.explanation_str
                 )
                 bug_report = BugReport(self.bug_type, seed_value, slice_inliner_input.relevant_functions, explanation)
-                self.state.update_state(bug_report)
+                self.state.update_bug_report(bug_report)
 
         # Write to detect_info.json for the current seed. Use lock to protect the file during writes.
         with self.lock:

@@ -83,7 +83,8 @@ class SampleScanAgent(Agent):
                  function_detection_model,
                  temperature,
                  call_depth,
-                 max_neural_workers=1
+                 max_neural_workers = 1,
+                 agent_id: int = 0,
                  ) -> None:
 
         self.project_path = project_path
@@ -117,8 +118,8 @@ class SampleScanAgent(Agent):
         self.lock = threading.Lock()
 
         with self.lock:
-            self.log_dir_path = f"{BASE_PATH}/log/samplescan-{self.model_name}/{self.language}-{self.project_name}/{time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())}"
-            self.res_dir_path = f"{BASE_PATH}/result/samplescan-{self.model_name}/{self.language}-{self.project_name}/{time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())}"
+            self.log_dir_path = f"{BASE_PATH}/log/samplescan-{self.model_name}/{self.language}-{self.project_name}/{time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())}-{agent_id}"
+            self.res_dir_path = f"{BASE_PATH}/result/samplescan-{self.model_name}/{self.language}-{self.project_name}/{time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())}-{agent_id}"
             if not os.path.exists(self.log_dir_path):
                 os.makedirs(self.log_dir_path)
             self.logger = Logger(self.log_dir_path + "/" + "samplescan.log")
@@ -365,8 +366,8 @@ class SampleScanAgent(Agent):
         with tqdm(total=total_seeds, desc="Processing Seeds", unit="seed") as pbar:
             with ThreadPoolExecutor(max_workers=self.max_neural_workers) as executor:
                 futures = [
-                    executor.submit(self.__process_seed_parallel, seed_value, is_backward)
-                    for (seed_value, is_backward) in self.sampled_seeds
+                    executor.submit(self.__process_seed_parallel, seed_value, is_backward, index)
+                    for index, (seed_value, is_backward) in enumerate(self.sampled_seeds)
                 ]
                 for future in as_completed(futures):
                     try:
@@ -387,7 +388,7 @@ class SampleScanAgent(Agent):
         return
     
 
-    def __process_seed_parallel(self, seed_value: Value, is_backward: bool) -> None:
+    def __process_seed_parallel(self, seed_value: Value, is_backward: bool, seed_index: int) -> None:
         is_analyzed = False
         for (file_name, line_number) in self.state.bug_report_lines.values():
             if file_name == seed_value.file and line_number == seed_value.line_number:
@@ -415,7 +416,8 @@ class SampleScanAgent(Agent):
             self.slicing_model,
             self.temperature,
             self.call_depth,
-            self.max_neural_workers
+            self.max_neural_workers,
+            seed_index
         )
         self.slice_scan_agents.append(slice_scan_agent)
 
