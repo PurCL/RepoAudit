@@ -14,152 +14,169 @@ language_dict = {
 # Base path for results
 BASE_PATH = Path(__file__).resolve().parents[2]
 
+# Inject custom styles for enhanced aesthetics
+st.markdown("""
+    <style>
+        /* Base font sizing */
+        html, body, [class*="css"] {
+            font-size: 16px !important;
+        }
+        /* Page title */
+        .stApp h1 {
+            font-size: 2.5rem !important;
+        }
+        /* Section headers */
+        .stApp h2 {
+            font-size: 2rem !important;
+        }
+        .stApp h3 {
+            font-size: 1.5rem !important;
+        }
+        /* Sidebar navigation labels */
+        .stSidebar .css-1d391kg, .stSidebar .css-ffhzni {
+            font-size: 1rem !important;
+            font-weight: 600;
+        }
+        /* Buttons styling */
+        .stButton > button {
+            font-size: 1rem !important;
+            border-radius: 8px;
+            padding: 0.3em 0.6em !important;
+            min-width: auto !important;
+            font-weight: 500;
+        }
+        .stButton > button:hover {
+            background-color: #45a049;
+        }
+        .stDownloadButton > button {
+            font-size: 1rem !important;
+            border-radius: 8px;
+            padding: 0.6em 1.2em !important;
+            font-weight: 500;
+        }
+        .stDownloadButton > button:hover {
+            background-color: #1976D2;
+        }
+        /* Radio and select labels */
+        .stRadio > div > label,
+        .stSelectbox label,
+        .stTextInput label {
+            font-size: 1rem !important;
+            font-weight: 600;
+        }
+        /* Expander headers */
+        .stExpanderHeader {
+            font-size: 1.25rem !important;
+            font-weight: 600;
+            color: #2E3B4E;
+        }
+        /* Code blocks */
+        .stCodeBlock pre {
+            font-size: 0.9rem !important;
+        }
+    </style>
+""", unsafe_allow_html=True)
+
 # Function to get results
-def get_results(language="C", scanner="bugscan", model="claude-3.7", bug_type="NPD") -> list:
-    result_dir = Path(f"{BASE_PATH}/result/{scanner}-{model}/{bug_type}")
+def get_results(language="Cpp", scanner="bugscan", model="claude-3.5", bug_type="NPD") -> list:
+    result_dir = Path(f"{BASE_PATH}/result/{scanner}/{model}/{bug_type}")
     if not result_dir.exists():
         return []
     projects = []
-    for dir in result_dir.iterdir():
-        if dir.is_dir():
-            lang, project_name = dir.name.split("_")
-            if lang == language:
-                projects.append(project_name)
+    language_dir = result_dir / language
+    if language_dir.exists() and language_dir.is_dir():
+        for project_dir in language_dir.iterdir():
+            if project_dir.is_dir():
+                projects.append(project_dir.name)
     return projects
 
 # Function to display the Home page
 def display_home():
     st.title("Welcome to RepoAudit")
-    st.markdown("""
-        RepoAudit is a tool for analyzing code repositories and detecting bugs.
-        Use the sidebar to navigate between different functionalities.
-    """)
+    st.markdown(
+        """
+**RepoAudit** is a repo-level bug detector for general bugs. Currently, it supports the detection of diverse bug types (such as Null Pointer Dereference, Memory Leak, and Use After Free) in multiple programming languages (including C/C++, Java, Python, and Go). It leverages **LLMSCAN** to parse the codebase and uses **LLM** to mimic the process of manual code auditing.
+
+### Advantages
+- **Compilation-Free Analysis**
+- **Multi-Lingual Support**
+- **Multiple Bug Type Detection**
+- **Customization Support**
+        """
+    )
 
 # Function to display the Results page
 def display_results():
     st.title("Analysis Results")
-    
-    # 0. Language Selection
-    language = st.selectbox(
-        "Select Language",
-        language_dict.keys(),
-        help="Select the language"
-    )
-    
-    # 1. Scanner Selection
-    scanner = st.selectbox(
-        "Select Scanner",
-        ["bugscan", "DFscan"],
-        help="Select the scanner"
-    )
+    st.markdown("### Refined Bug Analysis Dashboard")
 
-    # 2. Model Selection
+    language = st.selectbox("Select Language", language_dict.keys())
+    scanner = st.selectbox("Select Scanner", ["bugscan", "dfbscan"])
     model = st.selectbox(
         "Select Model",
-        ["claude-3.5", "claude-3.7", "o3-mini", "gpt-4o", "gpt-4-turbo", "gpt-4o-mini", "deepseek-local", "deepseek-chat", "deepseek-reasoner", "gemini"],
-        help="Select the model"
+        [
+            "claude-3.5", "claude-3.7", "o3-mini", "gpt-4o", "gpt-4-turbo",
+            "gpt-4o-mini", "deepseek-local", "deepseek-chat", "deepseek-reasoner", "gemini"
+        ]
     )
 
-    scanner_dir = f"{BASE_PATH}/result/{scanner}-{model}"
-    if not Path(scanner_dir).exists():
-        st.info(f"No results available for the {scanner} with {model}.")
+    scanner_dir = Path(f"{BASE_PATH}/result/{scanner}/{model}")
+    if not scanner_dir.exists():
         return
-    bug_types = []
-    for dir in Path(f"{BASE_PATH}/result/{scanner}-{model}").iterdir():
-        if dir.is_dir():
-            bug_types.append(dir.name)
-    # 3. Bug Type Selection
-    bug_type = st.selectbox(
-        "Select Bug Type",
-        bug_types,
-        help="Select the type of bugs to analyze"
-    )
 
-    # 4. Project Selection
+    bug_types = [d.name for d in scanner_dir.iterdir() if d.is_dir()]
+    bug_type = st.selectbox("Select Bug Type", bug_types)
     projects = get_results(language, scanner, model, bug_type)
-    project_name = st.selectbox(
-        "Select Project",
-        projects,
-        help="Choose a project"
-    )
+    project_name = st.selectbox("Select Project", projects)
 
-    # 5. Timestamp Selection only if a project is selected
     if project_name:
-        result_dir = f"{BASE_PATH}/result/{scanner}-{model}/{bug_type}/{language}--{project_name}"
-        if Path(result_dir).exists():
-            timestamps = [d.name for d in Path(result_dir).iterdir() if d.is_dir()]
-            timestamps.sort(reverse=True)
-            selected_timestamp = st.selectbox(
-                "Select Timestamp",
-                timestamps,
-                help="Choose a timestamp"
-            )
+        project_dir = Path(f"{BASE_PATH}/result/{scanner}/{model}/{bug_type}/{language}/{project_name}")
+        if project_dir.exists():
+            timestamps = sorted([d.name for d in project_dir.iterdir() if d.is_dir()], reverse=True)
+            selected_timestamp = st.selectbox("Select Timestamp", timestamps)
         else:
-            st.info("Result directory does not exist for the selected project.")
             return
 
-        result_path = f"{BASE_PATH}/result/{scanner}-{model}/{bug_type}/{language}--{project_name}/{selected_timestamp}/detect_info.json"
+        result_path = project_dir / selected_timestamp / "detect_info.json"
 
-        if Path(result_path).exists():
+        if result_path.exists():
             col1, col2, col3 = st.columns(3)
             with col1:
                 if st.button("Show All Results"):
                     with open(result_path, 'r') as f:
-                        results = json.load(f)
-                    st.session_state.analysis_results = results
+                        st.session_state.analysis_results = json.load(f)
             with col2:
                 if st.button("Show True Labeled Results"):
                     with open(result_path, 'r') as f:
                         all_results = json.load(f)
-                        # Filter results to keep only TP items
-                        tp_results = {}
-                        for key, item in all_results.items():
-                            vali_result = item["is_human_confirmed_true"] if item["is_human_confirmed_true"] != "unknown" else "False"
-                            if vali_result == "True":
-                                tp_results[key] = item
+                    tp_results = {k: v for k, v in all_results.items() if v.get("is_human_confirmed_true") == "True"}
                     st.session_state.analysis_results = tp_results
-            with col3:
-                pass
-        else:
-            st.info("No analysis results available. Please run analysis first.")
-    else:
-        st.info("Please select a project to view results.")
-        
-    if st.session_state.analysis_results:
+
+    if st.session_state.get("analysis_results"):
         results = st.session_state.analysis_results
         for key, item in results.items():
-            with st.expander(item["buggy_value"]):
-                paths = item["relevant_functions"]
-                explanations = item["explanation"]
-    
-                st.markdown("---")
-                # if len(explanations) > 1:
-                #     explanations_markdown = "\n".join([f"- {exp.strip()}" for exp in explanations if exp.strip()])
-                # else:
-                #     explanations_markdown = explanations[0]
+            with st.expander(item.get("buggy_value", key)):
                 st.markdown("**Explanation:**")
-                st.text(explanations)
-                st.write("**Human Validation Result:**", item["is_human_confirmed_true"])
+                st.text(item.get("explanation", ""))
+                st.write("**Human Validation Result:**", item.get("is_human_confirmed_true"))
 
                 validation_key = f"validation_{key}"
                 if validation_key not in st.session_state.bug_validations:
-                    st.session_state.bug_validations[validation_key] = item["is_human_confirmed_true"] if item["is_human_confirmed_true"] != "unknown" else "unknown"
-                
+                    st.session_state.bug_validations[validation_key] = "unknown"
+
                 st.write("**Bug Validation:**")
                 col1, col2 = st.columns(2)
                 with col1:
                     validation = st.radio(
                         "Is this bug true positive or false positive?",
                         options=["True", "False", "unknown"],
+                        index=2,
                         key=validation_key,
-                        horizontal=True,
-                        index=["True", "False", "unknown"].index(st.session_state.bug_validations[validation_key])
+                        horizontal=True
                     )
-                
-                    if validation != st.session_state.bug_validations.get(validation_key):
-                        st.session_state.bug_validations[validation_key] = validation
+                    st.session_state.bug_validations[validation_key] = validation
                 with col2:
-                    if st.button("Save", key=f"save_{key}", use_container_width=True):
+                    if st.button("Save", key=f"save_{key}", use_container_width=False):
                         item["is_human_confirmed_true"] = validation
                         with open(result_path, 'r') as f:
                             temp_results = json.load(f)
@@ -167,23 +184,21 @@ def display_results():
                         with open(result_path, 'w') as f:
                             json.dump(temp_results, f, indent=4)
 
+                toggle_key = f"show_fn_{key}"
                 if st.button(
-                    "Show Function Content" if not st.session_state.show_function.get(key) 
-                    else "Hide Function Content", 
-                    key=key
+                    "Show Function Content" if not st.session_state.show_function.get(toggle_key) else "Hide Function Content",
+                    key=toggle_key
                 ):
-                    st.session_state.show_function[key] = \
-                        not st.session_state.show_function.get(key, False)
-                
-                if st.session_state.show_function.get(key):
-                    for path in paths:
-                        function_name = path["function_name"]
-                        function_code = path["function_code"]
-                        file_name = path["file_name"]
-                        st.write(f"**Function: `{function_name}`**")
-                        st.write(f"- File: `{file_name}`")
-                        st.code(function_code, language=language_dict[language], line_numbers=True)
-            
+                    st.session_state.show_function[toggle_key] = not st.session_state.show_function.get(toggle_key, False)
+
+                if st.session_state.show_function.get(toggle_key):
+                    files, names, code_snippets = item.get("relevant_functions", ([], [], []))
+                    for file, name, snippet in zip(files, names, code_snippets):
+                        st.markdown("---")
+                        st.markdown(f"**Function: `{name}`**")
+                        st.write(f"- File: `{file}`")
+                        st.code(snippet, language=language_dict.get("Cpp", "text"), line_numbers=True)
+
         st.download_button(
             "Download Results",
             data=json.dumps(results, indent=2),
@@ -193,11 +208,6 @@ def display_results():
 
 # Main function to handle navigation
 def main():
-    st.set_page_config(
-        layout="wide",  # Use wide layout instead of centered
-        initial_sidebar_state="expanded"
-    )
-        
     if 'show_function' not in st.session_state:
         st.session_state.show_function = {}
     if 'analysis_results' not in st.session_state:

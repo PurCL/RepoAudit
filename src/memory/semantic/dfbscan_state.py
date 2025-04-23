@@ -15,7 +15,7 @@ class DFBScanState(State):
         self.external_value_match: Dict[Tuple[Value, CallContext], Set[Tuple[Value, CallContext]]] = {}
         
         self.potential_buggy_paths: Dict[Value, Dict[str, List[Value]]] = {}   # src value -> {path_str -> path}
-        self.bug_reports: dict[Value, List[BugReport]] = {}
+        self.bug_reports: dict[int, List[BugReport]] = {}
         self.total_bug_count = 0
         return
     
@@ -47,16 +47,13 @@ class DFBScanState(State):
             self.potential_buggy_paths[src_value] = {}
         self.potential_buggy_paths[src_value][str(path)] = path
         return
-
-    def update_bug_reports(self, value: Value, bug_report: BugReport) -> None:
+    
+    def update_bug_report(self, bug_report: BugReport) -> None:
         """
-        Update the bug reports
-        :param value: the value
+        Update the bug scan state with the bug report
         :param bug_report: the bug report
         """
-        if value not in self.bug_reports:
-            self.bug_reports[value] = []
-        self.bug_reports[value].append(bug_report)
+        self.bug_reports[self.total_bug_count] = bug_report
         self.total_bug_count += 1
         return
     

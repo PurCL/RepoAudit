@@ -63,8 +63,8 @@ class DFBScanAgent(Agent):
         self.lock = threading.Lock()
 
         with self.lock:
-            self.log_dir_path = f"{BASE_PATH}/log/dfbscan-{self.model_name}/{self.language}-{self.project_name}/{time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())}-{agent_id}"
-            self.res_dir_path = f"{BASE_PATH}/result/dfbscan-{self.model_name}/{self.language}-{self.project_name}/{time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())}-{agent_id}"
+            self.log_dir_path = f"{BASE_PATH}/log/dfbscan/{self.model_name}/{self.bug_type}/{self.language}/{self.project_name}/{time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())}-{agent_id}"
+            self.res_dir_path = f"{BASE_PATH}/result/dfbscan/{self.model_name}/{self.bug_type}/{self.language}/{self.project_name}/{time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())}-{agent_id}"
             if not os.path.exists(self.log_dir_path):
                 os.makedirs(self.log_dir_path)
             self.logger = Logger(self.log_dir_path + "/" + "dfbscan.log")
@@ -352,13 +352,10 @@ class DFBScanAgent(Agent):
                                 relevant_functions[function.function_id] = function
 
                         bug_report = BugReport(self.bug_type, src_value, relevant_functions, output.explanation_str)
-                        self.state.update_bug_reports(src_value, bug_report)
+                        self.state.update_bug_report(bug_report)
 
                 # Dump bug reports
-                bug_report_dict = {
-                    str(value): [bug.to_dict() for bug in bug_list]
-                    for value, bug_list in self.state.bug_reports.items()
-                }
+                bug_report_dict = {bug_report_id: bug.to_dict() for bug_report_id, bug in self.state.bug_reports.items()}
                 with open(self.res_dir_path + "/detect_info.json", 'w') as bug_info_file:
                     json.dump(bug_report_dict, bug_info_file, indent=4)
 
@@ -366,7 +363,7 @@ class DFBScanAgent(Agent):
                 pbar.update(1)
 
         # Final summary
-        total_bug_number = sum(len(bug_list) for bug_list in self.state.bug_reports.values())
+        total_bug_number = len(self.state.bug_reports.values())
         self.logger.print_console(f"{total_bug_number} bug(s) was/were detected in total.")
         self.logger.print_console(f"The bug report(s) has/have been dumped to {self.res_dir_path}/detect_info.json")
         self.logger.print_console("The log files are as follows:")
@@ -399,7 +396,7 @@ class DFBScanAgent(Agent):
                         pbar.update(1)
 
         # Final summary
-        total_bug_number = sum(len(bug_list) for bug_list in self.state.bug_reports.values())
+        total_bug_number = len(self.state.bug_reports.values())
         self.logger.print_console(f"{total_bug_number} bug(s) was/were detected in total.")
         self.logger.print_console(f"The bug report(s) has/have been dumped to {self.res_dir_path}/detect_info.json")
         self.logger.print_console("The log files are as follows:")
@@ -472,14 +469,8 @@ class DFBScanAgent(Agent):
                         relevant_functions[function.function_id] = function
 
                 bug_report = BugReport(self.bug_type, src_value, relevant_functions, output.explanation_str)
-                self.state.update_bug_reports(src_value, bug_report)
-
-        # Dump bug reports for the current seed
-        with self.lock:  # Ensure thread-safe file writing
-            bug_report_dict = {
-                str(value): [bug.to_dict() for bug in bug_list]
-                for value, bug_list in self.state.bug_reports.items()
-            }
+                self.state.update_bug_report(bug_report)
+                bug_report_dict = {bug_report_id: bug.to_dict() for bug_report_id, bug in self.state.bug_reports.items()}
             
             with open(self.res_dir_path + "/detect_info.json", 'w') as bug_info_file:
                 json.dump(bug_report_dict, bug_info_file, indent=4)

@@ -68,8 +68,8 @@ class BugScanAgent(Agent):
         self.lock = threading.Lock()
 
         with self.lock:
-            self.log_dir_path = f"{BASE_PATH}/log/bugscan-{self.model_name}/{self.language}-{self.project_name}/{time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())}-{agent_id}"
-            self.res_dir_path = f"{BASE_PATH}/result/bugscan-{self.model_name}/{self.language}-{self.project_name}/{time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())}-{agent_id}"
+            self.log_dir_path = f"{BASE_PATH}/log/bugscan/{self.model_name}/{self.bug_type}/{self.language}/{self.project_name}/{time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())}-{agent_id}"
+            self.res_dir_path = f"{BASE_PATH}/result/bugscan/{self.model_name}/{self.bug_type}/{self.language}/{self.project_name}/{time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())}-{agent_id}"
             if not os.path.exists(self.log_dir_path):
                 os.makedirs(self.log_dir_path)
             self.logger = Logger(self.log_dir_path + "/" + "bugscan.log")
@@ -377,12 +377,9 @@ class BugScanAgent(Agent):
                 )
                 bug_report = BugReport(self.bug_type, seed_value, slice_inliner_input.relevant_functions, explanation)
                 self.state.update_bug_report(bug_report)
-
-        # Write to detect_info.json for the current seed. Use lock to protect the file during writes.
-        with self.lock:
-            bug_report_dict = {bug_report_id: bug.to_dict() for bug_report_id, bug in self.state.bug_reports.items()}
-            with open(self.res_dir_path + "/detect_info.json", 'w') as bug_info_file:
-                json.dump(bug_report_dict, bug_info_file, indent=4)
+                bug_report_dict = {bug_report_id: bug.to_dict() for bug_report_id, bug in self.state.bug_reports.items()}
+                with open(self.res_dir_path + "/detect_info.json", 'w') as bug_info_file:
+                    json.dump(bug_report_dict, bug_info_file, indent=4)
         return
         
     def get_agent_state(self) -> BugScanState:

@@ -33,7 +33,7 @@ class MetaScanAgent(Agent):
         Start the detection process.
         """
         log_dir_path = str(
-            Path(__file__).resolve().parent.parent.parent / f"result/metascan/{self.language}-{self.project_name}"
+            Path(__file__).resolve().parent.parent.parent / f"result/metascan/{self.language}/{self.project_name}/{time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())}"
         )
         if not os.path.exists(log_dir_path):
             os.makedirs(log_dir_path)

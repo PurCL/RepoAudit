@@ -10,7 +10,7 @@ SCAN_TYPE=$1
 LANGUAGE=Cpp
 MODEL=claude-3.5
 BUG_TYPE=NPD
-PROJECT=toy
+PROJECT=toy/NPD
 
 # For demo/test run
 case "$SCAN_TYPE" in
@@ -36,7 +36,7 @@ case "$SCAN_TYPE" in
           --temperature 0.0 \
           --scan-type dfbscan \
           --call-depth 3 \
-          --max-neural-workers 1
+          --max-neural-workers 10
         ;;
     debugscan)
         python3 repoaudit.py \
