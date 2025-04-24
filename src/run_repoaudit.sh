@@ -7,7 +7,7 @@ if [[ $# -lt 1 ]]; then
 fi
 
 SCAN_TYPE=$1
-LANGUAGE=Cpp
+LANGUAGE=Java
 MODEL=claude-3.5
 BUG_TYPE=NPD
 PROJECT=toy
