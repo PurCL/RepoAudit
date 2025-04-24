@@ -55,8 +55,8 @@ class SliceScanAgent(Agent):
         self.lock = threading.Lock()
 
         with self.lock:
-            self.log_dir_path = f"{BASE_PATH}/log/slicescan-{self.model_name}/{self.language}-{self.project_name}/{time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())}-{agent_id}"
-            self.res_dir_path = f"{BASE_PATH}/result/slicescan-{self.model_name}/{self.language}-{self.project_name}/{time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())}-{agent_id}"
+            self.log_dir_path = f"{BASE_PATH}/log/slicescan/{self.model_name}/{self.language}/{self.project_name}/{time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())}-{agent_id}"
+            self.res_dir_path = f"{BASE_PATH}/result/slicescan/{self.model_name}/{self.language}/{self.project_name}/{time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())}-{agent_id}"
             if not os.path.exists(self.log_dir_path):
                 os.makedirs(self.log_dir_path)
             self.logger = Logger(self.log_dir_path + "/" + "slicescan.log")
@@ -326,6 +326,8 @@ class SliceScanAgent(Agent):
                         break
                 if not is_mergeable:
                     worklist.append((delta_slice_context, delta_function_id, {delta_seed_value}))
+        with open(self.res_dir_path + "/slice_info.json", 'w') as slice_info_file:
+            json.dump(self.state.to_dict(), slice_info_file, indent=4)
         return
 
     def __process_item(self, item: Tuple[CallContext, int, Set[Value]]) -> List[Tuple[CallContext, int, Set[Value]]]:
@@ -382,6 +384,8 @@ class SliceScanAgent(Agent):
                                         break
                             if not is_mergeable:
                                 worklist.append((delta_slice_context, delta_function_id, {delta_seed_value}))
+        with open(self.res_dir_path + "/slice_info.json", 'w') as slice_info_file:
+            json.dump(self.state.to_dict(), slice_info_file, indent=4)
         return
 
     def get_agent_state(self) -> SliceScanState:

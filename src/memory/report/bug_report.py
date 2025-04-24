@@ -27,8 +27,9 @@ class BugReport:
             "bug_type": self.bug_type,
             "buggy_value": str(self.buggy_value),
             "relevant_functions": [
-                (self.relevant_functions[function_id].file_path, self.relevant_functions[function_id].start_line_number) \
-                      for function_id in self.relevant_functions
+                [self.relevant_functions[function_id].file_path for function_id in self.relevant_functions],
+                [self.relevant_functions[function_id].function_name for function_id in self.relevant_functions],
+                [self.relevant_functions[function_id].function_code for function_id in self.relevant_functions]
             ],
             "explanation": self.explanation,
             "is_human_confirmed_true": str(self.is_human_confirmed_true) if self.is_human_confirmed_true is not None else "unknown"

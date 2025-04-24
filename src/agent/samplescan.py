@@ -118,8 +118,8 @@ class SampleScanAgent(Agent):
         self.lock = threading.Lock()
 
         with self.lock:
-            self.log_dir_path = f"{BASE_PATH}/log/samplescan-{self.model_name}/{self.language}-{self.project_name}/{time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())}-{agent_id}"
-            self.res_dir_path = f"{BASE_PATH}/result/samplescan-{self.model_name}/{self.language}-{self.project_name}/{time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())}-{agent_id}"
+            self.log_dir_path = f"{BASE_PATH}/log/samplescan/{self.model_name}/{self.bug_type}/{self.language}/{self.project_name}/{time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())}-{agent_id}"
+            self.res_dir_path = f"{BASE_PATH}/result/samplescan/{self.model_name}/{self.bug_type}/{self.language}/{self.project_name}/{time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())}-{agent_id}"
             if not os.path.exists(self.log_dir_path):
                 os.makedirs(self.log_dir_path)
             self.logger = Logger(self.log_dir_path + "/" + "samplescan.log")
@@ -467,9 +467,6 @@ class SampleScanAgent(Agent):
                     + intra_function_detector_output.explanation_str
                 )
                 bug_report = BugReport(self.bug_type, seed_value, slice_inliner_input.relevant_functions, explanation)
-            
-            # Write to detect_info.json for the current seed. Use lock to protect the file during writes
-            with self.file_lock:
                 self.state.update_bug_report(seed_value, bug_report)
                 with open(self.res_dir_path + "/detect_info.json", 'w') as bug_info_file:
                     json.dump(self.state.bug_report_lines, bug_info_file, indent=4)

@@ -57,9 +57,24 @@ class SliceScanState(State):
         intra_slice_str = "\n\n".join([slice for (_, _, _, slice) in self.intra_slices])
         return f"{global_slice_str}\n\n{intra_slice_str}"
     
-
     def get_relevant_functions(self) -> List[Function]:
         """
         Get the relevant functions in the slicing task
         """
         return list(self.relevant_functions.values())
+    
+    def to_dict(self) -> dict:
+        """
+        Convert the state to a dictionary
+        """
+        return {
+            "seed_function": {
+                "file_path": self.seed_function.file_path,
+                "function_name": self.seed_function.function_name,
+                "function_code": self.seed_function.function_code
+            },
+            "seed_values": [str(seed_value) for seed_value in self.seed_values],
+            "call_depth": self.call_depth,
+            "is_backward": self.is_backward,
+            "slice": self.get_result(),
+        }
