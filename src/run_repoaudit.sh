@@ -7,10 +7,10 @@ if [[ $# -lt 1 ]]; then
 fi
 
 SCAN_TYPE=$1
-LANGUAGE=Cpp
+LANGUAGE=Java
 MODEL=claude-3.5
 BUG_TYPE=NPD
-PROJECT=toy/NPD
+PROJECT=toy
 
 # For demo/test run
 case "$SCAN_TYPE" in
@@ -36,7 +36,7 @@ case "$SCAN_TYPE" in
           --temperature 0.0 \
           --scan-type dfbscan \
           --call-depth 3 \
-          --max-neural-workers 10
+          --max-neural-workers 1
         ;;
     debugscan)
         python3 repoaudit.py \

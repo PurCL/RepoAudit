@@ -108,7 +108,7 @@ def display_home():
 # Function to display the Results page
 def display_results():
     st.title("Analysis Results")
-    st.markdown("### Refined Bug Analysis Dashboard")
+    st.markdown("### Bug Report Dashboard")
 
     language = st.selectbox("Select Language", language_dict.keys())
     scanner = st.selectbox("Select Scanner", ["bugscan", "dfbscan"])
@@ -155,7 +155,9 @@ def display_results():
     if st.session_state.get("analysis_results"):
         results = st.session_state.analysis_results
         for key, item in results.items():
-            with st.expander(item.get("buggy_value", key)):
+            tokens = item.get("buggy_value").split(",")
+            
+            with st.expander(tokens[-4] + " at Line " + tokens[-3]):
                 st.markdown("**Explanation:**")
                 st.text(item.get("explanation", ""))
                 st.write("**Human Validation Result:**", item.get("is_human_confirmed_true"))
