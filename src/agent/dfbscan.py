@@ -34,17 +34,17 @@ BASE_PATH = Path(__file__).resolve().parents[2]
 
 class DFBScanAgent(Agent):
     def __init__(self,
-                 bug_type,
-                 is_reachable,
-                 project_path,
-                 language,
-                 ts_analyzer,
-                 model_name,
-                 temperature,
-                 call_depth,
-                 max_neural_workers = 1,
-                 agent_id: int = 0,
-                 ) -> None:
+                bug_type,
+                is_reachable,
+                project_path,
+                language,
+                ts_analyzer,
+                model_name,
+                temperature,
+                call_depth,
+                max_neural_workers = 1,
+                agent_id: int = 0,
+                ) -> None:
         self.bug_type = bug_type
         self.is_reachable = is_reachable
         

@@ -74,18 +74,18 @@ cases = {
 
 class SampleScanAgent(Agent):
     def __init__(self,
-                 project_path,
-                 language,
-                 ts_analyzer,
-                 seed_selection_model,
-                 slicing_model,
-                 inlining_model,
-                 function_detection_model,
-                 temperature,
-                 call_depth,
-                 max_neural_workers = 1,
-                 agent_id: int = 0,
-                 ) -> None:
+                project_path,
+                language,
+                ts_analyzer,
+                seed_selection_model,
+                slicing_model,
+                inlining_model,
+                function_detection_model,
+                temperature,
+                call_depth,
+                max_neural_workers = 1,
+                agent_id: int = 0,
+                ) -> None:
 
         self.project_path = project_path
         self.project_name = project_path.split("/")[-1]

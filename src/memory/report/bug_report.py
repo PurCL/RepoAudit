@@ -4,11 +4,11 @@ from typing import Dict
 
 class BugReport:
     def __init__(self, 
-                 bug_type: str, 
-                 buggy_value: Value,
-                 relevant_functions: Dict[int, Function], 
-                 explanation: str,
-                 is_human_confirmed_true:bool = None) -> None:
+                bug_type: str, 
+                buggy_value: Value,
+                relevant_functions: Dict[int, Function], 
+                explanation: str,
+                is_human_confirmed_true:bool = None) -> None:
         """
         :param bug_type: the bug type
         :param buggy_value: the buggy value

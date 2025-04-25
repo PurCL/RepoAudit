@@ -17,9 +17,9 @@ class MetaScanAgent(Agent):
     Used for testing llmtools :)
     """
     def __init__(self,
-                 project_path,
-                 language,
-                 ts_analyzer) -> None:
+                project_path,
+                language,
+                ts_analyzer) -> None:
         self.project_path = project_path
         self.project_name = project_path.split("/")[-1]
         self.language = language

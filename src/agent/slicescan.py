@@ -25,17 +25,17 @@ BASE_PATH = Path(__file__).resolve().parents[2]
 
 class SliceScanAgent(Agent):
     def __init__(self,
-                 seed_values: List[Value],
-                 is_backward: bool,
-                 project_path: str,
-                 language: str,
-                 ts_analyzer: TSAnalyzer,
-                 model_name: str,
-                 temperature: float,
-                 call_depth: int = 1,
-                 max_neural_workers: int = 1,
-                 agent_id: int = 0,
-                 ) -> None:
+                seed_values: List[Value],
+                is_backward: bool,
+                project_path: str,
+                language: str,
+                ts_analyzer: TSAnalyzer,
+                model_name: str,
+                temperature: float,
+                call_depth: int = 1,
+                max_neural_workers: int = 1,
+                agent_id: int = 0,
+                ) -> None:
         self.seed_values = seed_values
         self.is_backward = is_backward
 

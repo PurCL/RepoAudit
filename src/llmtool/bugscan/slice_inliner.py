@@ -11,9 +11,9 @@ BASE_PATH = Path(__file__).resolve().parent.parent.parent
 
 class SliceInlinerInput(LLMToolInput):
     def __init__(self, root_function_id: int, 
-                 relevant_functions: Dict[int, Function], 
-                 slice_items: List[Tuple[int, List[Value], str]], 
-                 function_caller_to_callee_map: Dict[int, Set[int]]) -> None:
+                relevant_functions: Dict[int, Function], 
+                slice_items: List[Tuple[int, List[Value], str]], 
+                function_caller_to_callee_map: Dict[int, Set[int]]) -> None:
         """
         :param root_function_id: the root function id
         :param relevant_functions: the relevant functions appearing in the slices

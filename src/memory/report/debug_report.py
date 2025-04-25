@@ -4,11 +4,11 @@ from typing import Dict
 
 class DebugReport:
     def __init__(self, 
-                 error_message: str, 
-                 slicing_seed: Value,
-                 slice: str,
-                 explanation: str,
-                 is_human_confirmed_true:bool = None) -> None:
+                error_message: str, 
+                slicing_seed: Value,
+                slice: str,
+                explanation: str,
+                is_human_confirmed_true:bool = None) -> None:
         """
         :param error_message: the error message
         :param slicing_seed: the slicing seed
