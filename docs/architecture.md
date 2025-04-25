@@ -116,7 +116,7 @@ these tools derive program facts or transform source code for further analysis, 
 
 As shown in the file [`src/llmtool/LLM_tool.py`](../src/llmtool/LLM_tool.py) containing the base class [`LLMTool`](../src/llmtool/LLM_tool.py),
 an instance of a LLM-driven tool recieves and returns a specific form of input and output objects, respectively.
-When defining a LLM-driven tool, i.e., the sub-class of `LLMTool`, we also need to define the sub-classes of `LLMToolInput` and `LLMToolOutput`.
+When defining a LLM-driven tool, i.e., the sub-class of [`LLMTool`](../src/llmtool/LLM_tool.py), we also need to define the sub-classes of `LLMToolInput` and `LLMToolOutput`.
 Also, we have to provide the corresponding prompting template in the directory [`src/prompt`](../src/prompt/).
 
 Consider the LLM-driven tools used by [DFBScanAgent](../src/agent/dfbscan.py).
@@ -131,7 +131,7 @@ We include two LLM-driven tools in the directory [src/llmtool/dfbscan](../src/ll
 
 As a multi-agent framework for code auditing, RepoAudit contains three kinds of memory, which are implemented in the directory [`src/memory/`](../src/memory/).
 
-### Syntactic Memory
+#### Syntactic Memory
 
 Syntactic memory maintains critical constructs for code auditing. RepoAudit mainly focuses on the program values in different functions.
 Utilizing [`TSAnalyzer`](../src/tstool/analyzer/TS_analyzer.py), it stores the [Function](../src/memory/syntactic/function.py), [API](../src/memory/syntactic/api.py), and [Value](../src/memory/syntactic/value.py) info in the syntactic memory.
@@ -139,14 +139,14 @@ These three constructs are then retrieved by agents when the agents invoke the L
 
 In the future, we may need to extend the syntactic memory and maintain more expressive compilation-independent IR constructs.
 
-### Semantic Memory
+#### Semantic Memory
 
 Semantic memory maintains the intermediate states of agents. 
 For each agent, we define a corresponding state as the sub-class of [State](../src/memory/semantic/state.py).
 For example, [DFBScanState](../src/memory/semantic/dfbscan_state.py) stores the data-flow facts along different paths and also the relevant parameters/return values/arguments/output values.
 Based on the semantic memory, the agents can finally compute the outputs and obtain the reports of the agents.
 
-### Report
+#### Report Memory
 
 Reports maintain the final results of the agents.
 Currently, there are two types of reports: bug reports and debug reports, 
@@ -163,9 +163,9 @@ For your reference, we append the project structure as follows:
 ├── agent                # Directory containing different agents for different uses
 │   ├── agent.py         # The base class of agent
 │   ├── bugscan.py       # The agent for general bug detection
-│   ├── debugscan.py     # The agent for stack trace-based debugging
-│   ├── dfbscan.py       # The agent for data-flow bug detection. Implemented in RepoAudit.
-│   ├── samplescan.py    # The agent for selective bug detection. Enhanced version of bugscan.
+│   ├── debugscan.py     # The agent for stack trace-based debugging (under construction)
+│   ├── dfbscan.py       # The agent for data-flow bug detection. Implemented in RepoAudit
+│   ├── samplescan.py    # The agent for selective bug detection. Enhanced version of bugscan
 │   ├── slicescan.py     # The agent for inter-procedural slicing.
 │   └── metascan.py      # The agent for syntactic analysis
 ├── llmtool              # Directory for LLM-based analyzers
@@ -286,7 +286,7 @@ For your reference, we append the project structure as follows:
 │           └── forward_slicer.json
 └── ui                   # UI classes
 │   ├── logger.py        # Logger class
-│   └── web_ui.py        # Web UI class (under construction)
+│   └── web_ui.py        # Web UI class
 ├── repoaudit.py         # Main entry of RepoAudit
 ├── run_repoaudit.sh     # Script for analyzing one project
 ├── run_repoaudit_all.sh # Script for analyzing multiple projects
