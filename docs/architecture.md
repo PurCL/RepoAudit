@@ -81,7 +81,7 @@ Currently, we have customized the following several detectors for different bug 
 | Use After Free              | ✓   | ✓   |      |        |     |
 | Buffer Overflow             | ✓   | ✓   |      |        | ✓   |
 
-For more programming languages and bug types, we will offer detailed instructions on how to extend the agent in the [extensions.md](extensions.md).
+For more programming languages and bug types, we will offer detailed instructions on how to extend the agent in the [extension.md](extension.md).
 
 #### SampleScanAgent
 
