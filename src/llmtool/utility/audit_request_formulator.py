@@ -65,9 +65,8 @@ class AuditRequestFormulatorOutput(LLMToolOutput):
 
 
 class AuditRequestFormulator(LLMTool):
-    def __init__(self, model_name: str, temperature: float, language: str, bug_type: str, max_query_num: int, logger: Logger) -> None:
+    def __init__(self, model_name: str, temperature: float, language: str, max_query_num: int, logger: Logger) -> None:
         super().__init__(model_name, temperature, language, max_query_num, logger)
-        self.bug_type = bug_type
         self.prompt_file = f"{BASE_PATH}/prompt/utility/audit_request_formulator.json"
         return
 

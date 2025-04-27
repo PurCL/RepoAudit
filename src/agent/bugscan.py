@@ -41,7 +41,6 @@ BASE_PATH = Path(__file__).resolve().parents[2]
 
 class BugScanAgent(Agent):
     def __init__(self,
-                bug_type,
                 project_path,
                 language,
                 ts_analyzer,
@@ -51,8 +50,6 @@ class BugScanAgent(Agent):
                 max_neural_workers = 1,
                 agent_id: int = 0,
                 ) -> None:
-        self.bug_type = bug_type
-
         self.project_path = project_path
         self.project_name = project_path.split("/")[-1]
         self.language = language if language not in {"C", "Cpp"} else "Cpp"
@@ -66,31 +63,40 @@ class BugScanAgent(Agent):
         self.MAX_QUERY_NUM = 5
 
         self.lock = threading.Lock()
+        self.time_str = time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())
 
         with self.lock:
-            self.log_dir_path = f"{BASE_PATH}/log/bugscan/{self.model_name}/{self.bug_type}/{self.language}/{self.project_name}/{time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())}-{agent_id}"
-            self.res_dir_path = f"{BASE_PATH}/result/bugscan/{self.model_name}/{self.bug_type}/{self.language}/{self.project_name}/{time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())}-{agent_id}"
+            self.log_dir_path = f"{BASE_PATH}/log/bugscan/{self.model_name}/{self.language}/{self.project_name}/{self.time_str}-{agent_id}"
             if not os.path.exists(self.log_dir_path):
                 os.makedirs(self.log_dir_path)
             self.logger = Logger(self.log_dir_path + "/" + "bugscan.log")
-            
-            if not os.path.exists(self.res_dir_path):
-                os.makedirs(self.res_dir_path)
 
         # LLM tools used by BugScanAgent
-        self.audit_request_formulator = AuditRequestFormulator("claude-3.5", self.temperature, self.language, self.bug_type, self.MAX_QUERY_NUM, self.logger)
+        self.audit_request_formulator = AuditRequestFormulator("claude-3.5", self.temperature, self.language, self.MAX_QUERY_NUM, self.logger)
         self.slice_inliner = SliceInliner(self.model_name, self.temperature, self.language, self.MAX_QUERY_NUM, self.logger)
-        self.intra_detector = SliceBugDetector(self.bug_type, self.model_name, self.temperature, self.language, self.MAX_QUERY_NUM, self.logger)
+
 
         # LLM Agent instances created by BugScanAgent
         self.slice_scan_agents: List[SliceScanAgent] = []
-        self.target_files = set(self.ts_analyzer.code_in_files.keys())
+    
+        # Initialize the bug specific llm tools and result files
+        self.audit_request_output, self.target_files = self.formulate_audit_request()
+        self.bug_type = self.audit_request_output.bug_type
+        self.intra_detector = SliceBugDetector(self.bug_type, self.model_name, self.temperature, self.language, self.MAX_QUERY_NUM, self.logger)
+        
+        with self.lock:
+            self.res_dir_path = f"{BASE_PATH}/result/bugscan/{self.model_name}/{self.bug_type}/{self.language}/{self.project_name}/{self.time_str}-{agent_id}"
+            if not os.path.exists(self.res_dir_path):
+                os.makedirs(self.res_dir_path)
 
+        # Initialize the seeds
         self.seeds: List[Tuple[Value, bool]] = self.__obtain_extractor().extract_all()
+
+        # Initialize the state
         self.state = BugScanState(self.seeds)
         return
     
-    def formulate_audit_request(self) -> None:
+    def formulate_audit_request(self) -> Tuple[AuditRequestFormulatorOutput, List[str]]:
         self.logger.print_console("Please enter your analysis request:")
 
         is_valid_input = False
@@ -102,11 +108,11 @@ class BugScanAgent(Agent):
                 self.logger.print_console("User prompt is empty")
                 return None
             audit_input = AuditRequestFormulatorInput(user_prompt_str)
-            audit_output: AuditRequestFormulatorOutput = self.audit_request_formulator.invoke(audit_input)
-            if audit_output is not None:
+            audit_request_output: AuditRequestFormulatorOutput = self.audit_request_formulator.invoke(audit_input)
+            if audit_request_output is not None:
                 target_files = []
-                if audit_output.scope.type == "FileLevel":
-                    for file_path in audit_output.scope.file_paths:
+                if audit_request_output.scope.type == "FileLevel":
+                    for file_path in audit_request_output.scope.file_paths:
                         full_file_path = os.path.join(self.project_path, file_path)
                         if not os.path.isfile(full_file_path):
                             self.logger.print_console(f"File {full_file_path} does not exist.")
@@ -114,8 +120,8 @@ class BugScanAgent(Agent):
                         else:
                             target_files.append(full_file_path)
                     is_valid_input = True
-                elif audit_output.scope.type == "DirectoryLevel":
-                    for dir_path in audit_output.scope.directory_paths:
+                elif audit_request_output.scope.type == "DirectoryLevel":
+                    for dir_path in audit_request_output.scope.directory_paths:
                         full_dir_path = os.path.join(self.project_path, dir_path)
                         if not os.path.isdir(full_dir_path):
                             self.logger.print_console(f"Directory {full_dir_path} does not exist.")
@@ -123,10 +129,10 @@ class BugScanAgent(Agent):
                         else:
                             target_files.extend([os.path.join(full_dir_path, file) for file in os.listdir(full_dir_path)])
                     is_valid_input = True
-                elif audit_output.scope.type == "RepoLevel":
+                elif audit_request_output.scope.type == "RepoLevel":
                     target_files = self.ts_analyzer.code_in_files
                     is_valid_input = True
-
+                    
             if is_valid_input:
                 break
             
@@ -137,9 +143,7 @@ class BugScanAgent(Agent):
             self.logger.print_console("- Buffer Overflow")
             self.logger.print_console("- Use After Free")
             self.logger.print_console("Please describe your auditing request again:")
-
-        self.target_files = set(target_files)
-        return
+        return audit_request_output, target_files
     
     def __obtain_extractor(self) -> BugScanExtractor:
         if self.language == "Cpp":
@@ -350,36 +354,50 @@ class BugScanAgent(Agent):
         # Obtain all the inliner instances.
         slice_inliner_inputs: List[SliceInlinerInput] = self.__retrieve_slice_inliner_inputs(slice_scan_state)
 
-        # (Key Step II & III): Inline each instance and run intra detection to generate bug reports.
-        for slice_inliner_input in slice_inliner_inputs:
-            # Inline the slices.
-            slice_inliner_output: SliceInlinerOutput = self.slice_inliner.invoke(slice_inliner_input)
+        # Process slice_inliner_inputs in parallel
+        with ThreadPoolExecutor(max_workers=self.max_neural_workers) as executor:
+            futures = [
+                executor.submit(self.__process_slice_inliner_input, slice_inliner_input, seed_value)
+                for slice_inliner_input in slice_inliner_inputs
+            ]
+            for future in as_completed(futures):
+                try:
+                    future.result()
+                except Exception as e:
+                    self.logger.print_log(f"Error processing slice inliner input: {str(e)}")
+        return
+        
+    def __process_slice_inliner_input(self, slice_inliner_input: SliceInlinerInput, seed_value: Value) -> None:
+        # Inline the slices.
+        slice_inliner_output: SliceInlinerOutput = self.slice_inliner.invoke(slice_inliner_input)
 
-            if slice_inliner_output is None:
-                self.logger.print_log("Slice inliner output is None")
-                continue
+        if slice_inliner_output is None:
+            self.logger.print_log("Slice inliner output is None")
+            return
 
-            # Detect bugs upon the inlined slices.
-            intra_detector_input = SliceBugDetectorInput(seed_value.name, slice_inliner_output.inlined_snippet)
-            intra_detector_output: SliceBugDetectorOutput = self.intra_detector.invoke(intra_detector_input)
+        # Detect bugs upon the inlined slices.
+        intra_detector_input = SliceBugDetectorInput(seed_value.name, slice_inliner_output.inlined_snippet)
+        intra_detector_output: SliceBugDetectorOutput = self.intra_detector.invoke(intra_detector_input)
 
-            if intra_detector_output is None:
-                self.logger.print_log("Intra detector output is None")
-                continue
+        if intra_detector_output is None:
+            self.logger.print_log("Intra detector output is None")
+            return
 
-            if intra_detector_output.is_buggy:
-                # Construct the bug report and update the state
-                explanation = (
-                    "Call tree: \n" + slice_inliner_input.tree_str + "\n"
-                    + "After the abstraction, we have the following code snippet:\n"
-                    + slice_inliner_output.inlined_snippet + "\n"
-                    + intra_detector_output.explanation_str
-                )
-                bug_report = BugReport(self.bug_type, seed_value, slice_inliner_input.relevant_functions, explanation)
-                self.state.update_bug_report(bug_report)
-                bug_report_dict = {bug_report_id: bug.to_dict() for bug_report_id, bug in self.state.bug_reports.items()}
-                with open(self.res_dir_path + "/detect_info.json", 'w') as bug_info_file:
-                    json.dump(bug_report_dict, bug_info_file, indent=4)
+        if intra_detector_output.is_buggy:
+            # Construct the bug report and update the state
+            explanation = (
+                "Call tree: \n" + slice_inliner_input.tree_str + "\n"
+                + "After the abstraction, we have the following code snippet:\n"
+                + slice_inliner_output.inlined_snippet + "\n"
+                + intra_detector_output.explanation_str
+            )
+            bug_report = BugReport(self.bug_type, seed_value, slice_inliner_input.relevant_functions, explanation)
+            
+            # Use lock to safely update shared state and write to file
+            self.state.update_bug_report(bug_report)
+            bug_report_dict = {bug_report_id: bug.to_dict() for bug_report_id, bug in self.state.bug_reports.items()}
+            with open(self.res_dir_path + "/detect_info.json", 'w') as bug_info_file:
+                json.dump(bug_report_dict, bug_info_file, indent=4)
         return
         
     def get_agent_state(self) -> BugScanState:

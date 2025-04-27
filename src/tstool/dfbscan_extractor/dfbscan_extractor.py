@@ -31,7 +31,7 @@ class DFBScanExtractor(ABC):
         """
         Start the source/sink extraction process.
         """
-        pbar = tqdm(total=len(self.ts_analyzer.function_env), desc="Parsing files")
+        pbar = tqdm(total=len(self.ts_analyzer.function_env), desc="Extracting sources and sinks")
         for function_id in self.ts_analyzer.function_env:
             pbar.update(1)
             function: Function = self.ts_analyzer.function_env[function_id]

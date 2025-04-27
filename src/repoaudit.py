@@ -108,7 +108,6 @@ class RepoAudit:
         if self.args.scan_type == "bugscan":
             while True:            
                 bugscan_agent = BugScanAgent(
-                    self.bug_type,
                     self.project_path,
                     self.language,
                     self.ts_analyzer,
@@ -117,11 +116,8 @@ class RepoAudit:
                     self.call_depth,
                     self.max_neural_workers
                 )
-                if self.is_iterative:
-                    bugscan_agent.formulate_audit_request()
-                    bugscan_agent.start_scan()
-                else:
-                    bugscan_agent.start_scan()
+                bugscan_agent.start_scan()
+                if not self.is_iterative:
                     break
 
         if self.args.scan_type == "slicescan":
@@ -189,9 +185,9 @@ class RepoAudit:
         for suffix in suffixs:
             for file in glob.glob(f"{project_path}/**/*.{suffix}", recursive=True):
                 try:
-                    with open(file, "r") as c_file:
-                        c_file_content = c_file.read()
-                        self.code_in_files[file] = c_file_content
+                    with open(file, "r") as source_file:
+                        source_file_content = source_file.read()
+                        self.code_in_files[file] = source_file_content
                 except:
                     print(f"Error reading file {file}")
         return
@@ -203,10 +199,6 @@ class RepoAudit:
         if self.args.scan_type == "bugscan":
             if not self.args.model_name:
                 err_messages.append("Error: --model-name is required for bugscan.")
-            if not self.args.bug_type:
-                err_messages.append("Error: --bug-type is required for bugscan.")
-            if self.args.bug_type not in default_bugscan_checkers[self.args.language]:
-                err_messages.append("Error: Invalid bug type provided.")
         elif self.args.scan_type == "slicescan":
             if not self.args.is_backward:
                 err_messages.append("Error: --is-backward is required for slicescan.")

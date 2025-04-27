@@ -8,7 +8,8 @@ sys.path.append(str(Path(__file__).resolve().parents[2]))
 
 # Language dictionary
 language_dict = {
-    "Cpp": "cpp"
+    "Cpp": "cpp",
+    "Java": "java"
 }
 
 # Base path for results
@@ -87,7 +88,9 @@ def get_results(language="Cpp", scanner="bugscan", model="claude-3.5", bug_type=
     if language_dir.exists() and language_dir.is_dir():
         for project_dir in language_dir.iterdir():
             if project_dir.is_dir():
-                projects.append(project_dir.name)
+                # Check if any timestamp directory contains detect_info.json
+                if any(timestamp_dir / "detect_info.json" for timestamp_dir in project_dir.iterdir() if timestamp_dir.is_dir()):
+                    projects.append(project_dir.name)
     return projects
 
 # Function to display the Home page
@@ -124,7 +127,13 @@ def display_results():
     if not scanner_dir.exists():
         return
 
-    bug_types = [d.name for d in scanner_dir.iterdir() if d.is_dir()]
+    # Only get bug type directories that have detect_info.json files
+    bug_types = [d.name for d in scanner_dir.iterdir() 
+                if d.is_dir() and 
+                (d / language).exists() and
+                any((d / language / proj / ts / "detect_info.json").exists()
+                    for proj in (d / language).iterdir() if proj.is_dir()
+                    for ts in proj.iterdir() if ts.is_dir())]
     bug_type = st.selectbox("Select Bug Type", bug_types)
     projects = get_results(language, scanner, model, bug_type)
     project_name = st.selectbox("Select Project", projects)
@@ -132,7 +141,9 @@ def display_results():
     if project_name:
         project_dir = Path(f"{BASE_PATH}/result/{scanner}/{model}/{bug_type}/{language}/{project_name}")
         if project_dir.exists():
-            timestamps = sorted([d.name for d in project_dir.iterdir() if d.is_dir()], reverse=True)
+            # Only list timestamps that have detect_info.json files
+            timestamps = sorted([d.name for d in project_dir.iterdir() 
+                            if d.is_dir() and (d / "detect_info.json").exists()], reverse=True)
             selected_timestamp = st.selectbox("Select Timestamp", timestamps)
         else:
             return
