@@ -98,8 +98,7 @@ class SliceScanAgent(Agent):
                     caller_functions = self.ts_analyzer.get_all_caller_functions(function)
                     for caller_function in caller_functions:
                         # Forward slicing: Return back to caller function from the current function. 
-                        new_slice_context = copy.deepcopy(slice_context)
-                        top_unmatched_context_label = new_slice_context.get_top_unmatched_context_label()
+                        
 
                         call_site_nodes = self.ts_analyzer.get_callsites_by_callee_name(caller_function, function.function_name)
                         for call_site_node in call_site_nodes:
@@ -107,6 +106,8 @@ class SliceScanAgent(Agent):
                             file_content = self.ts_analyzer.code_in_files[caller_function_file_name]
                             call_site_lower_line_number = file_content[:call_site_node.start_byte].count("\n") + 1
 
+                            new_slice_context = copy.deepcopy(slice_context)
+                            top_unmatched_context_label = new_slice_context.get_top_unmatched_context_label()
                             if top_unmatched_context_label is not None:
                                 if top_unmatched_context_label.parenthesis == Parenthesis.LEFT_PAR:
                                     if call_site_lower_line_number != top_unmatched_context_label.line_number \
@@ -224,15 +225,14 @@ class SliceScanAgent(Agent):
                     caller_functions = self.ts_analyzer.get_all_caller_functions(function)
                     for caller_function in caller_functions:
                         # Backward slicing: Trace back to the caller function from the current function
-                        new_slice_context = copy.deepcopy(slice_context)
-                        top_unmatched_context_label = new_slice_context.get_top_unmatched_context_label()
-
                         call_site_nodes = self.ts_analyzer.get_callsites_by_callee_name(caller_function, function.function_name)
                         for call_site_node in call_site_nodes:
                             caller_function_file_name = self.ts_analyzer.functionToFile[caller_function.function_id]
                             file_content = self.ts_analyzer.code_in_files[caller_function_file_name]
                             call_site_lower_line_number = file_content[:call_site_node.start_byte].count("\n") + 1
                         
+                            new_slice_context = copy.deepcopy(slice_context)
+                            top_unmatched_context_label = new_slice_context.get_top_unmatched_context_label()
                             if top_unmatched_context_label is not None:
                                 if top_unmatched_context_label.parenthesis == Parenthesis.RIGHT_PAR:
                                     if call_site_lower_line_number != top_unmatched_context_label.line_number \
