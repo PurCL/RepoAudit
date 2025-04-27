@@ -41,15 +41,27 @@
    git submodule update --init --recursive
    ```
 
-2. We provide the script `src/run_repoaudit.sh` to scan files in the `benchmark/Java/toy/NPD` directory. You can run the following commands:
+2. We provide the script `src/run_repoaudit.sh` to run different types of scans. You can use the following command to look up how to run `run_repoaudit.sh`.
+
+    ```sh
+    cd src
+    bash run_repoaudit.sh --help
+    ```
+
+   Here are some example commands:
 
    ```sh
-   cd src
-   sh run_repoaudit.sh dfbscan # Use the agent DFBScanAgent
-   sh run_repoaudit.sh bugscan # Use the agent BugScanAgent
+   # For data flow-based scanning (dfbscan)
+   bash run_repoaudit.sh dfbscan --language Java --project-path ../benchmark/Java/toy --bug-type NPD --is-reachable
+
+   # For general bug scanning (bugscan)
+   bash run_repoaudit.sh bugscan --language Java --project-path ../benchmark/Java/toy --is-iterative
+
+   # For debug scanning (debugscan)
+   bash run_repoaudit.sh debugscan --language Java --project-path ../benchmark/Java/toy
    ```
 
-3. After the scanning is complete, you can check the resulting JSON and log files.
+3. After the scanning is complete, the results will be available in JSON format and log files.
 
 
 ## Parallel Auditing Support
