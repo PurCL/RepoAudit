@@ -21,14 +21,12 @@ default_bugscan_checkers = {
     "Cpp": ["BOF", "MLK", "NPD", "UAF"],
     "Go": ["BOF", "NPD"],
     "Java": ["NPD"],
-    "Python": ["NPD"]
+    "Python": ["NPD"],
 }
 
 # TODO
-default_dfbscan_checkers = {
-    "Cpp": ["MLK", "NPD", "UAF"],
-    "Java": ["NPD"]
-}
+default_dfbscan_checkers = {"Cpp": ["MLK", "NPD", "UAF"], "Java": ["NPD"]}
+
 
 class RepoAudit:
     def __init__(
@@ -41,11 +39,11 @@ class RepoAudit:
         # argument format check
         self.args = args
         is_input_valid, error_messages = self.validate_inputs()
-    
+
         if not is_input_valid:
             print("\n".join(error_messages))
             exit(1)
-        
+
         self.project_path = args.project_path
         self.language = args.language
         self.code_in_files = {}
@@ -77,18 +75,26 @@ class RepoAudit:
             suffixs = ["py"]
         else:
             raise ValueError("Invalid language setting")
-        
+
         # Load all files with the specified suffix in the project path
         self.travese_files(self.project_path, suffixs)
 
         if self.language == "Cpp":
-            self.ts_analyzer = Cpp_TSAnalyzer(self.code_in_files, self.language, self.max_symbolic_workers)
+            self.ts_analyzer = Cpp_TSAnalyzer(
+                self.code_in_files, self.language, self.max_symbolic_workers
+            )
         elif self.language == "Go":
-            self.ts_analyzer = Go_TSAnalyzer(self.code_in_files, self.language, self.max_symbolic_workers)
+            self.ts_analyzer = Go_TSAnalyzer(
+                self.code_in_files, self.language, self.max_symbolic_workers
+            )
         elif self.language == "Java":
-            self.ts_analyzer = Java_TSAnalyzer(self.code_in_files, self.language, self.max_symbolic_workers)
+            self.ts_analyzer = Java_TSAnalyzer(
+                self.code_in_files, self.language, self.max_symbolic_workers
+            )
         elif self.language == "Python":
-            self.ts_analyzer = Python_TSAnalyzer(self.code_in_files, self.language, self.max_symbolic_workers)
+            self.ts_analyzer = Python_TSAnalyzer(
+                self.code_in_files, self.language, self.max_symbolic_workers
+            )
         return
 
     def start_repo_auditing(self) -> None:
@@ -101,12 +107,12 @@ class RepoAudit:
                 self.language,
                 self.ts_analyzer,
                 self.model_name,
-                self.temperature
+                self.temperature,
             )
             metascan_pipeline.start_scan()
-        
+
         if self.args.scan_type == "bugscan":
-            while True:            
+            while True:
                 bugscan_agent = BugScanAgent(
                     self.project_path,
                     self.language,
@@ -114,7 +120,7 @@ class RepoAudit:
                     self.model_name,
                     self.temperature,
                     self.call_depth,
-                    self.max_neural_workers
+                    self.max_neural_workers,
                 )
                 bugscan_agent.start_scan()
                 if not self.is_iterative:
@@ -130,7 +136,7 @@ class RepoAudit:
                 self.model_name,
                 self.temperature,
                 self.call_depth,
-                self.max_neural_workers
+                self.max_neural_workers,
             )
             slicescan_agent.start_scan()
             print(slicescan_agent.get_agent_result())
@@ -145,7 +151,7 @@ class RepoAudit:
                 self.model_name,
                 self.temperature,
                 self.call_depth,
-                self.max_neural_workers
+                self.max_neural_workers,
             )
             dfbscan_agent.start_scan()
 
@@ -160,7 +166,7 @@ class RepoAudit:
                 self.function_detection_model,
                 self.temperature,
                 self.call_depth,
-                self.max_neural_workers
+                self.max_neural_workers,
             )
             samplescan_agent.start_scan()
 
@@ -172,11 +178,10 @@ class RepoAudit:
                 self.model_name,
                 self.temperature,
                 self.call_depth,
-                self.max_neural_workers
+                self.max_neural_workers,
             )
             debugscan_agent.start_scan()
         return
-    
 
     def travese_files(self, project_path: str, suffixs: List) -> None:
         """
@@ -194,7 +199,7 @@ class RepoAudit:
 
     def validate_inputs(self) -> Tuple[bool, List[str]]:
         err_messages = []
-    
+
         # For each scan type, check required parameters.
         if self.args.scan_type == "bugscan":
             if not self.args.model_name:
@@ -203,7 +208,9 @@ class RepoAudit:
             if not self.args.is_backward:
                 err_messages.append("Error: --is-backward is required for slicescan.")
             if not self.args.model_name:
-                err_messages.append("Error: --inference-model-name is required for slicescan.")
+                err_messages.append(
+                    "Error: --inference-model-name is required for slicescan."
+                )
         elif self.args.scan_type == "dfbscan":
             if not self.args.model_name:
                 err_messages.append("Error: --model-name is required for dfbscan.")
@@ -213,18 +220,25 @@ class RepoAudit:
                 err_messages.append("Error: Invalid bug type provided.")
         elif self.args.scan_type == "samplescan":
             if not self.args.seed_selection_model:
-                err_messages.append("Error: --seed-selection-model is required for samplescan.")
+                err_messages.append(
+                    "Error: --seed-selection-model is required for samplescan."
+                )
             if not self.args.slicing_model:
-                err_messages.append("Error: --slicing-model is required for samplescan.")
+                err_messages.append(
+                    "Error: --slicing-model is required for samplescan."
+                )
             if not self.args.function_detection_model:
-                err_messages.append("Error: --function-detection-model is required for samplescan.")
+                err_messages.append(
+                    "Error: --function-detection-model is required for samplescan."
+                )
         elif self.args.scan_type == "debugscan":
             if not self.args.model_name:
                 err_messages.append("Error: --model-name is required for debugscan.")
         else:
             err_messages.append("Error: Unknown scan type provided.")
         return (len(err_messages) == 0, err_messages)
-    
+
+
 def configure_args():
     parser = argparse.ArgumentParser(
         description="RepoAudit-Plus: Run one of metascan, bugscan, slicescan, dfbscan, or samplescan"
@@ -232,38 +246,71 @@ def configure_args():
     parser.add_argument(
         "--scan-type",
         required=True,
-        choices=["metascan", "slicescan", "bugscan", "dfbscan", "samplescan", "debugscan"],
-        help="The type of scan to perform."
+        choices=[
+            "metascan",
+            "slicescan",
+            "bugscan",
+            "dfbscan",
+            "samplescan",
+            "debugscan",
+        ],
+        help="The type of scan to perform.",
     )
     # Common parameters of metascan, slicescan, bugscan, and dfbscan
     parser.add_argument("--project-path", required=True, help="Project path")
     parser.add_argument("--language", required=True, help="Programming language")
-    parser.add_argument("--max-symbolic-workers", type=int, default=10, help="Max symbolic workers for parsing-based analysis")
-    
+    parser.add_argument(
+        "--max-symbolic-workers",
+        type=int,
+        default=10,
+        help="Max symbolic workers for parsing-based analysis",
+    )
 
     # Common parameters for slicescan, bugscan, and dfbscan
     parser.add_argument("--model-name", help="The name of LLMs")
-    parser.add_argument("--temperature", type=float, default=0.5, help="Temperature for inference")
+    parser.add_argument(
+        "--temperature", type=float, default=0.5, help="Temperature for inference"
+    )
     parser.add_argument("--call-depth", type=int, default=3, help="Call depth setting")
-    parser.add_argument("--max-neural-workers", type=int, default=1, help="Max neural workers for prompting-based analysis")
+    parser.add_argument(
+        "--max-neural-workers",
+        type=int,
+        default=1,
+        help="Max neural workers for prompting-based analysis",
+    )
 
     # Parameters for samplescan
-    parser.add_argument("--seed-selection-model", help="The name of LLMs identifying the seed values")
+    parser.add_argument(
+        "--seed-selection-model", help="The name of LLMs identifying the seed values"
+    )
     parser.add_argument("--slicing-model", help="The name of LLMs for slicing")
-    parser.add_argument("--inlining-model", help="The name of LLMs for inline bug detection")
-    parser.add_argument("--function-detection-model", help="The name of LLMs for function-level bug detection")
-    
+    parser.add_argument(
+        "--inlining-model", help="The name of LLMs for inline bug detection"
+    )
+    parser.add_argument(
+        "--function-detection-model",
+        help="The name of LLMs for function-level bug detection",
+    )
+
     # Parameters for slicescan
-    parser.add_argument("--is-backward", action="store_true", help="Flag for backward slicing")
+    parser.add_argument(
+        "--is-backward", action="store_true", help="Flag for backward slicing"
+    )
 
     # Common parameters for bugscan and dfbscan
     parser.add_argument("--bug-type", help="Bug type (for bugscan and dfbscan)")
 
     # Parameters for dfbscan
-    parser.add_argument("--is-reachable", action="store_true", help="Flag for bugscan reachability")
+    parser.add_argument(
+        "--is-reachable", action="store_true", help="Flag for bugscan reachability"
+    )
 
     # Parameters for bugscan
-    parser.add_argument("--is-iterative", action="store_true", help="Flag for iterative analysis with multiple rounds")
+    parser.add_argument(
+        "--is-iterative",
+        action="store_true",
+        help="Flag for iterative analysis with multiple rounds",
+    )
 
     args = parser.parse_args()
     return args

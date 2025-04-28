@@ -14,10 +14,12 @@ class Go_BOF_Extractor(BugScanExtractor):
         source_code = self.ts_analyzer.code_in_files[function.file_path]
         file_name = function.file_path
 
-        nodes= find_nodes_by_type(root_node, "index_expression")
+        nodes = find_nodes_by_type(root_node, "index_expression")
         seeds = []
         for node in nodes:
             line_number = source_code[: node.start_byte].count("\n") + 1
-            name = source_code[node.start_byte: node.end_byte]
-            seeds.append((Value(name, line_number, ValueLabel.BUF_ACCESS_EXPR, file_name), True))
+            name = source_code[node.start_byte : node.end_byte]
+            seeds.append(
+                (Value(name, line_number, ValueLabel.BUF_ACCESS_EXPR, file_name), True)
+            )
         return seeds

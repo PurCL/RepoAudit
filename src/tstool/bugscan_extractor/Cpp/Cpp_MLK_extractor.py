@@ -4,12 +4,13 @@ from ..bugscan_extractor import *
 import tree_sitter
 import argparse
 
+
 class Cpp_MLK_Extractor(BugScanExtractor):
     def find_seeds(self, function: Function) -> List[Tuple[Value, bool]]:
         root_node = function.parse_tree_root_node
         source_code = self.ts_analyzer.code_in_files[function.file_path]
         file_name = function.file_path
-    
+
         nodes = find_nodes_by_type(root_node, "call_expression")
         nodes.extend(find_nodes_by_type(root_node, "new_expression"))
 
@@ -21,8 +22,17 @@ class Cpp_MLK_Extractor(BugScanExtractor):
         4. new
         5. getline
         """
-        mem_allocations = {"malloc", "calloc", "realloc", "strdup", "strndup", "asprintf", "vasprintf", "getline"}
-        spec_apis = {}          # specific user-defined APIs that allocate memory
+        mem_allocations = {
+            "malloc",
+            "calloc",
+            "realloc",
+            "strdup",
+            "strndup",
+            "asprintf",
+            "vasprintf",
+            "getline",
+        }
+        spec_apis = {}  # specific user-defined APIs that allocate memory
         seeds = []
         for node in nodes:
             is_seed_node = False
@@ -37,6 +47,13 @@ class Cpp_MLK_Extractor(BugScanExtractor):
 
             if is_seed_node:
                 line_number = source_code[: node.start_byte].count("\n") + 1
-                name = source_code[node.start_byte: node.end_byte]
-                seeds.append((Value(name, line_number, ValueLabel.NON_BUF_ACCESS_EXPR, file_name), False))
-        return seeds     
+                name = source_code[node.start_byte : node.end_byte]
+                seeds.append(
+                    (
+                        Value(
+                            name, line_number, ValueLabel.NON_BUF_ACCESS_EXPR, file_name
+                        ),
+                        False,
+                    )
+                )
+        return seeds

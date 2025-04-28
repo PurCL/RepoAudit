@@ -14,7 +14,7 @@ class DebugScanState(State):
         self.debug_seed: Value = None
         self.debug_report: DebugReport = None
         return
-    
+
     def update_debug_seed(self, debug_seed: Value) -> None:
         """
         Update the debug seed
@@ -22,7 +22,7 @@ class DebugScanState(State):
         """
         self.debug_seed = debug_seed
         return
-    
+
     def update_debug_report(self, debug_report: DebugReport) -> None:
         """
         Update the debug report
