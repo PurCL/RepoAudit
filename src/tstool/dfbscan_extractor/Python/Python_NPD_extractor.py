@@ -4,6 +4,7 @@ from ..dfbscan_extractor import *
 import tree_sitter
 import argparse
 
+
 class Python_NPD_Extractor(DFBScanExtractor):
     def extract_sources(self, function: Function) -> List[Value]:
         root_node = function.parse_tree_root_node
@@ -19,10 +20,9 @@ class Python_NPD_Extractor(DFBScanExtractor):
         sources = []
         for node in null_value_nodes:
             line_number = source_code[: node.start_byte].count("\n") + 1
-            name = source_code[node.start_byte: node.end_byte]
+            name = source_code[node.start_byte : node.end_byte]
             sources.append(Value(name, line_number, ValueLabel.SRC, file_path))
         return sources
-    
 
     def extract_sinks(self, function: Function) -> List[Value]:
         """
