@@ -12,37 +12,36 @@ from abc import ABC, abstractmethod
 
 sys.path.append(path.dirname(path.dirname(path.dirname(path.abspath(__file__)))))
 
-    
+
 class DFBScanExtractor(ABC):
     """
     Extractor class providing a common interface for source/sink extraction using tree-sitter.
     """
-    def __init__(
-        self,
-        ts_analyzer: TSAnalyzer
-    ):
+
+    def __init__(self, ts_analyzer: TSAnalyzer):
         self.ts_analyzer = ts_analyzer
         self.sources = []
         self.sinks = []
         return
-        
 
     def extract_all(self):
         """
         Start the source/sink extraction process.
         """
-        pbar = tqdm(total=len(self.ts_analyzer.function_env), desc="Extracting sources and sinks")
+        pbar = tqdm(
+            total=len(self.ts_analyzer.function_env),
+            desc="Extracting sources and sinks",
+        )
         for function_id in self.ts_analyzer.function_env:
             pbar.update(1)
             function: Function = self.ts_analyzer.function_env[function_id]
-            if 'test' in function.file_path or 'example' in function.file_path:
+            if "test" in function.file_path or "example" in function.file_path:
                 continue
             file_content = self.ts_analyzer.code_in_files[function.file_path]
             function_root_node = function.parse_tree_root_node
             self.sources.extend(self.extract_sources(function))
             self.sinks.extend(self.extract_sinks(function))
         return self.sources, self.sinks
-    
 
     @abstractmethod
     def extract_sources(self, function: Function) -> List[Value]:

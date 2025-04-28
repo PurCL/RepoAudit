@@ -7,7 +7,9 @@ from llmtool.LLM_tool import *
 from memory.syntactic.function import *
 from memory.syntactic.value import *
 from memory.syntactic.api import *
+
 BASE_PATH = Path(__file__).resolve().parent.parent.parent
+
 
 class SliceBugDetectorInput(LLMToolInput):
     def __init__(self, buggy_construct_str: str, single_function_str: str) -> None:
@@ -21,7 +23,7 @@ class SliceBugDetectorInput(LLMToolInput):
 
     def __hash__(self) -> int:
         return hash((self.buggy_construct_str, self.single_function_str))
-        
+
 
 class SliceBugDetectorOutput(LLMToolOutput):
     def __init__(self, is_buggy: bool, explanation_str: str) -> None:
@@ -32,13 +34,21 @@ class SliceBugDetectorOutput(LLMToolOutput):
         self.is_buggy = is_buggy
         self.explanation_str = explanation_str
         return
-    
+
     def __str__(self):
         return f"Is buggy: {self.is_buggy} \nExplanation: {self.explanation_str}"
 
 
 class SliceBugDetector(LLMTool):
-    def __init__(self, bug_type: str, model_name: str, temperature: float, language: str, max_query_num: int, logger: Logger) -> None:
+    def __init__(
+        self,
+        bug_type: str,
+        model_name: str,
+        temperature: float,
+        language: str,
+        max_query_num: int,
+        logger: Logger,
+    ) -> None:
         """
         :param bug_type: the type of bug to detect
         :param model_name: the model name
@@ -49,7 +59,9 @@ class SliceBugDetector(LLMTool):
         """
         super().__init__(model_name, temperature, language, max_query_num, logger)
         self.bug_type = bug_type
-        self.prompt_file = f"{BASE_PATH}/prompt/{language}/bugscan/{bug_type}_slice_bug_detector.json"
+        self.prompt_file = (
+            f"{BASE_PATH}/prompt/{language}/bugscan/{bug_type}_slice_bug_detector.json"
+        )
         return
 
     def _get_prompt(self, input: SliceBugDetectorInput) -> str:
@@ -63,19 +75,23 @@ class SliceBugDetector(LLMTool):
         prompt += "\n" + "\n".join(prompt_template_dict["analysis_rules"])
         prompt += "\n" + "\n".join(prompt_template_dict["analysis_examples"])
         prompt += "\n" + "".join(prompt_template_dict["meta_prompts"])
-        prompt = prompt.replace("<ANSWER>", "\n".join(prompt_template_dict["answer_format"]))
+        prompt = prompt.replace(
+            "<ANSWER>", "\n".join(prompt_template_dict["answer_format"])
+        )
         prompt = prompt.replace("<QUESTION>", prompt_template_dict["question_template"])
         prompt = prompt.replace("<FUNCTION>", input.single_function_str)
         prompt = prompt.replace("<SEED_NAME>", input.buggy_construct_str)
         return prompt
 
-    def _parse_response(self, response: str, input: SliceBugDetectorInput) -> SliceBugDetectorOutput:
+    def _parse_response(
+        self, response: str, input: SliceBugDetectorInput
+    ) -> SliceBugDetectorOutput:
         """
         :param response: the string response from the model
         :return: the output of intra-procedural detector
         """
-        answer_match = re.search(r'Answer:\s*(\w+)', response)
-        poc_match = re.search(r'Explanation:\s*(.*)', response, re.DOTALL)
+        answer_match = re.search(r"Answer:\s*(\w+)", response)
+        poc_match = re.search(r"Explanation:\s*(.*)", response, re.DOTALL)
 
         if answer_match:
             answer = answer_match.group(1).strip()

@@ -1,0 +1,54 @@
+name: Black Formatting
+
+on:
+  pull_request:
+    branches:
+      - main
+      - 'repoaudit-v*'
+    paths:
+      - 'src/**/*.py'
+
+  push:
+    branches:
+      - main
+      - 'repoaudit-v*'
+    paths:
+      - 'src/**/*.py'
+
+jobs:
+  black:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install Black
+        run: pip install black
+
+      - name: Run Black
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "Checking formatting on pull_request..."
+            black --check src/
+          else
+            echo "Auto-formatting and pushing changes on push..."
+            black src/
+            if [[ `git status --porcelain` ]]; then
+              git config user.name "github-actions[bot]"
+              git config user.email "github-actions[bot]@users.noreply.github.com"
+              git add src/
+              git commit -m "chore: auto-format Python code in src/ with black"
+              git push
+            else
+              echo "No formatting changes needed."
+            fi
+          fi

@@ -4,6 +4,7 @@ from ..bugscan_extractor import *
 import tree_sitter
 import argparse
 
+
 class Cpp_UAF_Extractor(BugScanExtractor):
     def find_seeds(self, function: Function) -> List[Tuple[Value, bool]]:
         root_node = function.parse_tree_root_node
@@ -15,8 +16,13 @@ class Cpp_UAF_Extractor(BugScanExtractor):
         1. free
         """
         nodes = find_nodes_by_type(root_node, "call_expression")
-        free_functions = {"free", "ngx_free", "ngx_mail_close_connection", "ngx_destroy_black_list_link"}
-        spec_apis = {}         # specific user-defined APIs 
+        free_functions = {
+            "free",
+            "ngx_free",
+            "ngx_mail_close_connection",
+            "ngx_destroy_black_list_link",
+        }
+        spec_apis = {}  # specific user-defined APIs
         seeds = []
         for node in nodes:
             is_seed_node = False
@@ -28,7 +34,14 @@ class Cpp_UAF_Extractor(BugScanExtractor):
                             is_seed_node = True
             if is_seed_node:
                 line_number = source_code[: node.start_byte].count("\n") + 1
-                call_str = source_code[node.start_byte: node.end_byte]
+                call_str = source_code[node.start_byte : node.end_byte]
                 name = call_str.split("(")[1].split(")")[0]
-                seeds.append((Value(name, line_number, ValueLabel.NON_BUF_ACCESS_EXPR, file_name), False))
-        return seeds    
+                seeds.append(
+                    (
+                        Value(
+                            name, line_number, ValueLabel.NON_BUF_ACCESS_EXPR, file_name
+                        ),
+                        False,
+                    )
+                )
+        return seeds

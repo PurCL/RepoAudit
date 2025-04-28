@@ -4,6 +4,7 @@ from ..bugscan_extractor import *
 import tree_sitter
 import argparse
 
+
 class Cpp_NPD_Extractor(BugScanExtractor):
     def find_seeds(self, function: Function) -> List[Tuple[Value, bool]]:
         root_node = function.parse_tree_root_node
@@ -18,7 +19,7 @@ class Cpp_NPD_Extractor(BugScanExtractor):
         Extract the potential null values as seeds from the source code.
         """
         seeds = []
-        spec_apis = {"malloc"}        # specific user-defined APIs that can return NULL
+        spec_apis = {"malloc"}  # specific user-defined APIs that can return NULL
 
         for node in nodes:
             is_seed_node = False
@@ -35,6 +36,13 @@ class Cpp_NPD_Extractor(BugScanExtractor):
 
             if is_seed_node:
                 line_number = source_code[: node.start_byte].count("\n") + 1
-                name = source_code[node.start_byte: node.end_byte]
-                seeds.append((Value(name, line_number, ValueLabel.NON_BUF_ACCESS_EXPR, file_name), False))
+                name = source_code[node.start_byte : node.end_byte]
+                seeds.append(
+                    (
+                        Value(
+                            name, line_number, ValueLabel.NON_BUF_ACCESS_EXPR, file_name
+                        ),
+                        False,
+                    )
+                )
         return seeds
