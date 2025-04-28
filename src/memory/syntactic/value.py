@@ -2,6 +2,7 @@ import re
 from typing import Set
 from enum import Enum
 
+
 class ValueLabel(Enum):
     SRC = 1
     SINK = 2
@@ -10,9 +11,9 @@ class ValueLabel(Enum):
     ARG = 5
     OUT = 6
 
-    BUF_ACCESS_EXPR = 7       # buffer access
-    NON_BUF_ACCESS_EXPR = 8     # non-buffer access
-    
+    BUF_ACCESS_EXPR = 7  # buffer access
+    NON_BUF_ACCESS_EXPR = 8  # non-buffer access
+
     LOCAL = 9
     GLOBAL = 10
 
@@ -27,7 +28,7 @@ class ValueLabel(Enum):
             ValueLabel.BUF_ACCESS_EXPR: "ValueLabel.BUF_ACCESS_EXPR",
             ValueLabel.NON_BUF_ACCESS_EXPR: "ValueLabel.NON_BUF_ACCESS_EXPR",
             ValueLabel.LOCAL: "ValueLabel.LOCAL",
-            ValueLabel.GLOBAL: "ValueLabel.GLOBAL"
+            ValueLabel.GLOBAL: "ValueLabel.GLOBAL",
         }
         return mapping[self]
 
@@ -43,7 +44,7 @@ class ValueLabel(Enum):
             "ValueLabel.BUF_ACCESS_EXPR": ValueLabel.BUF_ACCESS_EXPR,
             "ValueLabel.NON_BUF_ACCESS_EXPR": ValueLabel.NON_BUF_ACCESS_EXPR,
             "ValueLabel.LOCAL": ValueLabel.LOCAL,
-            "ValueLabel.GLOBAL": ValueLabel.GLOBAL
+            "ValueLabel.GLOBAL": ValueLabel.GLOBAL,
         }
         try:
             return mapping[s]
@@ -84,16 +85,16 @@ class Value:
             + str(self.label)
             + ")"
         )
-    
-    def __eq__(self, other: 'Value') -> bool:
+
+    def __eq__(self, other: "Value") -> bool:
         return self.__str__() == other.__str__()
 
     def __repr__(self) -> str:
         return self.__str__()
-    
+
     def __hash__(self) -> int:
         return hash(self.__str__())
-    
+
     @classmethod
     def from_str_to_value(cls, s: str) -> "Value":
         """
@@ -101,9 +102,7 @@ class Value:
             "((name, file, line_number, index), label)"
         and create a Value instance from it.
         """
-        pattern = (
-            r'^\(\(\s*(?P<name>[^,]+),\s*(?P<file>[^,]+),\s*(?P<line_number>\d+),\s*(?P<index>-?\d+)\s*\),\s*(?P<label>[^)]+)\)$'
-        )
+        pattern = r"^\(\(\s*(?P<name>[^,]+),\s*(?P<file>[^,]+),\s*(?P<line_number>\d+),\s*(?P<index>-?\d+)\s*\),\s*(?P<label>[^)]+)\)$"
         match = re.match(pattern, s)
         if not match:
             raise ValueError(f"String does not match expected format: {s}")

@@ -11,13 +11,13 @@ class Cpp_BOF_Extractor(BugScanExtractor):
         source_code = self.ts_analyzer.code_in_files[function.file_path]
         file_name = function.file_path
 
-        nodes= find_nodes_by_type(root_node, "subscript_expression")
+        nodes = find_nodes_by_type(root_node, "subscript_expression")
         nodes.extend(find_nodes_by_type(root_node, "call_expression"))
         nodes.extend(find_nodes_by_type(root_node, "pointer_expression"))
 
         mem_operations = {"memcpy", "memset", "memmove", "strndup"}
         mem_allocations = {"malloc", "calloc", "realloc"}
-        spec_apis = {"ngx_memcpy", "ngx_sprintf"}          # specific user-defined APIs
+        spec_apis = {"ngx_memcpy", "ngx_sprintf"}  # specific user-defined APIs
         seeds = []
         for node in nodes:
             is_seed_node = False
@@ -27,13 +27,22 @@ class Cpp_BOF_Extractor(BugScanExtractor):
                 for child in node.children:
                     if child.type == "identifier":
                         name = source_code[child.start_byte : child.end_byte]
-                        if name in mem_operations or name in mem_allocations or name in spec_apis:
+                        if (
+                            name in mem_operations
+                            or name in mem_allocations
+                            or name in spec_apis
+                        ):
                             is_seed_node = True
             if node.type == "pointer_expression" and node.children[0].type == "*":
                 is_seed_node = True
 
             if is_seed_node:
                 line_number = source_code[: node.start_byte].count("\n") + 1
-                name = source_code[node.start_byte: node.end_byte]
-                seeds.append((Value(name, line_number, ValueLabel.BUF_ACCESS_EXPR, file_name), True))
+                name = source_code[node.start_byte : node.end_byte]
+                seeds.append(
+                    (
+                        Value(name, line_number, ValueLabel.BUF_ACCESS_EXPR, file_name),
+                        True,
+                    )
+                )
         return seeds

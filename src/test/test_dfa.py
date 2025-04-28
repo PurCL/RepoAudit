@@ -3,6 +3,7 @@ from os import path
 from pathlib import Path
 import json
 import time
+
 sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
 
 from tstool.bugscan_extractor.bugscan_extractor import *
@@ -18,6 +19,7 @@ from tstool.bugscan_extractor.Python.Python_NPD_extractor import *
 from repoaudit import RepoAudit
 
 BASE_DIR = path.dirname(path.dirname(path.dirname(path.abspath(__file__))))
+
 
 # TODO: @jinyao: We need to utilize the methods of repoaudit to run the test cases
 class TestDFScan:
@@ -36,9 +38,10 @@ class TestDFScan:
         print(f"Language: {self.language}")
         print(f"Bug Type: {self.bug_type}")
         print(f"Execution Time: {time.time() - start_time:.2f} seconds")
-        print(f"Detected Test Cases: {self.test_case_num-len(self.test_cases)} / {self.test_case_num}")
+        print(
+            f"Detected Test Cases: {self.test_case_num-len(self.test_cases)} / {self.test_case_num}"
+        )
         print("Missing Test Cases: ", self.test_cases)
-
 
     def analyze(self):
         seed_path = f"{BASE_DIR}/result/src_extract/{self.bug_type}/{self.language}_toy/seed_result.json"
@@ -69,28 +72,30 @@ class TestDFScan:
             scanners=["DFscan"],
             bug_type=self.bug_type,
             boundary=3,
-            max_neural_workers=1
+            max_neural_workers=1,
         )
 
         batch_scan.start_batch_scan()
 
     def validate(self):
-        result_dir = f"{BASE_DIR}/result/DFscan-claude-3.7/{self.bug_type}/{self.language}_toy/"
+        result_dir = (
+            f"{BASE_DIR}/result/DFscan-claude-3.7/{self.bug_type}/{self.language}_toy/"
+        )
         if Path(result_dir).exists():
             timestamps = [d.name for d in Path(result_dir).iterdir() if d.is_dir()]
             if not timestamps:
                 print("No results found.")
-                return 
+                return
             timestamps.sort(reverse=True)
             timestamp = timestamps[0]
 
         result_path = f"{BASE_DIR}/result/DFscan-claude-3.7/{self.bug_type}/{self.language}_toy/{timestamp}/bug_info.json"
         if not Path(result_path).exists():
             print("Result file does not exist.")
-            return 
-        with open(result_path, 'r') as f:
+            return
+        with open(result_path, "r") as f:
             results = json.load(f)
-        
+
         for _, item in results.items():
             paths = item["Path"]
             vali_llm = item["Vali_LLM"]
@@ -98,10 +103,12 @@ class TestDFScan:
                 file_name = paths[0]["file_name"]
                 for path in paths:
                     if path["file_name"] != file_name:
-                        print(f"Cross-file Bug Trace: {file_name} -> {path['file_name']}")
+                        print(
+                            f"Cross-file Bug Trace: {file_name} -> {path['file_name']}"
+                        )
                         break
                 self.test_cases.discard(file_name)
-        
+
 
 if __name__ == "__main__":
     test_Cpp_NPD = TestDFScan("Cpp", "NPD")
