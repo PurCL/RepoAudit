@@ -1,9 +1,96 @@
 [submodule "benchmark/Cpp/sofa-pbrpc"]
 	path = benchmark/Cpp/sofa-pbrpc
 	url = https://github.com/baidu/sofa-pbrpc.git
+[submodule "benchmark/Cpp/htop"]
+	path = benchmark/Cpp/htop
+	url = https://github.com/htop-dev/htop.git
 [submodule "benchmark/Go/sally"]
 	path = benchmark/Go/sally
 	url = https://github.com/uber-go/sally.git
-[submodule "benchmark/Cpp/cpv-1"]
-	path = benchmark/Cpp/cpv-1
-	url = https://github.com/aixcc-public/challenge-004-nginx-source.git
+[submodule "benchmark/Go/fasthttp"]
+	path = benchmark/Go/fasthttp
+	url = https://github.com/valyala/fasthttp.git
+[submodule "benchmark/Go/go-zero"]
+	path = benchmark/Go/go-zero
+	url = https://github.com/zeromicro/go-zero.git
+[submodule "benchmark/Go/fiber"]
+	path = benchmark/Go/fiber
+	url = https://github.com/gofiber/fiber.git
+[submodule "benchmark/Go/gnet"]
+	path = benchmark/Go/gnet
+	url = https://github.com/panjf2000/gnet.git
+[submodule "benchmark/Go/echo"]
+	path = benchmark/Go/echo
+	url = https://github.com/labstack/echo.git
+[submodule "benchmark/Go/zap"]
+	path = benchmark/Go/zap
+	url = https://github.com/uber-go/zap.git
+[submodule "benchmark/Go/fx"]
+	path = benchmark/Go/fx
+	url = https://github.com/uber-go/fx.git
+[submodule "benchmark/Go/dig"]
+	path = benchmark/Go/dig
+	url = https://github.com/uber-go/dig.git
+[submodule "benchmark/Go/atomic"]
+	path = benchmark/Go/atomic
+	url = https://github.com/uber-go/atomic.git
+[submodule "benchmark/Go/multierr"]
+	path = benchmark/Go/multierr
+	url = https://github.com/uber-go/multierr.git
+[submodule "benchmark/Go/goleak"]
+	path = benchmark/Go/goleak
+	url = https://github.com/uber-go/goleak.git
+[submodule "benchmark/Go/tally"]
+	path = benchmark/Go/tally
+	url = https://github.com/uber-go/tally.git
+[submodule "benchmark/Go/automaxprocs"]
+	path = benchmark/Go/automaxprocs
+	url = https://github.com/uber-go/automaxprocs.git
+[submodule "benchmark/Go/nilaway"]
+	path = benchmark/Go/nilaway
+	url = https://github.com/uber-go/nilaway.git
+[submodule "benchmark/Go/mock"]
+	path = benchmark/Go/mock
+	url = https://github.com/uber-go/mock.git
+[submodule "benchmark/Go/dosa"]
+	path = benchmark/Go/dosa
+	url = https://github.com/uber-go/dosa.git
+[submodule "benchmark/Go/config"]
+	path = benchmark/Go/config
+	url = https://github.com/uber-go/config.git
+[submodule "benchmark/Go/ratelimit"]
+	path = benchmark/Go/ratelimit
+	url = https://github.com/uber-go/ratelimit.git
+[submodule "benchmark/Go/cff"]
+	path = benchmark/Go/cff
+	url = https://github.com/uber-go/cff.git
+[submodule "benchmark/Go/hackeroni"]
+	path = benchmark/Go/hackeroni
+	url = https://github.com/uber-go/hackeroni.git
+[submodule "benchmark/Go/gwr"]
+	path = benchmark/Go/gwr
+	url = https://github.com/uber-go/gwr.git
+[submodule "benchmark/Go/flagoverride"]
+	path = benchmark/Go/flagoverride
+	url = https://github.com/uber-go/flagoverride.git
+[submodule "benchmark/Go/icu4go"]
+	path = benchmark/Go/icu4go
+	url = https://github.com/uber-go/icu4go.git
+[submodule "benchmark/Go/go-helix"]
+	path = benchmark/Go/go-helix
+	url = https://github.com/uber-go/go-helix.git
+[submodule "benchmark/Go/protoidl"]
+	path = benchmark/Go/protoidl
+	url = https://github.com/uber-go/protoidl.git
+[submodule "benchmark/Go/mapdecode"]
+	path = benchmark/Go/mapdecode
+	url = https://github.com/uber-go/mapdecode.git
+[submodule "benchmark/Go/tools"]
+	path = benchmark/Go/tools
+	url = https://github.com/uber-go/tools.git
+[submodule "benchmark/Go/kafka-client"]
+	path = benchmark/Go/kafka-client
+	url = https://github.com/uber-go/kafka-client.git
+[submodule "benchmark/Go/gopatch"]
+	path = benchmark/Go/gopatch
+	url = https://github.com/uber-go/gopatch.git
