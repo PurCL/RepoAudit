@@ -135,11 +135,18 @@ class IntraSlicer(LLMTool):
     def _parse_response(self, response: str, input: IntraSlicerInput) -> IntraSlicerOutput:
         slice_pattern = r'Slicing:\s*(.*?)\s*External Variables:'
         ext_values_pattern = r'External Variables:\s*((?:-.*(?:\n|$))+)' 
+        # var_pattern = (
+        #     r'^\s*-\s*Type:\s*(?P<type>[^.\n]+)'
+        #     r'(?:\s*Callee:\s*(?P<callee_name>[^.\n]+))?'
+        #     r'(?:\s*Index:\s*(?P<index>\d+))?'
+        #     r'(?:\s*Name:\s*(?P<variable_name>[^\n]+))?'
+        # )
         var_pattern = (
-            r'^\s*-\s*Type:\s*(?P<type>[^.]+)\.'
-            r'(?:\s*Callee:\s*(?P<callee_name>[^.]+)\.)?'      # optional callee name for arguments
-            r'(?:\s*Index:\s*(?P<index>\d+))?'                 # optional index for parameters/arguments
-            r'(?:\s*Name:\s*(?P<variable_name>[^\n.]+))?'      # optional name for global variables
+            r'^\s*-\s*Type:\s*(?P<type>Output Value|Parameter|Argument|Global Variable|Return Value)\.?' 
+            r'(?:\s+Callee:\s*(?P<callee_name>[^.]+)\.?)?'  
+            r'(?:\s+Index:\s*(?P<index>\d+)\.?)?'           
+            r'(?:\s+Name:\s*(?P<variable_name>[^.]+)\.?)?'  
+            r'\.?$'
         )
     
         slice_match = re.search(slice_pattern, response, re.DOTALL)
@@ -158,6 +165,7 @@ class IntraSlicer(LLMTool):
             for line in var_lines:
                 match = re.match(var_pattern, line)
                 if not match:
+                    self.logger.print_log("not matched")
                     continue
                 if match["type"] not in ["Return Value", "Parameter", "Argument", "Global Variable", "Output Value"]:
                     continue

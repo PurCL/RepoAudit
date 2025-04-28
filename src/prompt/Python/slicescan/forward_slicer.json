@@ -78,6 +78,7 @@
       "- Type: Output Value. Callee: XXX.",
       "- Type: Parameter. Index: XXX.",
       "- Type: Argument. Callee: XXX. Index: XXX.",
-      "- Type: Global Variable. Name: XXX."
+      "- Type: Global Variable. Name: XXX.",
+      "- Type: Return Value."
     ]
 }
