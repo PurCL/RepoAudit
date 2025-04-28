@@ -4,14 +4,14 @@ on:
   pull_request:
     branches:
       - main
-      - 'repoaudit-v*'
+      - 'repoaudit-v[0-9]+\.[0-9]+'
     paths:
       - 'src/**/*.py'
 
   push:
     branches:
       - main
-      - 'repoaudit-v*'
+      - 'repoaudit-v[0-9]+\.[0-9]+'
     paths:
       - 'src/**/*.py'
 
