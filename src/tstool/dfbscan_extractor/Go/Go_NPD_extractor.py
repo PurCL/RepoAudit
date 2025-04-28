@@ -33,7 +33,7 @@ class Go_NPD_Extractor(DFBScanExtractor):
         for node in literal_nil_nodes:
             line_number = source_code[: node.start_byte].count("\n") + 1
             name = source_code[node.start_byte : node.end_byte]
-            sources.append(Value(name, line_number, ValueLabel.SRC, file_path))
+            sources.append(Value(name, line_number, ValueLabel.SRC, file_path, -1))
         return sources
 
     def extract_sinks(self, function: Function) -> List[Value]:
@@ -46,19 +46,27 @@ class Go_NPD_Extractor(DFBScanExtractor):
         source_code = self.ts_analyzer.code_in_files[function.file_path]
         file_path = function.file_path
 
-        nodes = find_nodes_by_type(root_node, "selector_expression")
-        # nodes = find_nodes_by_type(root, "index_expression")
-        # nodes = find_nodes_by_type(root, "slice_expression")
-        # nodes = find_nodes_by_type(root, "unary_expression")
+        sink_nodes = []
         sinks = []
 
-        for node in nodes:
-            children_types = [child.type for child in node.children]
-            if "." not in children_types:
-                continue
-            index = children_types.index(".")
-            child = node.children[index - 1]
-            line_number = source_code[: child.start_byte].count("\n") + 1
-            name = source_code[child.start_byte : child.end_byte]
-            sinks.append(Value(name, line_number, ValueLabel.SINK, file_path))
+        for node_type in [
+            "selector_expression",
+            "index_expression",
+            "slice_expression",
+        ]:
+            for node in find_nodes_by_type(root_node, node_type):
+                first_child = node.children[0]
+                sink_nodes.append(first_child)
+                break
+
+        for node in find_nodes_by_type(root_node, "unary_expression"):
+            first_child = node.children[0]
+            second_child = node.children[1]
+            if first_child.type == "*":
+                sink_nodes.append(second_child)
+
+        for node in sink_nodes:
+            line_number = source_code[: node.start_byte].count("\n") + 1
+            name = source_code[node.start_byte : node.end_byte]
+            sinks.append(Value(name, line_number, ValueLabel.SINK, file_path, -1))
         return sinks

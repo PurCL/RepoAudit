@@ -3,5 +3,6 @@
         "ostream": "cpp",
         "iostream": "cpp"
     },
-    "cSpell.enabled": false
+    "cSpell.enabled": false,
+    "wolf.disableHotModeWarning": true
 }
