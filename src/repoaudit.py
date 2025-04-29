@@ -25,10 +25,10 @@ default_bugscan_checkers = {
 }
 
 default_dfbscan_checkers = {
-    "Cpp": ["MLK", "NPD", "UAF"], 
+    "Cpp": ["MLK", "NPD", "UAF"],
     "Java": ["NPD"],
     "Python": ["NPD"],
-    "Go": ["NPD"]
+    "Go": ["NPD"],
 }
 
 

@@ -669,7 +669,9 @@ class DFBScanAgent(Agent):
                     for bug_report_id, bug in self.state.bug_reports.items()
                 }
 
-                with open(self.res_dir_path + "/detect_info.json", "w") as bug_info_file:
+                with open(
+                    self.res_dir_path + "/detect_info.json", "w"
+                ) as bug_info_file:
                     json.dump(bug_report_dict, bug_info_file, indent=4)
         return
 
