@@ -5,6 +5,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from tqdm import tqdm
 
+from errors import RAValueError
 from tstool.analyzer.TS_analyzer import *
 from tstool.analyzer.Cpp_TS_analyzer import *
 from tstool.analyzer.Go_TS_analyzer import *
@@ -149,7 +150,7 @@ class SampleScanAgent(Agent):
         self.project_name = project_path.split("/")[-1]
 
         if self.project_name not in cases:
-            raise ValueError(f"Project name {self.project_name} not in cases")
+            raise RAValueError(f"Project name {self.project_name} not in cases")
 
         if cases[self.project_name]["Type"] == "Buffer Overflow":
             self.bug_type = "BOF"

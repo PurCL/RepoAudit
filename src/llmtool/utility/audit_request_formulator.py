@@ -65,7 +65,7 @@ class AuditRequestFormulatorOutput(LLMToolOutput):
         ):
             return str(self.bug_type) + str(self.scope)
         else:
-            raise ValueError("Unknown scope type")
+            raise RAValueError("Unknown scope type")
 
 
 class AuditRequestFormulator(LLMTool):

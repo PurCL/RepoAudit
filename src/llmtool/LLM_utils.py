@@ -16,6 +16,7 @@ import json
 from botocore.config import Config
 from botocore.exceptions import BotoCoreError, ClientError
 import boto3
+from errors import RAValueError
 from ui.logger import Logger
 
 
@@ -60,7 +61,7 @@ class LLM:
         elif "deepseek" in self.online_model_name:
             output = self.infer_with_deepseek_model(message)
         else:
-            raise ValueError("Unsupported model name")
+            raise RAValueError("Unsupported model name")
 
         input_token_cost = (
             0

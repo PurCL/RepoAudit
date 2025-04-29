@@ -8,6 +8,7 @@ from agent.dfbscan import *
 from agent.samplescan import *
 from agent.debugscan import *
 
+from errors import RAValueError, RepoAuditError
 from tstool.analyzer.TS_analyzer import *
 from tstool.analyzer.Cpp_TS_analyzer import *
 from tstool.analyzer.Go_TS_analyzer import *
@@ -78,7 +79,7 @@ class RepoAudit:
         elif self.language == "Python":
             suffixs = ["py"]
         else:
-            raise ValueError("Invalid language setting")
+            raise RAValueError("Invalid language setting")
 
         # Load all files with the specified suffix in the project path
         self.travese_files(self.project_path, suffixs)
@@ -321,10 +322,17 @@ def configure_args():
 
 
 def main() -> None:
-    args = configure_args()
-    repoaudit = RepoAudit(args)
-    repoaudit.start_repo_auditing()
-    return
+    try:
+        args = configure_args()
+        repoaudit = RepoAudit(args)
+        repoaudit.start_repo_auditing()
+        return
+    except RepoAuditError as e:
+        print(f"Error caught during RepoAudit: {e}")
+        sys.exit(1)
+    except Exception as e:
+        print(f"Unexpected error: {type(e).__name__}: {e}")
+        sys.exit(1)
 
 
 if __name__ == "__main__":

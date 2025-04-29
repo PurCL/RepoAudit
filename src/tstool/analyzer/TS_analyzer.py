@@ -156,7 +156,7 @@ class TSAnalyzer(ABC):
         elif language_name == "Go":
             self.language = Language(str(language_path), "go")
         else:
-            raise ValueError("Invalid language setting")
+            raise RAValueError("Invalid language setting")
         self.parser.set_language(self.language)
 
         # Results of parsing

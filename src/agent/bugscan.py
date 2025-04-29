@@ -71,6 +71,9 @@ class BugScanAgent(Agent):
             if not os.path.exists(self.log_dir_path):
                 os.makedirs(self.log_dir_path)
             self.logger = Logger(self.log_dir_path + "/" + "bugscan.log")
+            self.logger.print_console(
+                f"The log directory of BugScanAgent is {self.log_dir_path}"
+            )
 
         # LLM tools used by BugScanAgent
         self.audit_request_formulator = AuditRequestFormulator(
@@ -125,12 +128,15 @@ class BugScanAgent(Agent):
             user_prompt_str = sys.stdin.readline().strip()
             if user_prompt_str == "":
                 self.logger.print_console("User prompt is empty")
-                return None
+                raise RAValueError("User prompt is empty")
             audit_input = AuditRequestFormulatorInput(user_prompt_str)
             audit_request_output: AuditRequestFormulatorOutput = (
                 self.audit_request_formulator.invoke(audit_input)
             )
-            if audit_request_output is not None:
+            if (
+                audit_request_output is not None
+                and audit_request_output.bug_type is not None
+            ):
                 target_files = []
                 if audit_request_output.scope.type == "FileLevel":
                     for file_path in audit_request_output.scope.file_paths:

@@ -58,9 +58,9 @@ class TestDFScan:
             elif self.bug_type == "UAF":
                 extractor = Cpp_UAF_Extractor(project_path, self.language, seed_path)
             else:
-                raise ValueError("Invalid bug type")
+                raise RAValueError("Invalid bug type")
         else:
-            raise ValueError("Invalid language")
+            raise RAValueError("Invalid language")
         extractor.run()
 
         batch_scan = RepoAudit(

@@ -2,6 +2,8 @@ import re
 from typing import Set
 from enum import Enum
 
+from errors import RAValueError
+
 
 class ValueLabel(Enum):
     SRC = 1
@@ -49,7 +51,7 @@ class ValueLabel(Enum):
         try:
             return mapping[s]
         except KeyError:
-            raise ValueError(f"Invalid label: {s}")
+            raise RAValueError(f"Invalid label: {s}")
 
 
 class Value:
@@ -105,7 +107,7 @@ class Value:
         pattern = r"^\(\(\s*(?P<name>[^,]+),\s*(?P<file>[^,]+),\s*(?P<line_number>\d+),\s*(?P<index>-?\d+)\s*\),\s*(?P<label>[^)]+)\)$"
         match = re.match(pattern, s)
         if not match:
-            raise ValueError(f"String does not match expected format: {s}")
+            raise RAValueError(f"String does not match expected format: {s}")
 
         name = match.group("name").strip()
         file = match.group("file").strip()
