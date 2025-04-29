@@ -18,6 +18,8 @@ from tstool.dfbscan_extractor.Cpp.Cpp_MLK_extractor import *
 from tstool.dfbscan_extractor.Cpp.Cpp_NPD_extractor import *
 from tstool.dfbscan_extractor.Cpp.Cpp_UAF_extractor import *
 from tstool.dfbscan_extractor.Java.Java_NPD_extractor import *
+from tstool.dfbscan_extractor.Python.Python_NPD_extractor import *
+from tstool.dfbscan_extractor.Go.Go_NPD_extractor import *
 
 from llmtool.LLM_utils import *
 from llmtool.dfbscan.intra_dataflow_analyzer import *
@@ -105,9 +107,11 @@ class DFBScanAgent(Agent):
             if self.bug_type == "NPD":
                 return Java_NPD_Extractor(self.ts_analyzer)
         elif self.language == "Python":
-            pass
+            if self.bug_type == "NPD":
+                return Python_NPD_Extractor(self.ts_analyzer)
         elif self.language == "Go":
-            pass
+            if self.bug_type == "NPD":
+                return Go_NPD_Extractor(self.ts_analyzer)
         # TODO: otherwise, sythesize the extractor
         return None
 
@@ -665,8 +669,10 @@ class DFBScanAgent(Agent):
                     for bug_report_id, bug in self.state.bug_reports.items()
                 }
 
-            with open(self.res_dir_path + "/detect_info.json", "w") as bug_info_file:
-                json.dump(bug_report_dict, bug_info_file, indent=4)
+                with open(
+                    self.res_dir_path + "/detect_info.json", "w"
+                ) as bug_info_file:
+                    json.dump(bug_report_dict, bug_info_file, indent=4)
         return
 
     def get_agent_state(self) -> DFBScanState:

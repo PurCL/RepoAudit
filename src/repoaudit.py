@@ -24,8 +24,12 @@ default_bugscan_checkers = {
     "Python": ["NPD"],
 }
 
-# TODO
-default_dfbscan_checkers = {"Cpp": ["MLK", "NPD", "UAF"], "Java": ["NPD"]}
+default_dfbscan_checkers = {
+    "Cpp": ["MLK", "NPD", "UAF"],
+    "Java": ["NPD"],
+    "Python": ["NPD"],
+    "Go": ["NPD"],
+}
 
 
 class RepoAudit:

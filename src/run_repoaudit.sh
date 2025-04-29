@@ -45,7 +45,7 @@ fi
 # Default values
 SCAN_TYPE=$1
 shift
-MODEL="claude-3.5"
+MODEL="claude-3.7"
 TEMPERATURE="0.0"
 CALL_DEPTH="2"
 MAX_NEURAL_WORKERS="30"
