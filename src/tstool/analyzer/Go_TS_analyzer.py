@@ -65,6 +65,8 @@ class Go_TSAnalyzer(TSAnalyzer):
         Currently not implemented.
         """
         # TODO: Implement parsing of global information if necessary.
+        # XXX(ZZ): Go does not have preprocessor macros like C/C++.
+        # XXX(ZZ): Channels and goroutines might be considered as global variables?
         return
 
     def get_callee_name_at_call_site(
