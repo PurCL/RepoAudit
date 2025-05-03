@@ -51,7 +51,7 @@ class Cpp_MLK_Extractor(DFBScanExtractor):
 
             if is_seed_node:
                 line_number = source_code[: node.start_byte].count("\n") + 1
-                name = source_code[node.start_byte : node.end_byte]
+                name = source_code[node.start_byte : node.end_byte].split("=")[0].strip()
                 sources.append(Value(name, line_number, ValueLabel.SRC, file_path))
         return sources
 
@@ -71,20 +71,21 @@ class Cpp_MLK_Extractor(DFBScanExtractor):
         """
         nodes = find_nodes_by_type(root_node, "call_expression")
         mem_deallocations = {"free"}
-        spec_apis = {}  # specific user-defined APIs that deallocate memory
         sinks = []
         for node in nodes:
             is_sink_node = False
-            self.ts_analyzer.get_arguments_at_callsite
-            find_nodes_by_type(node, "argument")
-            for child in node.children:
-                if child.type == "identifier":
-                    name = source_code[child.start_byte : child.end_byte]
-                    if name in mem_deallocations or name in spec_apis:
-                        is_sink_node = True
+            first_child = node.children[0]
+            if first_child.type == "identifier":
+                name = source_code[first_child.start_byte : first_child.end_byte]
+                if name in mem_deallocations:
+                    is_sink_node = True
 
             if is_sink_node:
-                line_number = source_code[: node.start_byte].count("\n") + 1
-                name = source_code[node.start_byte : node.end_byte]
-                sinks.append(Value(name, line_number, ValueLabel.SINK, file_path))
+                for child in node.children:
+                    if child.type == "argument_list":
+                        for arg in child.children[1:-1]:
+                            if arg.type != ",":
+                                name = source_code[arg.start_byte : arg.end_byte]
+                                line_number = source_code[: arg.start_byte].count("\n") + 1
+                                sinks.append(Value(name, line_number, ValueLabel.SINK, file_path))
         return sinks

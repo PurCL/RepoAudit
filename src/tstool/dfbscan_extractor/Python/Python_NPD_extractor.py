@@ -37,5 +37,7 @@ class Python_NPD_Extractor(DFBScanExtractor):
             first_child = node.children[0]
             line_number = source_code[: first_child.start_byte].count("\n") + 1
             name = source_code[first_child.start_byte : first_child.end_byte]
+            if name in {"self"}:
+                continue
             sinks.append(Value(name, line_number, ValueLabel.SINK, file_path, -1))
         return sinks

@@ -46,5 +46,7 @@ class Java_NPD_Extractor(DFBScanExtractor):
             child = node.children[index - 1]
             line_number = source_code[: child.start_byte].count("\n") + 1
             name = source_code[child.start_byte : child.end_byte]
+            if name in {"this"}:
+                continue
             sinks.append(Value(name, line_number, ValueLabel.SINK, file_path))
         return sinks

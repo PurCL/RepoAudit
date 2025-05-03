@@ -67,17 +67,17 @@ class CallContext:
         top_label = self.get_top_unmatched_context_label()
 
         # Determine which labels to match based on analysis direction
-        first_label = (
+        first_label_parenthesis = (
             Parenthesis.LEFT_PAR if not self.is_backward else Parenthesis.RIGHT_PAR
         )
-        second_label = (
+        second_label_parenthesis = (
             Parenthesis.RIGHT_PAR if not self.is_backward else Parenthesis.LEFT_PAR
         )
 
         # Check the label combinations
         if top_label.parenthesis == label.parenthesis:
             self.simplified_context.append(label)
-        elif top_label == first_label and label == second_label:
+        elif top_label.parenthesis == first_label_parenthesis and label.parenthesis == second_label_parenthesis:
             if (
                 top_label.file_name == label.file_name
                 and top_label.line_number == label.line_number
@@ -192,7 +192,6 @@ class TSAnalyzer(ABC):
         try:
             tree = self.parser.parse(bytes(source_code, "utf8"))
         except Exception as e:
-            print(self.parser)
             print(f"Error parsing {file_path}: {e}")
             exit(0)
         # Call user-defined processing.
@@ -464,37 +463,72 @@ class TSAnalyzer(ABC):
         )
         return caller_functions
 
+    # def get_all_transitive_callee_functions(
+    #     self, function: Function, max_depth, visited=None
+    # ) -> List[Function]:
+    #     """
+    #     Get all transitive callee functions for the provided function.
+    #     """
+    #     print("print ", max_depth);
+    #     if max_depth == 0:
+    #         return []
+
+    #     if visited is None:
+    #         visited = set()
+
+    #     if function.function_id in visited:
+    #         return []
+
+    #     visited.add(function.function_id)
+
+    #     if function.function_id not in self.function_caller_callee_map:
+    #         return []
+    #     callee_ids = self.function_caller_callee_map[function.function_id]
+    #     callee_functions = [self.function_env[callee_id] for callee_id in callee_ids]
+    #     for callee_function in callee_functions:
+    #         callee_functions.extend(
+    #             self.get_all_transitive_callee_functions(
+    #                 callee_function, max_depth - 1, visited
+    #             )
+    #         )
+    #     callee_functions = list(
+    #         {function.function_id: function for function in callee_functions}.values()
+    #     )
+    #     return callee_functions
+
+
     def get_all_transitive_callee_functions(
-        self, function: Function, max_depth, visited=None
+        self, function: Function, max_depth
     ) -> List[Function]:
-        """
-        Get all transitive callee functions for the provided function.
-        """
-        if max_depth == 0:
+        if max_depth <= 0:
             return []
+            
+        visited = set()
+        result = []
+        queue = [(function, max_depth)]
+        cnt = 0
+        
+        try:
+            while len(queue) > 0:
+                cnt += 1    
+                current_func, current_depth = queue.pop(0)
+                if current_func.function_id in visited:
+                    continue
+                    
+                visited.add(current_func.function_id)
+                
+                if current_func.function_id in self.function_caller_callee_map:
+                    callee_ids = self.function_caller_callee_map[current_func.function_id]
+                    for callee_id in callee_ids:
+                        if callee_id not in visited and current_depth > 1:
+                            callee_function = self.function_env[callee_id]
+                            result.append(callee_function)
+                            queue.append((callee_function, current_depth - 1))
+        except Exception as e:
+            print("error: ", e)
+        
+        return result
 
-        if visited is None:
-            visited = set()
-
-        if function.function_id in visited:
-            return []
-
-        visited.add(function.function_id)
-
-        if function.function_id not in self.function_caller_callee_map:
-            return []
-        callee_ids = self.function_caller_callee_map[function.function_id]
-        callee_functions = [self.function_env[callee_id] for callee_id in callee_ids]
-        for callee_function in callee_functions:
-            callee_functions.extend(
-                self.get_all_transitive_callee_functions(
-                    callee_function, max_depth - 1, visited
-                )
-            )
-        callee_functions = list(
-            {function.function_id: function for function in callee_functions}.values()
-        )
-        return callee_functions
 
     # Helper functions for callees
     ## For library APIs
