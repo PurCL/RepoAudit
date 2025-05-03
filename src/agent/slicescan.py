@@ -531,7 +531,7 @@ class SliceScanAgent(Agent):
         slice_context, function_id, seed_set = item
 
         # If call depth exceeds allowed limit, skip processing.
-        if len(slice_context.context) >= self.state.call_depth:
+        if len(slice_context.context) > self.state.call_depth:
             return []
 
         input_data = IntraSlicerInput(

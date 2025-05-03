@@ -41,11 +41,23 @@ class Cpp_NPD_Extractor(DFBScanExtractor):
             if is_seed_node:
                 if node.type == "return_statement":
                     line_number = source_code[: node.start_byte].count("\n") + 1
-                    name = source_code[node.start_byte : node.end_byte].replace("return", "").strip()
+                    name = (
+                        source_code[node.start_byte : node.end_byte]
+                        .replace("return", "")
+                        .strip()
+                    )
+                    if "->" in name or "." in name:
+                        continue
                     sources.append(Value(name, line_number, ValueLabel.SRC, file_path))
                 else:
                     line_number = source_code[: node.start_byte].count("\n") + 1
-                    name = source_code[node.start_byte : node.end_byte].split("=")[0].strip()
+                    name = (
+                        source_code[node.start_byte : node.end_byte]
+                        .split("=")[0]
+                        .strip()
+                    )
+                    if "->" in name or "." in name:
+                        continue
                     sources.append(Value(name, line_number, ValueLabel.SRC, file_path))
         return sources
 
@@ -66,8 +78,10 @@ class Cpp_NPD_Extractor(DFBScanExtractor):
             if name in {"this"}:
                 continue
             line_number = source_code[: second_child.start_byte].count("\n") + 1
+            if "->" in name or "." in name:
+                continue
             sinks.append(Value(name, line_number, ValueLabel.SINK, file_path))
-            
+
         for node in find_nodes_by_type(root_node, "field_expression"):
             first_child = node.children[0]
             second_child = node.children[1]
@@ -76,11 +90,15 @@ class Cpp_NPD_Extractor(DFBScanExtractor):
                 if name in {"this"}:
                     continue
                 line_number = source_code[: first_child.start_byte].count("\n") + 1
+                if "->" in name or "." in name:
+                    continue
                 sinks.append(Value(name, line_number, ValueLabel.SINK, file_path))
-        
+
         for node in find_nodes_by_type(root_node, "subscript_expression"):
             first_child = node.children[0]
             name = source_code[first_child.start_byte : first_child.end_byte]
             line_number = source_code[: first_child.start_byte].count("\n") + 1
+            if "->" in name or "." in name:
+                continue
             sinks.append(Value(name, line_number, ValueLabel.SINK, file_path))
         return sinks

@@ -21,7 +21,7 @@ def find_nodes(root_node: tree_sitter.Node, node_type: str) -> List[tree_sitter.
         nodes.extend(find_nodes(child_node, node_type))
     return nodes
 
-with open("../benchmark/C++/toy/case01.cpp", "r") as file:
+with open("../benchmark/Cpp/toy/test.cpp", "r") as file:
     source_code = file.read()
 
 tree = parser.parse(bytes(source_code, "utf8"))
@@ -31,22 +31,8 @@ tree = parser.parse(bytes(source_code, "utf8"))
 root = tree.root_node
 all_function_nodes = []
 
+nodes = find_nodes(root, "call_expression")
 
-for function_definition_node in find_nodes(tree.root_node, "function_definition"):
-    for function_declaration_node in find_nodes(function_definition_node, "function_declarator"):
-        function_name = ""
-        for sub_node in function_declaration_node.children:
-            if sub_node.type in {"identifier", "field_identifier"}:
-                function_name = source_code[sub_node.start_byte:sub_node.end_byte]
-                break
-            elif sub_node.type == "qualified_identifier":
-                qualified_function_name = source_code[sub_node.start_byte:sub_node.end_byte]
-                function_name = qualified_function_name.split("::")[-1]
-                break
-        if function_name == "":
-            continue
-
-        # Initialize the raw data of a function
-        start_line_number = source_code[: function_definition_node.start_byte].count("\n") + 1
-        end_line_number = source_code[: function_definition_node.end_byte].count("\n") + 1
-        print(start_line_number, end_line_number, function_name)
+for node in nodes:
+    first_child = node.children[0]
+    print(source_code[first_child.start_byte : first_child.end_byte])

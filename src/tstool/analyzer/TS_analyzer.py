@@ -77,7 +77,10 @@ class CallContext:
         # Check the label combinations
         if top_label.parenthesis == label.parenthesis:
             self.simplified_context.append(label)
-        elif top_label.parenthesis == first_label_parenthesis and label.parenthesis == second_label_parenthesis:
+        elif (
+            top_label.parenthesis == first_label_parenthesis
+            and label.parenthesis == second_label_parenthesis
+        ):
             if (
                 top_label.file_name == label.file_name
                 and top_label.line_number == label.line_number
@@ -496,29 +499,30 @@ class TSAnalyzer(ABC):
     #     )
     #     return callee_functions
 
-
     def get_all_transitive_callee_functions(
         self, function: Function, max_depth
     ) -> List[Function]:
         if max_depth <= 0:
             return []
-            
+
         visited = set()
         result = []
         queue = [(function, max_depth)]
         cnt = 0
-        
+
         try:
             while len(queue) > 0:
-                cnt += 1    
+                cnt += 1
                 current_func, current_depth = queue.pop(0)
                 if current_func.function_id in visited:
                     continue
-                    
+
                 visited.add(current_func.function_id)
-                
+
                 if current_func.function_id in self.function_caller_callee_map:
-                    callee_ids = self.function_caller_callee_map[current_func.function_id]
+                    callee_ids = self.function_caller_callee_map[
+                        current_func.function_id
+                    ]
                     for callee_id in callee_ids:
                         if callee_id not in visited and current_depth > 1:
                             callee_function = self.function_env[callee_id]
@@ -526,9 +530,8 @@ class TSAnalyzer(ABC):
                             queue.append((callee_function, current_depth - 1))
         except Exception as e:
             print("error: ", e)
-        
-        return result
 
+        return result
 
     # Helper functions for callees
     ## For library APIs

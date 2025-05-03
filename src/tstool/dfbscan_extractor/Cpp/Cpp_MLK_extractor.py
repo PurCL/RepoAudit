@@ -51,7 +51,11 @@ class Cpp_MLK_Extractor(DFBScanExtractor):
 
             if is_seed_node:
                 line_number = source_code[: node.start_byte].count("\n") + 1
-                name = source_code[node.start_byte : node.end_byte].split("=")[0].strip()
+                name = (
+                    source_code[node.start_byte : node.end_byte].split("=")[0].strip()
+                )
+                if "->" in name or "." in name:
+                    continue
                 sources.append(Value(name, line_number, ValueLabel.SRC, file_path))
         return sources
 
@@ -86,6 +90,12 @@ class Cpp_MLK_Extractor(DFBScanExtractor):
                         for arg in child.children[1:-1]:
                             if arg.type != ",":
                                 name = source_code[arg.start_byte : arg.end_byte]
-                                line_number = source_code[: arg.start_byte].count("\n") + 1
-                                sinks.append(Value(name, line_number, ValueLabel.SINK, file_path))
+                                line_number = (
+                                    source_code[: arg.start_byte].count("\n") + 1
+                                )
+                                if "->" in name or "." in name:
+                                    continue
+                                sinks.append(
+                                    Value(name, line_number, ValueLabel.SINK, file_path)
+                                )
         return sinks

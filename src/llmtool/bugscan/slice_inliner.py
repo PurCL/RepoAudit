@@ -1,5 +1,6 @@
 from os import path
 import json
+import traceback
 import time
 from typing import List, Set, Optional, Dict
 from llmtool.LLM_utils import *
@@ -37,8 +38,20 @@ class SliceInlinerInput(LLMToolInput):
         :return: the string representation of the caller-callee tree that will be used in the prompt for slicing
         """
         lines = []
+        visited = set()  # Track visited functions to detect cycles
 
-        def traverse(func_id, prefix, is_last):
+        def traverse(func_id: int, prefix: str, is_last: bool, path: List[int]) -> None:
+            # Check for cycles
+            if func_id in path:
+                # We found a cycle, mark it in the visualization
+                cycle_start = path.index(func_id)
+                cycle_path = path[cycle_start:] + [func_id]
+                cycle_str = " -> ".join(
+                    str(self.relevant_functions[id].function_name) for id in cycle_path
+                )
+                lines.append(f"{prefix}└── [CYCLE] {cycle_str}")
+                return
+
             # Print the function name
             branch = "└── " if is_last else "├── "
             line = (
@@ -47,13 +60,17 @@ class SliceInlinerInput(LLMToolInput):
                 else self.relevant_functions[func_id].function_name
             )
             lines.append(line)
-            children = self.function_caller_to_callee_map.get(func_id, [])
-            for i, child_id in enumerate(children):
-                child_is_last = i == len(children) - 1
-                new_prefix = prefix + ("    " if is_last else "│   ")
-                traverse(child_id, new_prefix, child_is_last)
 
-        traverse(self.root_function_id, "", True)
+            # Only process children if we haven't visited this function before
+            if func_id not in visited:
+                visited.add(func_id)
+                children = self.function_caller_to_callee_map.get(func_id, [])
+                for i, child_id in enumerate(children):
+                    child_is_last = i == len(children) - 1
+                    new_prefix = prefix + ("    " if is_last else "│   ")
+                    traverse(child_id, new_prefix, child_is_last, path + [func_id])
+
+        traverse(self.root_function_id, "", True, [])
         return "\n".join(lines)
 
     def __hash__(self) -> int:

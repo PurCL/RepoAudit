@@ -92,18 +92,28 @@ class IntraDataFlowAnalyzer(LLMTool):
             )
         )
 
+        src_line_number = (
+            input.summary_start.line_number - input.function.start_line_number + 1
+        )
+
         sinks_str = "Sink values in this function:\n"
         for sink_value in input.sink_values:
+            if sink_value[1] == src_line_number:
+                continue
             sinks_str += f"- {sink_value[0]} at line {sink_value[1]}\n"
         prompt = prompt.replace("<SINK_VALUES>", sinks_str)
 
         calls_str = "Call statements in this function:\n"
         for call_statement in input.call_statements:
+            if call_statement[1] == src_line_number:
+                continue
             calls_str += f"- {call_statement[0]} at line {call_statement[1]}\n"
         prompt = prompt.replace("<CALL_STATEMENTS>", calls_str)
 
         rets_str = "Return values in this function:\n"
         for ret_val in input.ret_values:
+            if ret_val[1] == src_line_number:
+                continue
             rets_str += f"- {ret_val[0]} at line {ret_val[1]}\n"
         prompt = prompt.replace("<RETURN_VALUES>", rets_str)
         return prompt
@@ -121,8 +131,12 @@ class IntraDataFlowAnalyzer(LLMTool):
         Returns:
             IntraDataFlowAnalyzerOutput: The output containing reachable values for each path.
         """
+        if "Answer:" not in response:
+            return None
+        
         paths = []
-
+        response = response.split("Answer:")[1]
+        
         # Regex to match a path header line, e.g., "- Path 1: Lines 2 -> 3;"
         path_header_re = re.compile(r"Path\s+(\d+):\s*(.+?);?$")
 
@@ -180,7 +194,17 @@ class IntraDataFlowAnalyzer(LLMTool):
         for single_path in paths:
             reachable_values_per_path = set()
             for detail in single_path["propagation_details"]:
+                if not detail["line"].isdigit():
+                    continue
+                line_number_in_function = int(detail["line"])
                 line_number = int(detail["line"]) + start_line_number - 1
+                # Do not consider the side-effects upon fields of data structures
+                if (
+                    str(detail["name"]) in {"self", "this"}
+                    or ("->" in str(detail["name"]) and str(detail["name"]) != input.summary_start.name)
+                    or ("." in str(detail["name"]) and str(detail["name"]) != input.summary_start.name)
+                ):
+                    continue
                 if detail["type"] == "Argument":
                     reachable_values_per_path.add(
                         Value(
@@ -212,8 +236,12 @@ class IntraDataFlowAnalyzer(LLMTool):
                         )
                     )
                 elif detail["type"] == "Sink":
-                    reachable_values_per_path.add(
-                        Value(detail["name"], line_number, ValueLabel.SINK, file_path)
+                    sink_value = Value(
+                        detail["name"], line_number, ValueLabel.SINK, file_path
+                    )
+                    reachable_values_per_path.add(sink_value)
+                    self.logger.print_console(
+                        f"src_value: {str(input.summary_start)}, sink_value: {str(sink_value)} line_number: {line_number_in_function}\n Values: {input.sink_values} \n added"
                     )
             reachable_values.append(reachable_values_per_path)
 

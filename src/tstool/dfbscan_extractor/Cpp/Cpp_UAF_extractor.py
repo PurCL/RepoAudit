@@ -33,10 +33,16 @@ class Cpp_UAF_Extractor(DFBScanExtractor):
                         for arg in child.children[1:-1]:
                             if arg.type != ",":
                                 name = source_code[arg.start_byte : arg.end_byte]
-                                line_number = source_code[: arg.start_byte].count("\n") + 1
-                                sources.append(Value(name, line_number, ValueLabel.SRC, file_path))
+                                line_number = (
+                                    source_code[: arg.start_byte].count("\n") + 1
+                                )
+                                if "->" in name or "." in name:
+                                    continue
+                                sources.append(
+                                    Value(name, line_number, ValueLabel.SRC, file_path)
+                                )
         return sources
-    
+
     def extract_sinks(self, function: Function) -> List[Value]:
         """
         Extract the sinks that can cause the use-after-free bugs from C/C++ programs.
@@ -54,8 +60,10 @@ class Cpp_UAF_Extractor(DFBScanExtractor):
             if name in {"this"}:
                 continue
             line_number = source_code[: second_child.start_byte].count("\n") + 1
+            if "->" in name or "." in name:
+                continue
             sinks.append(Value(name, line_number, ValueLabel.SINK, file_path))
-            
+
         for node in find_nodes_by_type(root_node, "field_expression"):
             first_child = node.children[0]
             second_child = node.children[1]
@@ -64,11 +72,15 @@ class Cpp_UAF_Extractor(DFBScanExtractor):
                 if name in {"this"}:
                     continue
                 line_number = source_code[: first_child.start_byte].count("\n") + 1
+                if "->" in name or "." in name:
+                    continue
                 sinks.append(Value(name, line_number, ValueLabel.SINK, file_path))
-        
+
         for node in find_nodes_by_type(root_node, "subscript_expression"):
             first_child = node.children[0]
             name = source_code[first_child.start_byte : first_child.end_byte]
             line_number = source_code[: first_child.start_byte].count("\n") + 1
+            if "->" in name or "." in name:
+                continue
             sinks.append(Value(name, line_number, ValueLabel.SINK, file_path))
         return sinks

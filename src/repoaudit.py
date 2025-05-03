@@ -18,6 +18,27 @@ from tstool.analyzer.Python_TS_analyzer import *
 from typing import List
 
 
+def format_code_with_line_numbers(code: str) -> str:
+    """
+    Format code with line numbers starting from 1.
+
+    Args:
+        code (str): The code snippet to format
+
+    Returns:
+        str: Formatted code with line numbers
+    """
+    lines = code.split("\n")
+    max_line_number_width = len(str(len(lines)))
+    formatted_lines = []
+
+    for i, line in enumerate(lines, 1):
+        line_number = str(i).rjust(max_line_number_width)
+        formatted_lines.append(f"{line_number}: {line}")
+
+    return "\n".join(formatted_lines)
+
+
 default_bugscan_checkers = {
     "Cpp": ["BOF", "MLK", "NPD", "UAF"],
     "Go": ["BOF", "NPD"],

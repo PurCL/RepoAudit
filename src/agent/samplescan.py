@@ -250,7 +250,7 @@ class SampleScanAgent(Agent):
     ) -> List[SliceInlinerInput]:
         inputs = []
 
-        self.logger.print_console("Start to retrieve slice inliner inputs")
+        self.logger.print_console("start to retrieve slice inliner inputs")
 
         root_function_ids = []
         for relevant_function_id in slicescan_state.relevant_functions:
@@ -270,40 +270,49 @@ class SampleScanAgent(Agent):
                 root_function_ids.append(relevant_function_id)
 
         for root_function_id in root_function_ids:
-            root_function = self.ts_analyzer.function_env[root_function_id]
-
-        for root_function_id in root_function_ids:
-            callees = self.ts_analyzer.get_all_transitive_callee_functions(
-                self.ts_analyzer.function_env[root_function_id], 2 * self.call_depth + 2
-            )
-
-            relevant_functions = {
-                callee.function_id: callee
-                for callee in callees
-                if callee.function_id in slicescan_state.relevant_functions
-            }
-            relevant_functions[root_function_id] = self.ts_analyzer.function_env[
-                root_function_id
-            ]
-
-            slice_items = []
-            for _, function_id, values, slice in slicescan_state.intra_slices:
-                slice_items.append((function_id, values, slice))
-
+            relevant_function_ids = [root_function_id]
             function_caller_callee_map = {}
-            for function_caller_id in self.ts_analyzer.function_caller_callee_map:
-                if function_caller_id not in relevant_functions:
+            while True:
+                new_added_function_ids = []
+                for function_id in relevant_function_ids:
+                    callees = self.ts_analyzer.get_all_callee_functions(
+                        self.ts_analyzer.function_env[function_id]
+                    )
+                    for callee in callees:
+                        if callee.function_id not in slicescan_state.relevant_functions:
+                            continue
+                        if callee.function_id not in relevant_function_ids:
+                            new_added_function_ids.append(callee.function_id)
+                if len(new_added_function_ids) == 0:
+                    break
+                else:
+                    relevant_function_ids.extend(new_added_function_ids)
+
+            for function_caller_id in relevant_function_ids:
+                if (
+                    function_caller_id
+                    not in self.ts_analyzer.function_caller_callee_map
+                ):
                     continue
                 for function_callee_id in self.ts_analyzer.function_caller_callee_map[
                     function_caller_id
                 ]:
-                    if function_callee_id not in relevant_functions:
+                    if function_callee_id not in relevant_function_ids:
                         continue
                     if function_caller_id not in function_caller_callee_map:
                         function_caller_callee_map[function_caller_id] = set()
                     function_caller_callee_map[function_caller_id].add(
                         function_callee_id
                     )
+
+            slice_items = []
+            for _, function_id, values, slice in slicescan_state.intra_slices:
+                slice_items.append((function_id, values, slice))
+
+            relevant_functions = {
+                function_id: self.ts_analyzer.function_env[function_id]
+                for function_id in relevant_function_ids
+            }
 
             input = SliceInlinerInput(
                 root_function_id,

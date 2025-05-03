@@ -409,7 +409,7 @@ class DFBScanAgent(Agent):
 
                 while len(worklist) > 0:
                     (start_value, start_function, call_context) = worklist.pop(0)
-                    if len(call_context.context) >= self.call_depth:
+                    if len(call_context.context) > self.call_depth:
                         continue
 
                     # Construct the input for intra-procedural data-flow analysis
@@ -540,6 +540,13 @@ class DFBScanAgent(Agent):
         self.logger.print_console(f"Max number of workers: {self.max_neural_workers}")
 
         # Total number of source values
+        # tmp = self.src_values
+        # self.src_values = []
+        # for src_value in tmp:
+        #     print(src_value)
+        #     if "LinuxProcessTable.c" in str(src_value) and "924" in str(src_value):
+        #         self.src_values.append(src_value)
+
         total_src_values = len(self.src_values)
 
         # Process each source value in parallel with a progress bar
