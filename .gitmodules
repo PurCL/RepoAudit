@@ -1,0 +1,12 @@
+[submodule "benchmark/C/memcached"]
+	path = benchmark/C/memcached
+	url = https://github.com/memcached/memcached.git
+[submodule "benchmark/C/zstd"]
+	path = benchmark/C/zstd
+	url = https://github.com/facebook/zstd.git
+[submodule "benchmark/Cpp/sofa-pbrpc"]
+	path = benchmark/Cpp/sofa-pbrpc
+	url = https://github.com/baidu/sofa-pbrpc.git
+[submodule "benchmark/Go/sally"]
+	path = benchmark/Go/sally
+	url = https://github.com/uber-go/sally.git

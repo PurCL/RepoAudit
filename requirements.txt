@@ -1,0 +1,13 @@
+black
+tree-sitter>=0.20.0,<0.22.0
+transformers
+torch
+tiktoken
+replicate
+openai
+google-generativeai
+tqdm
+networkx
+streamlit
+botocore
+boto3
