@@ -80,7 +80,7 @@ For a large repository, a sequential analysis process may be quite time-consumin
 
 ## Website, Paper, and Docs
 
-We currently open-source the implementation of [dfbscan](https://github.com/PurCL/RepoAudit). We will release more technical reports/research papers and open-source other agents in RepoAudit very soon. For more information, please refer to our website: [RepoAudit: Auditing Code As Human](https://repoaudit-home.github.io/).
+We currently open-source the implementation of [dfbscan](https://github.com/PurCL/RepoAudit/tree/repoaudit-v0.1-dfbscan). We will release more technical reports/research papers and open-source other agents in RepoAudit very soon. For more information, please refer to our website: [RepoAudit: Auditing Code As Human](https://repoaudit-home.github.io/).
 
 If you want to know more details about the tool usage, project architecture, and extensions of RepoAudit, please refer to the following documents:
 
