@@ -13,4 +13,4 @@ python3 repoaudit.py \
   --temperature 0.0 \
   --scan-type dfbscan \
   --call-depth 3 \
-  --max-workers 20
+  --max-workers 30

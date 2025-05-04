@@ -77,7 +77,6 @@ We are keeping implementing more agents and will open-source them very soon. Uti
 ## Parallel Auditing Support
 
 For a large repository, a sequential analysis process may be quite time-consuming. To accelerate the analysis, you can choose parallel auditing. Specifically, you can set the option `--max-workers` to a larger value. By default, this option is set to 6 for parallel auditing.
-Also, we have set the parsing-based analysis in a parallel mode by default. The default maximal number of workers is 10.
 
 ## Website, Paper, and Docs
 

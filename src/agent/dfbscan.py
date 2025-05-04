@@ -44,7 +44,7 @@ class DFBScanAgent:
                  temperature,
                  bug_type,
                  boundary,
-                 max_workers=1
+                 max_workers=6
                  ) -> None:
         self.project_name = project_name
         self.language = language if language not in {"C", "Cpp"} else "Cpp"

@@ -150,7 +150,7 @@ def run_dev_mode():
     parser.add_argument(
         "--max-workers",
         type=int,
-        default=1,
+        default=6,
         help="Specify the number of workers",
     )
 
