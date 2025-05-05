@@ -1,41 +1,50 @@
-# Development Plan
+# Development Plan 🚀
 
-## Functionality
+## Fundamental Infrastructure 🏗️
 
-- (Implementation) Support more language features, such as OOP features and the ones in Go
+- (Research & Implementation) Debugging agent [by Hanxi] (TODO)
 
-- (Implementation) More bug types: Writing more prompts and checkers, especially taint-style bugs
+- (Research & Implementation) OOP analysis support, especially for side effects induced by data structures and global variables
 
-- (Implementation) Automatic prompt synthesis
+- (Research & Implementation) Call graph analysis, including function pointer analysis in C and Java reflection analysis
 
-- (Research) SFA lifting and detection (PatInf) by Jiasheng
+- (Research & Implementation) Concurrency program analysis
 
-- (Research) Functional bug detection via doc-code inconsistency analysis (DocDif) by Mingwei
+- (Research & Implementation) Retrieval agents, including an enhanced version of slicing and field-grep search
 
-- (Research) All-in-one detection
+- (Research & Implementation) Fully autonomous multi-agent system, including planning and automatic prompt synthesis
+
+- (Implementation) Symbol indexing
+
+
+## Detectors 🔍
+
+- (Research) Doc-code inconsistency analysis (DocDiff) [by Mingwei] (Ongoing)
+
+- (Research) SFA lifting and detection (PatInf) [by Jiasheng] (Ongoing)
+
+- (Research) Bugscan agent for C/C++ bug detection (BugScan) [by Jinyao] (Ongoing)
+
+- (Implementation) Nil/BOF panic detectors in Go [by Zhuo] (Ongoing)
 
 - (Research) General functional bug detection
 
-- (Research) Concurrency program analysis
+- (Research) Security standard compliance checking, e.g., SOC 2 Type II and FedRAMP 
 
-## Testing and Maintainence
+- (Research) All-in-one detection
 
-- Constructing test cases and automating testing
+- (Research & Implementation) Web3 security auditing
 
-- Website maintainence: Updating bug lists, etc
+- (Implementation) More bug types: Writing more prompts and checkers, especially for taint-style bugs [by Dominic] (TODO)
 
-## UI
 
-- Naive console UI
+## Testing and Maintenance 🧪
 
-- VSCode extension by Hanxi
+- (Implementation) Constructing test cases and automating testing [by Chengpeng] (TODO)
 
-- (Optional) WebUI by Jinyao
+- (Implementation) Website maintenance: Updating bug lists, etc. [by Chengpeng] (Ongoing)
 
-## Doc
 
-- Quick Start
+## UI 💻
 
-- Project Architecture
-
-- How to extend: More bug types and more programming languages
+- (Implementation) VSCode extension [by Hanxi]
