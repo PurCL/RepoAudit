@@ -437,9 +437,6 @@ class TSAnalyzer(ABC):
         Get all callee functions matching a specific name from the given function.
         :param function: The function to be analyzed.
         """
-        # TODO: @jinyao. We need to find a more elegant way to expand the macro
-        # while callee_name in self.glb_var_map:
-        #     callee_name = self.glb_var_map[callee_name]
         if function.function_id not in self.function_caller_callee_map:
             return []
         callee_ids = self.function_caller_callee_map[function.function_id]
@@ -576,6 +573,7 @@ class TSAnalyzer(ABC):
         callee_name = self.get_callee_name_at_call_site(call_site_node, source_code)
         arguments = self.get_arguments_at_callsite(current_function, call_site_node)
         temp_callee_ids = []
+        # TODO: Jinyao. TO be improved.
         # while callee_name in self.glb_var_map:
         #     callee_name = self.glb_var_map[callee_name]
         if callee_name in self.functionNameToId:
@@ -603,8 +601,6 @@ class TSAnalyzer(ABC):
         callee_name = self.get_callee_name_at_call_site(call_site_node, source_code)
         arguments = self.get_arguments_at_callsite(current_function, call_site_node)
         callee_ids = []
-        # while callee_name in self.glb_var_map:
-        #     callee_name = self.glb_var_map[callee_name]
         tmp_api = API(-1, callee_name, len(arguments))
         for api_id in self.api_env:
             if self.api_env[api_id] == tmp_api:
