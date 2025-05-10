@@ -3,6 +3,7 @@ from os import path
 from pathlib import Path
 import copy
 import concurrent.futures
+import threading
 from typing import List, Tuple, Dict, Set
 from abc import ABC, abstractmethod
 
@@ -144,6 +145,12 @@ class TSAnalyzer(ABC):
         TSPATH = cwd / "../../../lib/build/"
         language_path = TSPATH / "my-languages.so"
         self.max_symbolic_workers_num = max_symbolic_workers_num
+        
+        self.function_caller_callee_map_lock = threading.Lock()
+        self.function_callee_caller_map_lock = threading.Lock()
+        self.function_caller_api_callee_map_lock = threading.Lock()
+        self.api_callee_function_caller_map_lock = threading.Lock()
+        self.api_env_lock = threading.Lock()
 
         # Initialize tree-sitter parser
         self.parser = tree_sitter.Parser()
@@ -378,12 +385,14 @@ class TSAnalyzer(ABC):
                 # Update the caller-callee relationship between user-defined functions
                 for callee_id in callee_ids:
                     caller_id = current_function.function_id
-                    if caller_id not in self.function_caller_callee_map:
-                        self.function_caller_callee_map[caller_id] = set([])
-                    self.function_caller_callee_map[caller_id].add(callee_id)
-                    if callee_id not in self.function_callee_caller_map:
-                        self.function_callee_caller_map[callee_id] = set([])
-                    self.function_callee_caller_map[callee_id].add(caller_id)
+                    with self.function_caller_callee_map_lock:
+                        if caller_id not in self.function_caller_callee_map:
+                            self.function_caller_callee_map[caller_id] = set([])
+                        self.function_caller_callee_map[caller_id].add(callee_id)
+                    with self.function_callee_caller_map_lock:
+                        if callee_id not in self.function_callee_caller_map:
+                            self.function_callee_caller_map[callee_id] = set([])
+                        self.function_callee_caller_map[callee_id].add(caller_id)
                 function_call_sites.append(call_site_node)
             else:
                 api_id = None
@@ -396,23 +405,26 @@ class TSAnalyzer(ABC):
                 tmp_api = API(-1, callee_name, len(arguments))
 
                 # Insert the API into the API environment if it does not exist previously
-                for single_api_id in self.api_env:
-                    if self.api_env[single_api_id] == tmp_api:
-                        api_id = single_api_id
-                if api_id == None:
-                    self.api_env[len(self.api_env)] = API(
-                        len(self.api_env), callee_name, len(arguments)
-                    )
-                    api_id = len(self.api_env) - 1
+                with self.api_env_lock:
+                    for single_api_id in self.api_env:
+                        if self.api_env[single_api_id] == tmp_api:
+                            api_id = single_api_id
+                    if api_id == None:
+                        self.api_env[len(self.api_env)] = API(
+                            len(self.api_env), callee_name, len(arguments)
+                        )
+                        api_id = len(self.api_env) - 1
 
                 caller_id = current_function.function_id
-                # Update the caller-callee relationship between user-defined functions and library APIs
-                if caller_id not in self.function_caller_api_callee_map:
-                    self.function_caller_api_callee_map[caller_id] = set([])
-                self.function_caller_api_callee_map[caller_id].add(api_id)
-                if api_id not in self.api_callee_function_caller_map:
-                    self.api_callee_function_caller_map[api_id] = set([])
-                self.api_callee_function_caller_map[api_id].add(caller_id)
+                # Update the caller-callee relationship between user-defined functions and library APIs 
+                with self.function_caller_api_callee_map_lock:
+                    if caller_id not in self.function_caller_api_callee_map:
+                        self.function_caller_api_callee_map[caller_id] = set([])
+                    self.function_caller_api_callee_map[caller_id].add(api_id)
+                with self.api_callee_function_caller_map_lock:
+                    if api_id not in self.api_callee_function_caller_map:
+                        self.api_callee_function_caller_map[api_id] = set([])
+                    self.api_callee_function_caller_map[api_id].add(caller_id)
                 api_call_sites.append(call_site_node)
 
         current_function.function_call_site_nodes = function_call_sites
@@ -543,8 +555,8 @@ class TSAnalyzer(ABC):
         """
         callee_list = []
         for callee_api_id in self.function_caller_api_callee_map[function.function_id]:
-            if self.api_env[callee_list] == API(-1, callee_name, para_num):
-                callee_list.append(self.api_env[callee_list])
+            if self.api_env[callee_api_id] == API(-1, callee_name, para_num):
+                callee_list.append(self.api_env[callee_api_id])
         return callee_list
 
     @abstractmethod
