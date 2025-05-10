@@ -345,15 +345,7 @@ def configure_args():
 def main() -> None:
     try:
         args = configure_args()
-        repoaudit = RepoAudit(args)
-        
-        cnt = 0
-        for api_id, function_ids in repoaudit.ts_analyzer.api_callee_function_caller_map.items():
-            cnt += len(function_ids)
-        print(cnt)
-        
-        exit(0)
-        
+        repoaudit = RepoAudit(args)        
         repoaudit.start_repo_auditing()
         return
     except RepoAuditError as e:
