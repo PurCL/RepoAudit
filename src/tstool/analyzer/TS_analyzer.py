@@ -846,6 +846,8 @@ def find_all_nodes(root_node: tree_sitter.Node) -> List[tree_sitter.Node]:
     return nodes
 
 
+# XXX(ZZ): node_type(s) could be designed as a list of types, which will make
+# the function more flexible.
 def find_nodes_by_type(
     root_node: tree_sitter.Node, node_type: str, k=0
 ) -> List[tree_sitter.Node]:

@@ -40,14 +40,31 @@ class Go_NPD_Extractor(BugScanExtractor):
                                 )
 
         ## Case II: Nil value from literal nil nodes
-        literal_nil_nodes = find_nodes_by_type(root_node, "nil")
-        for node in literal_nil_nodes:
-            line_number = source_code[: node.start_byte].count("\n") + 1
-            name = source_code[node.start_byte : node.end_byte]
-            seeds.append(
-                (
-                    Value(name, line_number, ValueLabel.NON_BUF_ACCESS_EXPR, file_name),
-                    False,
-                )
-            )
+        nodes = find_nodes_by_type(root_node, "var_declaration")
+        nodes.extend(find_nodes_by_type(root_node, "assignment_statement"))
+        nodes.extend(find_nodes_by_type(root_node, "short_var_declaration"))
+        nodes.extend(find_nodes_by_type(root_node, "return_statement"))
+        nodes.extend(find_nodes_by_type(root_node, "const_declaration"))
+
+        for node in nodes:
+            children = find_nodes_by_type(node, "nil")
+            if len(children) == 0:
+                continue
+
+            for child in children:
+                if child.type == "nil":
+                    line_number = source_code[: child.start_byte].count("\n") + 1
+                    name = source_code[child.start_byte : child.end_byte]
+                    seeds.append(
+                        (
+                            Value(
+                                name,
+                                line_number,
+                                ValueLabel.NON_BUF_ACCESS_EXPR,
+                                file_name,
+                            ),
+                            False,
+                        )
+                    )
+
         return seeds
