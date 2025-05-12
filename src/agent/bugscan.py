@@ -50,6 +50,7 @@ class BugScanAgent(Agent):
         call_depth,
         max_neural_workers=1,
         agent_id: int = 0,
+        include_test_files: bool = False,
     ) -> None:
         self.project_path = project_path
         self.project_name = project_path.split("/")[-1]
@@ -65,6 +66,8 @@ class BugScanAgent(Agent):
 
         self.lock = threading.Lock()
         self.time_str = time.strftime("%Y-%m-%d-%H-%M-%S", time.localtime())
+
+        self.include_test_files = include_test_files
 
         with self.lock:
             self.log_dir_path = f"{BASE_PATH}/log/bugscan/{self.model_name}/{self.language}/{self.project_name}/{self.time_str}-{agent_id}"
@@ -112,7 +115,14 @@ class BugScanAgent(Agent):
                 os.makedirs(self.res_dir_path)
 
         # Initialize the seeds
-        self.seeds: List[Tuple[Value, bool]] = self.__obtain_extractor().extract_all()
+        self.seeds: List[Tuple[Value, bool]] = self.__obtain_extractor().extract_all(
+            include_test_files=self.include_test_files
+        )
+        self.logger.print_log(
+            f"Extracted {len(self.seeds)} seeds from the code base. The seeds are as follows:"
+        )
+        for seed_value, is_backward in self.seeds:
+            self.logger.print_log(f"Seed: {seed_value}, is_backward: {is_backward}")
 
         # Initialize the state
         self.state = BugScanState(self.seeds)
@@ -147,6 +157,9 @@ class BugScanAgent(Agent):
                             )
                             break
                         else:
+                            self.logger.print_log(
+                                f"Add file {full_file_path} as an analysis target."
+                            )
                             target_files.append(full_file_path)
                     is_valid_input = True
                 elif audit_request_output.scope.type == "DirectoryLevel":
@@ -158,6 +171,9 @@ class BugScanAgent(Agent):
                             )
                             break
                         else:
+                            self.logger.print_log(
+                                f"Add directory {full_dir_path} as an analysis target."
+                            )
                             target_files.extend(
                                 [
                                     os.path.join(full_dir_path, file)
@@ -166,6 +182,9 @@ class BugScanAgent(Agent):
                             )
                     is_valid_input = True
                 elif audit_request_output.scope.type == "RepoLevel":
+                    self.logger.print_log(
+                        f"Analyze the whole repository {self.project_path}."
+                    )
                     target_files = self.ts_analyzer.code_in_files
                     is_valid_input = True
 

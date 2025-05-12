@@ -90,6 +90,8 @@ class RepoAudit:
         self.is_backward = args.is_backward
         self.is_iterative = args.is_iterative
 
+        self.include_test_files = args.include_test_files
+
         suffixs = []
         if self.language == "Cpp":
             suffixs = ["cpp", "cc", "hpp", "c", "h"]
@@ -147,6 +149,7 @@ class RepoAudit:
                     self.temperature,
                     self.call_depth,
                     self.max_neural_workers,
+                    include_test_files=self.include_test_files,
                 )
                 bugscan_agent.start_scan()
                 if not self.is_iterative:
@@ -163,6 +166,7 @@ class RepoAudit:
                 self.temperature,
                 self.call_depth,
                 self.max_neural_workers,
+                include_test_files=self.include_test_files,
             )
             slicescan_agent.start_scan()
             print(slicescan_agent.get_agent_result())
@@ -178,6 +182,7 @@ class RepoAudit:
                 self.temperature,
                 self.call_depth,
                 self.max_neural_workers,
+                include_test_files=self.include_test_files,
             )
             dfbscan_agent.start_scan()
 
@@ -193,6 +198,7 @@ class RepoAudit:
                 self.temperature,
                 self.call_depth,
                 self.max_neural_workers,
+                include_test_files=self.include_test_files,
             )
             samplescan_agent.start_scan()
 
@@ -338,6 +344,13 @@ def configure_args():
         help="Flag for iterative analysis with multiple rounds",
     )
 
+    # Parameters for skipping analysis of test files in the project
+    parser.add_argument(
+        "--include-test-files",
+        action="store_true",
+        help="Flag to include the project's test files into the analysis process",
+    )
+
     args = parser.parse_args()
     return args
 
@@ -345,7 +358,7 @@ def configure_args():
 def main() -> None:
     try:
         args = configure_args()
-        repoaudit = RepoAudit(args)        
+        repoaudit = RepoAudit(args)
         repoaudit.start_repo_auditing()
         return
     except RepoAuditError as e:

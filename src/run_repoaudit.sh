@@ -22,6 +22,7 @@ print_usage() {
     echo "  --temperature <temp>        Temperature setting (default: 0.0)"
     echo "  --call-depth <depth>        Call depth (default: 2)"
     echo "  --max-neural-workers <num>  Maximum neural workers (default: 30)"
+    echo "  --include-test-files        Analyze test files in the subject project as well"
     echo
     echo "Example commands:"
     echo "bash $0 bugscan --language Cpp --project-path ../benchmark/Cpp/htop --is-iterative"
@@ -89,6 +90,10 @@ while [[ $# -gt 0 ]]; do
             IS_ITERATIVE="--is-iterative"
             shift
             ;;
+        --include-test-files)
+            INCLUDE_TEST_FILES="--include-test-files"
+            shift
+            ;;
         -h|--help)
             print_usage
             exit 0
@@ -145,7 +150,8 @@ case "$SCAN_TYPE" in
           --scan-type bugscan \
           --call-depth "$CALL_DEPTH" \
           --max-neural-workers "$MAX_NEURAL_WORKERS" \
-          $IS_ITERATIVE
+          $IS_ITERATIVE \
+          $INCLUDE_TEST_FILES
         ;;
     dfbscan)
         python3 repoaudit.py \
@@ -157,7 +163,8 @@ case "$SCAN_TYPE" in
           --scan-type dfbscan \
           --call-depth "$CALL_DEPTH" \
           --max-neural-workers "$MAX_NEURAL_WORKERS" \
-          $IS_REACHABLE
+          $IS_REACHABLE \
+          $INCLUDE_TEST_FILES
         ;;
     debugscan)
         python3 repoaudit.py \

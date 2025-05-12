@@ -144,6 +144,7 @@ class SampleScanAgent(Agent):
         call_depth,
         max_neural_workers=1,
         agent_id: int = 0,
+        include_test_files: bool = False,
     ) -> None:
 
         self.project_path = project_path
@@ -173,6 +174,8 @@ class SampleScanAgent(Agent):
         self.call_depth = call_depth
         self.max_neural_workers = max_neural_workers
         self.MAX_QUERY_NUM = 5
+
+        self.include_test_files = include_test_files
 
         self.lock = threading.Lock()
 
@@ -214,8 +217,10 @@ class SampleScanAgent(Agent):
         # LLM Agent instances created by SampleScanAgent
         self.slice_scan_agents: List[SliceScanAgent] = []
 
-        self.initial_seeds: List[Tuple[Value, bool]] = (
-            self.__obtain_extractor().extract_all()
+        self.initial_seeds: List[
+            Tuple[Value, bool]
+        ] = self.__obtain_extractor().extract_all(
+            include_test_files=self.include_test_files
         )
         self.sampled_seeds = []
         self.state = SampleScanState(self.sampled_seeds)

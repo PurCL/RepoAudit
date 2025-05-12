@@ -37,6 +37,7 @@ class SliceScanAgent(Agent):
         call_depth: int = 1,
         max_neural_workers: int = 1,
         agent_id: int = 0,
+        include_test_files: bool = False,
     ) -> None:
         self.seed_values = seed_values
         self.is_backward = is_backward
@@ -53,6 +54,8 @@ class SliceScanAgent(Agent):
         self.call_depth = call_depth
         self.max_neural_workers = max_neural_workers
         self.MAX_QUERY_NUM = 5
+
+        self.include_test_files = include_test_files
 
         self.lock = threading.Lock()
 
@@ -153,9 +156,13 @@ class SliceScanAgent(Agent):
                                 function.function_id,
                                 Parenthesis.RIGHT_PAR,
                             )
-                            new_slice_context.add_and_check_context(
+                            is_CFL_reachable = new_slice_context.add_and_check_context(
                                 append_context_label
                             )
+                            assert (
+                                is_CFL_reachable
+                            ), "CFL has to be reachable at this point"
+
                             output_value = (
                                 self.ts_analyzer.get_output_value_at_callsite(
                                     caller_function, call_site_node

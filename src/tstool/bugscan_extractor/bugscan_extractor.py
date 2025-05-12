@@ -23,7 +23,7 @@ class BugScanExtractor(ABC):
         self.seeds: List[Tuple[Value, bool]] = []
         return
 
-    def extract_all(self) -> None:
+    def extract_all(self, include_test_files: bool = False) -> List[Tuple[Value, bool]]:
         """
         Start the seed extraction process.
         """
@@ -31,8 +31,9 @@ class BugScanExtractor(ABC):
         for function_id in self.ts_analyzer.function_env:
             pbar.update(1)
             function: Function = self.ts_analyzer.function_env[function_id]
-            if "test" in function.file_path or "example" in function.file_path:
-                continue
+            if not include_test_files:
+                if "test" in function.file_path or "example" in function.file_path:
+                    continue
             self.seeds.extend(self.find_seeds(function))
         return self.seeds
 

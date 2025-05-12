@@ -47,6 +47,7 @@ class DFBScanAgent(Agent):
         call_depth,
         max_neural_workers=1,
         agent_id: int = 0,
+        include_test_files: bool = False,
     ) -> None:
         self.bug_type = bug_type
         self.is_reachable = is_reachable
@@ -62,6 +63,8 @@ class DFBScanAgent(Agent):
         self.call_depth = call_depth
         self.max_neural_workers = max_neural_workers
         self.MAX_QUERY_NUM = 5
+
+        self.include_test_files = include_test_files
 
         self.lock = threading.Lock()
 
@@ -91,7 +94,9 @@ class DFBScanAgent(Agent):
             self.logger,
         )
 
-        self.src_values, self.sink_values = self.__obtain_extractor().extract_all()
+        self.src_values, self.sink_values = self.__obtain_extractor().extract_all(
+            include_test_files=self.include_test_files
+        )
         self.state = DFBScanState(self.src_values, self.sink_values)
         return
 
