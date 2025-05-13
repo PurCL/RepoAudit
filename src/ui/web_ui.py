@@ -7,7 +7,7 @@ import json
 sys.path.append(str(Path(__file__).resolve().parents[2]))
 
 # Language dictionary
-language_dict = {"Cpp": "cpp", "Java": "java"}
+language_dict = {"Cpp": "cpp", "Java": "java", "Go": "go"}
 
 # Base path for results
 BASE_PATH = Path(__file__).resolve().parents[2]
