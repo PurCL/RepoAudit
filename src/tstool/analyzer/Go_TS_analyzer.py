@@ -76,6 +76,9 @@ class Go_TSAnalyzer(TSAnalyzer):
         Get the callee name at the call site.
         """
         assert node.type == "call_expression"
+
+        # XXX(ZZ): Go have many different syntaxes for function calls. Here, we only
+        # consider the most common ones: function calls and method calls.
         for sub_node in node.children:
             if sub_node.type == "selector_expression":
                 for sub_sub_node in sub_node.children:
@@ -83,11 +86,15 @@ class Go_TSAnalyzer(TSAnalyzer):
                         return source_code[
                             sub_sub_node.start_byte : sub_sub_node.end_byte
                         ]
+
             sub_node_types = [sub_node.type for sub_node in node.children]
             if "selector_expression" not in sub_node_types:
                 for sub_node in node.children:
                     if sub_node.type == "identifier":
                         return source_code[sub_node.start_byte : sub_node.end_byte]
+
+        # If no identifier is found, return an empty string. This could happen
+        # if the call site is not a function call or method call.
         return ""
 
     def get_callsites_by_callee_name(
@@ -118,6 +125,8 @@ class Go_TSAnalyzer(TSAnalyzer):
         :param call_site_node: the node of the call site
         :return: the arguments
         """
+        assert call_site_node.type == "call_expression"
+
         arguments = set([])
         file_name = current_function.file_path
         source_code = self.code_in_files[file_name]
@@ -155,8 +164,11 @@ class Go_TSAnalyzer(TSAnalyzer):
             if sub_node.type in "parameter_list":
                 parameter_list_nodes.append(sub_node)
 
+        # In Go, a function can have at least one `parameter_list` (i.e., parameters) and at most two `parameter_list`s (i.e., parameters and return values).
+        assert 1 <= len(parameter_list_nodes) <= 2
+        parameter_list_node = parameter_list_nodes[0]
+
         index = 0
-        parameter_list_node = parameter_list_nodes[-1]
         for sub_node in parameter_list_node.children:
             if sub_node.type in "parameter_declaration":
                 for sub_sub_node in sub_node.children:
