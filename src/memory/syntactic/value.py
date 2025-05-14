@@ -97,6 +97,36 @@ class Value:
     def __hash__(self) -> int:
         return hash(self.__str__())
 
+    def type_description(self) -> str:
+        """
+        :return: the type description of the value
+        """
+        mapping = {
+            ValueLabel.SRC: "source",
+            ValueLabel.SINK: "sink",
+            ValueLabel.PARA: "parameter",
+            ValueLabel.RET: "return value at",
+            ValueLabel.ARG: "argument",
+            ValueLabel.OUT: "output value of",
+            ValueLabel.BUF_ACCESS_EXPR: "buffer access expression",
+            ValueLabel.NON_BUF_ACCESS_EXPR: "non-buffer access expression",
+            ValueLabel.LOCAL: "local variable",
+            ValueLabel.GLOBAL: "global variable",
+        }
+        type_description = mapping.get(self.label)
+
+        if self.index != -1:
+            if self.index % 10 == 0:
+                type_description = f"the {self.index + 1}-st {type_description}"
+            elif self.index % 10 == 1:
+                type_description = f"the {self.index + 1}-nd {type_description}"
+            elif self.index % 10 == 2:
+                type_description = f"the {self.index + 1}-rd {type_description}"
+            else:
+                type_description = f"the {self.index + 1}-th {type_description}"
+
+        return type_description
+
     @classmethod
     def from_str_to_value(cls, s: str) -> "Value":
         """

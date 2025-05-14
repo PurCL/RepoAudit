@@ -39,7 +39,7 @@ class IntraSlicerInput(LLMToolInput):
 
         if len(self.seed_list) > 1:
             if self.seed_list[0].label != ValueLabel.RET:
-                self.seed_type = self.seed_list[0].label
+                self.seed_type = self.seed_list[0].type_description()
                 self.seed_line_number = self.seed_list[0].line_number
                 self.seed_name = ""
                 for seed in self.seed_list:
@@ -50,7 +50,7 @@ class IntraSlicerInput(LLMToolInput):
                 self.seed_line_number = -1
         else:
             self.seed_name = self.seed_list[0].name
-            self.seed_type = self.seed_list[0].label
+            self.seed_type = self.seed_list[0].type_description()
             self.seed_line_number = self.seed_list[0].line_number
         return
 
@@ -144,7 +144,7 @@ class IntraSlicer(LLMTool):
 
         question = (
             prompt_template_dict["question_template"]
-            .replace("<SEED_NAME>", input.seed_name)
+            .replace("<SEED_NAME>", f"'{input.seed_name}'")
             .replace(
                 "<SEED_LINE>",
                 (
@@ -218,14 +218,18 @@ class IntraSlicer(LLMTool):
                     and match["variable_name"] is None
                 ):
                     continue
-                if match["index"] == "Output Value" and match["callee_name"] is None:
+                if match["type"] == "Output Value" and match["callee_name"] is None:
                     continue
+
                 ext_value = match.groupdict()
                 if ext_value.get("index") is not None:
                     try:
                         ext_value["index"] = int(ext_value["index"])
                     except ValueError:
                         ext_value["index"] = None
+                else:
+                    ext_value["index"] = None
+
                 output_ext_values.append(ext_value)
         output = IntraSlicerOutput(output_slice, output_ext_values)
         self.logger.print_log("Output of intra_slicer:\n", str(output))

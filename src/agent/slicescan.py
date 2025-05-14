@@ -168,6 +168,9 @@ class SliceScanAgent(Agent):
                                     caller_function, call_site_node
                                 )
                             )
+                            if external_variable["index"] is not None:
+                                output_value.index = external_variable["index"]
+
                             delta_worklist.append(
                                 (
                                     new_slice_context,
@@ -531,7 +534,7 @@ class SliceScanAgent(Agent):
 
     def __process_item(
         self, item: Tuple[CallContext, int, Set[Value]]
-    ) -> List[Tuple[CallContext, int, Set[Value]]]:
+    ) -> List[Tuple[CallContext, int, Value]]:
         """
         Process one worklist item and return the delta worklist.
         """
@@ -603,6 +606,8 @@ class SliceScanAgent(Agent):
                                     if (
                                         delta_seed_value.label == ValueLabel.RET
                                         and wl_seed_value.label == ValueLabel.RET
+                                        and delta_seed_value.index
+                                        == wl_seed_value.index
                                     ) or (
                                         delta_seed_value.line_number
                                         == wl_seed_value.line_number
