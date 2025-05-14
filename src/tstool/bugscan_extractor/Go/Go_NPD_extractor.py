@@ -45,6 +45,7 @@ class Go_NPD_Extractor(BugScanExtractor):
         nodes.extend(find_nodes_by_type(root_node, "short_var_declaration"))
         nodes.extend(find_nodes_by_type(root_node, "return_statement"))
         nodes.extend(find_nodes_by_type(root_node, "const_declaration"))
+        nodes.extend(find_nodes_by_type(root_node, "argument_list"))
 
         for node in nodes:
             children = find_nodes_by_type(node, "nil")
