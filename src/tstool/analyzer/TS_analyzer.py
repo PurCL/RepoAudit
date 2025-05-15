@@ -4,7 +4,7 @@ from pathlib import Path
 import copy
 import concurrent.futures
 import threading
-from typing import List, Tuple, Dict, Set
+from typing import List, Optional, Tuple, Dict, Set
 from abc import ABC, abstractmethod
 
 import tree_sitter
@@ -320,8 +320,8 @@ class TSAnalyzer(ABC):
         file_name = self.functionToFile[current_function.function_id]
         file_content = self.fileContentDic[file_name]
 
-        current_function.paras = self.get_parameters_in_single_function(
-            current_function
+        current_function.paras, current_function.variadic_para = (
+            self.get_parameters_in_single_function(current_function)
         )
         current_function.retvals = self.get_return_values_in_single_function(
             current_function
@@ -648,7 +648,7 @@ class TSAnalyzer(ABC):
     @abstractmethod
     def get_parameters_in_single_function(
         self, current_function: Function
-    ) -> Set[Value]:
+    ) -> Tuple[Set[Value], Optional[Value]]:
         """
         Find the parameters of a function.
         :param current_function: The function to be analyzed.

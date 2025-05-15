@@ -1,6 +1,6 @@
 import sys
 from os import path
-from typing import List, Tuple, Dict, Set
+from typing import List, Optional, Tuple, Dict, Set
 import tree_sitter
 
 sys.path.append(path.dirname(path.dirname(path.dirname(path.abspath(__file__)))))
@@ -202,14 +202,14 @@ class Cpp_TSAnalyzer(TSAnalyzer):
 
     def get_parameters_in_single_function(
         self, current_function: Function
-    ) -> Set[Value]:
+    ) -> Tuple[Set[Value], Optional[Value]]:
         """
         Find the parameters of a function.
         :param current_function: The function to be analyzed.
         :return: A set of parameters as values
         """
         if current_function.paras is not None:
-            return current_function.paras
+            return current_function.paras, None
         current_function.paras = set([])
         file_content = self.code_in_files[current_function.file_path]
         parameters = find_nodes_by_type(
@@ -231,7 +231,7 @@ class Cpp_TSAnalyzer(TSAnalyzer):
                 )
                 break
             index += 1
-        return current_function.paras
+        return current_function.paras, None
 
     def get_return_values_in_single_function(
         self, current_function: Function

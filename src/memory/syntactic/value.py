@@ -9,6 +9,7 @@ class ValueLabel(Enum):
     SRC = 1
     SINK = 2
     PARA = 3
+    VARI_PARA = -3  # variable parameter
     RET = 4
     ARG = 5
     OUT = 6
@@ -24,6 +25,7 @@ class ValueLabel(Enum):
             ValueLabel.SRC: "ValueLabel.SRC",
             ValueLabel.SINK: "ValueLabel.SINK",
             ValueLabel.PARA: "ValueLabel.PARA",
+            ValueLabel.VARI_PARA: "ValueLabel.VARI_PARA",
             ValueLabel.RET: "ValueLabel.RET",
             ValueLabel.ARG: "ValueLabel.ARG",
             ValueLabel.OUT: "ValueLabel.OUT",
@@ -40,6 +42,7 @@ class ValueLabel(Enum):
             "ValueLabel.SRC": ValueLabel.SRC,
             "ValueLabel.SINK": ValueLabel.SINK,
             "ValueLabel.PARA": ValueLabel.PARA,
+            "ValueLabel.VARI_PARA": ValueLabel.VARI_PARA,
             "ValueLabel.RET": ValueLabel.RET,
             "ValueLabel.ARG": ValueLabel.ARG,
             "ValueLabel.OUT": ValueLabel.OUT,
@@ -105,6 +108,7 @@ class Value:
             ValueLabel.SRC: "source",
             ValueLabel.SINK: "sink",
             ValueLabel.PARA: "parameter",
+            ValueLabel.VARI_PARA: "element of the variable parameter",
             ValueLabel.RET: "return value at",
             ValueLabel.ARG: "argument",
             ValueLabel.OUT: "output value of",

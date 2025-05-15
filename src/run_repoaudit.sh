@@ -18,11 +18,12 @@ print_usage() {
     echo "  --is-iterative             Required for bugscan"
     echo
     echo "Optional Options (with defaults):"
-    echo "  --model-name <model>        Model to use (default: claude-3.5)"
-    echo "  --temperature <temp>        Temperature setting (default: 0.0)"
-    echo "  --call-depth <depth>        Call depth (default: 2)"
-    echo "  --max-neural-workers <num>  Maximum neural workers (default: 30)"
-    echo "  --include-test-files        Analyze test files in the subject project as well"
+    echo "  --model-name <model>          Model to use (default: claude-3.5)"
+    echo "  --temperature <temp>          Temperature setting (default: 0.0)"
+    echo "  --call-depth <depth>          Call depth (default: 2)"
+    echo "  --max-neural-workers <num>    Maximum neural workers (default: 30)"
+    echo "  --max-symbolic-workers <num>  Maximum symbolic workers (default: 10)"
+    echo "  --include-test-files          Analyze test files in the subject project as well"
     echo
     echo "Example commands:"
     echo "bash $0 bugscan --language Cpp --project-path ../benchmark/Cpp/htop --is-iterative"
@@ -50,6 +51,7 @@ MODEL="claude-3.5"
 TEMPERATURE="0.0"
 CALL_DEPTH="3"
 MAX_NEURAL_WORKERS="30"
+MAX_SYMBOLIC_WORKERS="10"
 
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
@@ -80,6 +82,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --max-neural-workers)
             MAX_NEURAL_WORKERS="$2"
+            shift 2
+            ;;
+        --max-symbolic-workers)
+            MAX_SYMBOLIC_WORKERS="$2"
             shift 2
             ;;
         --is-reachable)
@@ -150,6 +156,7 @@ case "$SCAN_TYPE" in
           --scan-type bugscan \
           --call-depth "$CALL_DEPTH" \
           --max-neural-workers "$MAX_NEURAL_WORKERS" \
+          --max-symbolic-workers "$MAX_SYMBOLIC_WORKERS" \
           $IS_ITERATIVE \
           $INCLUDE_TEST_FILES
         ;;
@@ -163,6 +170,7 @@ case "$SCAN_TYPE" in
           --scan-type dfbscan \
           --call-depth "$CALL_DEPTH" \
           --max-neural-workers "$MAX_NEURAL_WORKERS" \
+          --max-symbolic-workers "$MAX_SYMBOLIC_WORKERS" \
           $IS_REACHABLE \
           $INCLUDE_TEST_FILES
         ;;
@@ -174,6 +182,7 @@ case "$SCAN_TYPE" in
           --temperature "$TEMPERATURE" \
           --scan-type debugscan \
           --call-depth "$CALL_DEPTH" \
-          --max-neural-workers "$MAX_NEURAL_WORKERS"
+          --max-neural-workers "$MAX_NEURAL_WORKERS" \
+          --max-symbolic-workers "$MAX_SYMBOLIC_WORKERS"
         ;;
 esac

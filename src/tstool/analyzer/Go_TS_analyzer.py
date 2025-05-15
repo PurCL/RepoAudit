@@ -1,6 +1,6 @@
 import sys
 from os import path
-from typing import List, Tuple, Dict, Set
+from typing import List, Optional, Tuple, Dict, Set
 import tree_sitter
 
 sys.path.append(path.dirname(path.dirname(path.dirname(path.abspath(__file__)))))
@@ -38,6 +38,7 @@ class Go_TSAnalyzer(TSAnalyzer):
 
             if function_name == "":
                 continue
+            print("MDZZ 1", function_name)
 
             # Initialize the raw data of a function
             start_line_number = source_code[: function_node.start_byte].count("\n") + 1
@@ -149,19 +150,20 @@ class Go_TSAnalyzer(TSAnalyzer):
 
     def get_parameters_in_single_function(
         self, current_function: Function
-    ) -> Set[Value]:
+    ) -> Tuple[Set[Value], Optional[Value]]:
         """
         Find the parameters of a function.
         :param current_function: The function to be analyzed.
         :return: A set of parameters as values
         """
         if current_function.paras is not None:
-            return current_function.paras
+            return current_function.paras, current_function.variadic_para
         current_function.paras = set([])
+        current_function.variadic_paras = set([])
         file_content = self.code_in_files[current_function.file_path]
         parameter_list_nodes = []
         for sub_node in current_function.parse_tree_root_node.children:
-            if sub_node.type in "parameter_list":
+            if sub_node.type == "parameter_list":
                 parameter_list_nodes.append(sub_node)
 
         # In Go, a function can have at least one `parameter_list` (i.e., parameters) and at most two `parameter_list`s (i.e., parameters and return values).
@@ -170,27 +172,58 @@ class Go_TSAnalyzer(TSAnalyzer):
 
         index = 0
         for sub_node in parameter_list_node.children:
-            if sub_node.type in "parameter_declaration":
+            if sub_node.type in [
+                "parameter_declaration",
+                "variadic_parameter_declaration",
+            ]:
                 for sub_sub_node in sub_node.children:
-                    if sub_sub_node.type in "identifier":
+                    if sub_sub_node.type == "identifier":
                         parameter_name = file_content[
                             sub_sub_node.start_byte : sub_sub_node.end_byte
                         ]
                         line_number = (
                             file_content[: sub_sub_node.start_byte].count("\n") + 1
                         )
-                        current_function.paras.add(
-                            Value(
+
+                        if sub_node.type == "variadic_parameter_declaration":
+                            assert (
+                                current_function.variadic_para is None
+                            ), "A function can only have one variadic parameter."
+                            current_function.variadic_para = Value(
                                 parameter_name,
                                 line_number,
-                                ValueLabel.PARA,
+                                ValueLabel.VARI_PARA,
                                 current_function.file_path,
                                 index,
                             )
-                        )
-                        break
-                index += 1
-        return current_function.paras
+                        else:
+                            current_function.paras.add(
+                                Value(
+                                    parameter_name,
+                                    line_number,
+                                    ValueLabel.PARA,
+                                    current_function.file_path,
+                                    index,
+                                )
+                            )
+                        index += 1
+
+        print(
+            "MDZZ 0",
+            current_function.function_name,
+            len(current_function.paras),
+            current_function.variadic_para is not None,
+        )
+
+        if current_function.variadic_para is not None:
+            assert current_function.variadic_para.index == len(
+                current_function.paras
+            ), (
+                f"The index of the variadic parameter should be equal to the number of parameters: "
+                f"{current_function.variadic_para.index} != {len(current_function.paras)} in {current_function.function_name}."
+            )
+
+        return current_function.paras, current_function.variadic_para
 
     def get_return_values_in_single_function(
         self, current_function: Function

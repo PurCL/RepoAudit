@@ -6,7 +6,7 @@ type User struct {
 	Name string
 }
 
-// Global variable — declared but not initialized (nil)
+// Global variable - declared but not initialized (nil)
 var globalUser *User
 
 func printUserName() {

@@ -36,6 +36,11 @@ class Function:
 
         ## Results of AST node type analysis
         self.paras = None  # A set of parameters
+        # XXX (ZZ): in most languages, a function can only have one variadic parameter.
+        # Hence, in our current implementation, we only support one variadic parameter.
+        # However, in Python, a function can have multiple variadic parameters, for which
+        # we will support after we integrate the code with the Language Server Protocol (LSP).
+        self.variadic_para = None  # The variadic parameter if it exists
         self.retvals = None  # A set of returned values
 
         ## Results of intraprocedural control flow analysis
