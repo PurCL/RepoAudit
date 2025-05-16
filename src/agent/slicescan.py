@@ -130,11 +130,17 @@ class SliceScanAgent(Agent):
                                 file_content[: call_site_node.start_byte].count("\n")
                                 + 1
                             )
+                            print(
+                                "MDZZ 0",
+                                caller_function.function_name,
+                                call_site_lower_line_number,
+                            )
 
                             new_slice_context = copy.deepcopy(slice_context)
                             top_unmatched_context_label = (
                                 new_slice_context.get_top_unmatched_context_label()
                             )
+                            print("MDZZ 1", top_unmatched_context_label)
                             if top_unmatched_context_label is not None:
                                 if (
                                     top_unmatched_context_label.parenthesis
@@ -304,15 +310,33 @@ class SliceScanAgent(Agent):
                             args = self.ts_analyzer.get_arguments_at_callsite(
                                 caller_function, call_site_node
                             )
-                            for arg in args:
-                                if arg.index == index:
-                                    delta_worklist.append(
-                                        (
-                                            new_slice_context,
-                                            caller_function.function_id,
-                                            arg,
+
+                            # Support variadic parameters
+                            if function.variadic_para is not None:
+                                if index == function.variadic_para.index:
+                                    # XXX (ZZ): Currently, the variadic parameter is treated as a single unit;
+                                    # individual arguments within it are not analyzed separately.
+                                    # In the future, we may consider more fine-grained handling (this could be
+                                    # done by chaning the slicing prompt).
+                                    for arg in args:
+                                        if arg.index >= index:
+                                            delta_worklist.append(
+                                                (
+                                                    new_slice_context,
+                                                    caller_function.function_id,
+                                                    arg,
+                                                )
+                                            )
+                            else:
+                                for arg in args:
+                                    if arg.index == index:
+                                        delta_worklist.append(
+                                            (
+                                                new_slice_context,
+                                                caller_function.function_id,
+                                                arg,
+                                            )
                                         )
-                                    )
 
                 elif ext_val_type == "Global Variable":
                     # TODO: add global variable support
@@ -481,7 +505,7 @@ class SliceScanAgent(Agent):
                                     )
         return delta_worklist
 
-    # TOBE deprecated
+    # TODO: TO BE DEPRECATED
     def start_scan_sequential(self) -> None:
         self.logger.print_console("Start slice scanning...")
         worklist: List[Tuple[CallContext, int, Set[Value]]] = (
