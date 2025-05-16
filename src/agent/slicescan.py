@@ -130,17 +130,11 @@ class SliceScanAgent(Agent):
                                 file_content[: call_site_node.start_byte].count("\n")
                                 + 1
                             )
-                            print(
-                                "MDZZ 0",
-                                caller_function.function_name,
-                                call_site_lower_line_number,
-                            )
 
                             new_slice_context = copy.deepcopy(slice_context)
                             top_unmatched_context_label = (
                                 new_slice_context.get_top_unmatched_context_label()
                             )
-                            print("MDZZ 1", top_unmatched_context_label)
                             if top_unmatched_context_label is not None:
                                 if (
                                     top_unmatched_context_label.parenthesis
@@ -188,13 +182,16 @@ class SliceScanAgent(Agent):
                 elif ext_val_type == "Argument":
                     callee_name = external_variable["callee_name"]
                     index = external_variable["index"]
+                    line_number = external_variable["line_number"]
+
                     callee_functions = [
-                        function
-                        for function in self.ts_analyzer.get_all_callee_functions(
+                        callee_function
+                        for callee_function in self.ts_analyzer.get_all_callee_functions(
                             function
                         )
-                        if function.function_name == callee_name
+                        if callee_function.function_name == callee_name
                     ]
+
                     for callee_function in callee_functions:
                         call_sites = self.ts_analyzer.get_callsites_by_callee_name(
                             function, callee_function.function_name
@@ -207,6 +204,20 @@ class SliceScanAgent(Agent):
                                 file_content[: call_site_node.start_byte].count("\n")
                                 + 1
                             )
+
+                            # Ensure the call site line number matches
+                            # XXX (ZZ): This check is crucial to prevent slicing explosion, especially when a caller
+                            # has multiple call sites to the same callee.
+                            # XXX (ZZ): For correctness, this assumes the caller function begins on the first line
+                            # of the code snippet provided to the LLM.
+                            # TODO (ZZ): We need to add line number support for other languages.
+                            # if call_site_lower_line_number != line_number:
+                            if (
+                                line_number is not None
+                                and call_site_lower_line_number
+                                != line_number + function.start_line_number - 1
+                            ):
+                                continue
 
                             new_slice_context = copy.deepcopy(slice_context)
                             context_label = ContextLabel(

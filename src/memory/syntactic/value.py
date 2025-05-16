@@ -108,7 +108,7 @@ class Value:
             ValueLabel.SRC: "source",
             ValueLabel.SINK: "sink",
             ValueLabel.PARA: "parameter",
-            ValueLabel.VARI_PARA: "element of the variable parameter",
+            ValueLabel.VARI_PARA: "element of the variadic parameter",
             ValueLabel.RET: "return value at",
             ValueLabel.ARG: "argument",
             ValueLabel.OUT: "output value of",
@@ -121,13 +121,13 @@ class Value:
 
         if self.index != -1:
             if self.index % 10 == 0:
-                type_description = f"the {self.index + 1}-st {type_description}"
+                type_description = f"the {self.index + 1}st (i.e., index {self.index}) {type_description}"
             elif self.index % 10 == 1:
-                type_description = f"the {self.index + 1}-nd {type_description}"
+                type_description = f"the {self.index + 1}nd (i.e., index {self.index}) {type_description}"
             elif self.index % 10 == 2:
-                type_description = f"the {self.index + 1}-rd {type_description}"
+                type_description = f"the {self.index + 1}rd (i.e., index {self.index}) {type_description}"
             else:
-                type_description = f"the {self.index + 1}-th {type_description}"
+                type_description = f"the {self.index + 1}th (i.e., index {self.index}) {type_description}"
 
         return type_description
 

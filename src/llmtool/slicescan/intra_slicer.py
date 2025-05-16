@@ -178,6 +178,7 @@ class IntraSlicer(LLMTool):
             r"(?:\s+Callee:\s*(?P<callee_name>[^.]+)\.?)?"
             r"(?:\s+Index:\s*(?P<index>\d+)\.?)?"
             r"(?:\s+Name:\s*(?P<variable_name>[^.]+)\.?)?"
+            r"(?:\s+Line:\s*(?P<line_number>[^.]+)\.?)?"
             r"\.?$"
         )
 
@@ -210,7 +211,10 @@ class IntraSlicer(LLMTool):
                 if match["type"] == "Parameter" and match["index"] is None:
                     continue
                 if match["type"] == "Argument" and (
-                    match["callee_name"] is None or match["index"] is None
+                    # TODO (ZZ): We need to add line number support for other languages
+                    # match["callee_name"] is None or match["index"] is None or match["line_number"] is None
+                    match["callee_name"] is None
+                    or match["index"] is None
                 ):
                     continue
                 if (
@@ -222,13 +226,16 @@ class IntraSlicer(LLMTool):
                     continue
 
                 ext_value = match.groupdict()
-                if ext_value.get("index") is not None:
-                    try:
-                        ext_value["index"] = int(ext_value["index"])
-                    except ValueError:
-                        ext_value["index"] = None
-                else:
-                    ext_value["index"] = None
+
+                # Parse the index and line number
+                for field in ["index", "line_number"]:
+                    if ext_value.get(field) is not None:
+                        try:
+                            ext_value[field] = int(ext_value[field])
+                        except ValueError:
+                            ext_value[field] = None
+                    else:
+                        ext_value[field] = None
 
                 output_ext_values.append(ext_value)
         output = IntraSlicerOutput(output_slice, output_ext_values)
