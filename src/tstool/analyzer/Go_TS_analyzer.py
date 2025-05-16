@@ -75,7 +75,9 @@ class Go_TSAnalyzer(TSAnalyzer):
         """
         Get the callee name at the call site.
         """
-        assert node.type == "call_expression"
+        assert (
+            node.type == "call_expression"
+        ), f"Expected a call_expression node, but got {node.type}."
 
         # XXX(ZZ): Go have many different syntaxes for function calls. Here, we only
         # consider the most common ones: function calls and method calls.
@@ -125,7 +127,9 @@ class Go_TSAnalyzer(TSAnalyzer):
         :param call_site_node: the node of the call site
         :return: the arguments
         """
-        assert call_site_node.type == "call_expression"
+        assert (
+            call_site_node.type == "call_expression"
+        ), f"Expected a call_expression node, but got {call_site_node.type}."
 
         arguments = set([])
         file_name = current_function.file_path
@@ -166,8 +170,14 @@ class Go_TSAnalyzer(TSAnalyzer):
                 parameter_list_nodes.append(sub_node)
 
         # In Go, a function can have at least one `parameter_list` (i.e., parameters) and at most two `parameter_list`s (i.e., parameters and return values).
-        assert 1 <= len(parameter_list_nodes) <= 2
-        parameter_list_node = parameter_list_nodes[0]
+        assert (
+            1 <= len(parameter_list_nodes) <= 3
+        ), f"The function {current_function.function_name} has {len(parameter_list_nodes)} parameter lists, which is not valid in Go."
+        if len(parameter_list_nodes) == 3:
+            # This will be the case for a method for a struct.
+            parameter_list_node = parameter_list_nodes[1]
+        else:
+            parameter_list_node = parameter_list_nodes[0]
 
         index = 0
         for sub_node in parameter_list_node.children:
