@@ -595,8 +595,12 @@ class TSAnalyzer(ABC):
         for callee_id in temp_callee_ids:
             callee = self.function_env[callee_id]
             paras = callee.paras
-            if len(paras) == len(arguments):
-                callee_ids.append(callee_id)
+            if callee.variadic_para is None:
+                if len(paras) == len(arguments):
+                    callee_ids.append(callee_id)
+            else:
+                if len(paras) <= len(arguments):
+                    callee_ids.append(callee_id)
         return callee_ids
 
     def get_callee_api_ids_at_callsite(

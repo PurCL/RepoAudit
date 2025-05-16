@@ -38,7 +38,6 @@ class Go_TSAnalyzer(TSAnalyzer):
 
             if function_name == "":
                 continue
-            print("MDZZ 1", function_name)
 
             # Initialize the raw data of a function
             start_line_number = source_code[: function_node.start_byte].count("\n") + 1
@@ -207,13 +206,6 @@ class Go_TSAnalyzer(TSAnalyzer):
                                 )
                             )
                         index += 1
-
-        print(
-            "MDZZ 0",
-            current_function.function_name,
-            len(current_function.paras),
-            current_function.variadic_para is not None,
-        )
 
         if current_function.variadic_para is not None:
             assert current_function.variadic_para.index == len(

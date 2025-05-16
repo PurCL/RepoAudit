@@ -215,15 +215,36 @@ class SliceScanAgent(Agent):
                             if not is_CFL_reachable:
                                 continue
 
-                            for para in callee_function.paras:
-                                if para.index == index:
-                                    delta_worklist.append(
-                                        (
-                                            new_slice_context,
-                                            callee_function.function_id,
-                                            para,
-                                        )
+                            if (
+                                index >= len(callee_function.paras)
+                                and callee_function.variadic_para is not None
+                            ):
+                                # The argument falls into a variadic argument
+                                variadic_para = copy.deepcopy(
+                                    callee_function.variadic_para
+                                )
+
+                                # XXX (ZZ): We want to inform the LLM of the exact position where an argument has been passed
+                                # within a variadic parameter. For example, if the variadic parameter is `*args`, we want to
+                                # determine the index of the specific argument within `args`.
+                                variadic_para.index = index - variadic_para.index
+                                delta_worklist.append(
+                                    (
+                                        new_slice_context,
+                                        callee_function.function_id,
+                                        variadic_para,
                                     )
+                                )
+                            else:
+                                for para in callee_function.paras:
+                                    if para.index == index:
+                                        delta_worklist.append(
+                                            (
+                                                new_slice_context,
+                                                callee_function.function_id,
+                                                para,
+                                            )
+                                        )
 
                 elif ext_val_type == "Parameter":
                     # Consider side-effect.
