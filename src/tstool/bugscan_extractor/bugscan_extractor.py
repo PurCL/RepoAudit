@@ -32,7 +32,10 @@ class BugScanExtractor(ABC):
             pbar.update(1)
             function: Function = self.ts_analyzer.function_env[function_id]
             if not include_test_files:
-                if "test" in function.file_path or "example" in function.file_path:
+                if (
+                    "test" in function.file_path.lower()
+                    or "example" in function.file_path.lower()
+                ):
                     continue
             self.seeds.extend(self.find_seeds(function))
         return self.seeds

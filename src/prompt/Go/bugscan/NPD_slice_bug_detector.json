@@ -34,7 +34,7 @@
     "13.   data *int",
     "14. }",
     "```",
-    "- Will this potential `nil` value (`ptr`) cause a Nil Deference Panic?",
+    "- Will this function cause a Nil Deference Panic?",
     "System:",
     "Explanation:",
     "Step 1: Identify the nil value",
@@ -49,7 +49,7 @@
     "Answer: No",
     "Explanation: In the execution path where `condition != 0`, the pointer `ptr` remains uninitialized and retains its default `nil` value. Despite this, the code proceeds to dereference `ptr` on line 6 (`ptr.data = ...`) and line 7 (`if ptr.data == nil`). This leads to a guaranteed `nil` panic on that path. Since a `nil` panic is CERTAIN in at least one execution path, this constitutes a definite bug."
   ],
-  "question_template": "- Will this potential `nil` value (`SEED_NAME`) cause a Nil Deference Panic?",
+  "question_template": "- Will this function cause a Nil Deference Panic?",
   "answer_format": [
     "1. Explanation: Provide your reasoning.",
     "2. Answer: 'Yes' or 'No'.",
@@ -60,13 +60,15 @@
     "Explanation: {Description of the bug propagation path}"
   ],
   "meta_prompts": [
-    "Now I will give you a function containing a potentially `nil` value: `<SEED_NAME>`:\n```\n<FUNCTION>\n``` \n\n",
+    "Now I will give you a function containing a potentially `nil` value:\n```\n<FUNCTION>\n``` \n\n",
     "Please answer the following question:\n<QUESTION>\n\n",
     "Your answer should follow the following format: \n<ANSWER>\n",
     "Guidelines:\n",
     "- Simulate execution along all execution paths, including error-handling paths, to capture all possible pointer values.\n",
     "- Consider nested condition statements and loops. Expand branches and loops to analyze each execution path.\n",
-    "- Only report a Nil Panic bug if the pointer is guaranteed to be `nil` at the point of dereference. If the pointer is not guaranteed to be `nil`, answer 'No'.",
-    "- Only report a Nil Panic bug if you can explicitly derive the bug propagation path from the provided function content. If you cannot determine the presence of a bug, answer 'No'."
+    "- Ignore cases where a variable is used but not declared, as the declaration may have been omitted in the provided code. Focus only on detecting nil panic bugs.\n",
+    "- ALWAYS assume that receiver variables and function parameters are not `nil` by default. Only consider them `nil` if they are explicitly assigned `nil` within the function.\n",
+    "- Only report a nil panic bug if the pointer is guaranteed to be `nil` at the point of dereference, assuming the suspicious execution path is followed.",
+    "- Only report a nil panic bug if you can explicitly derive the bug propagation path from the provided function content. If you cannot determine the presence of a bug, answer 'No'."
   ]
 }

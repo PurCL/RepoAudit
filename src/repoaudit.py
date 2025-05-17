@@ -221,6 +221,9 @@ class RepoAudit:
         """
         for suffix in suffixs:
             for file in glob.glob(f"{project_path}/**/*.{suffix}", recursive=True):
+                if not self.include_test_files:
+                    if "test" in file.lower() or "example" in file.lower():
+                        continue
                 try:
                     with open(file, "r") as source_file:
                         source_file_content = source_file.read()
