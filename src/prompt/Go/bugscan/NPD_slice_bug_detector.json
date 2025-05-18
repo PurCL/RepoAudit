@@ -17,7 +17,7 @@
   "analysis_examples": [
     "Example 1:",
     "User:",
-    "Now I will give you a function containing a potentially `nil` value: `ptr`:",
+    "Now I will give you a function containing a potentially `nil` value: `ptr` at the line 2:",
     "```",
     "1.  func processData(condition int) error {",
     "2.    ptr *Data",
@@ -59,11 +59,25 @@
     "Answer: {Yes or No}",
     "Explanation: {Description of the bug propagation path}"
   ],
-  "meta_prompts": [
+  "meta_prompts_with_inlining": [
     "Now I will give you a function containing a potentially `nil` value:\n```\n<FUNCTION>\n``` \n\n",
     "Please answer the following question:\n<QUESTION>\n\n",
     "Your answer should follow the following format: \n<ANSWER>\n",
     "Guidelines:\n",
+    "- Simulate execution along all execution paths, including error-handling paths, to capture all possible pointer values.\n",
+    "- Consider nested condition statements and loops. Expand branches and loops to analyze each execution path.\n",
+    "- Ignore cases where a variable is used but not declared, as the declaration may have been omitted in the provided code. Focus only on detecting nil panic bugs.\n",
+    "- ALWAYS assume that receiver variables and function parameters are not `nil` by default. Only consider them `nil` if they are explicitly assigned `nil` within the function.\n",
+    "- Only report a nil panic bug if the pointer is guaranteed to be `nil` at the point of dereference, assuming the suspicious execution path is followed.",
+    "- Only report a nil panic bug if you can explicitly derive the bug propagation path from the provided function content. If you cannot determine the presence of a bug, answer 'No'."
+  ],
+  "meta_prompts_without_inlining": [
+    "Now I will give you a function containing a potentially `nil` value:\n```\n<FUNCTION>\n``` \n\n",
+    "Here is the call tree of the above functions:\n```\n<FUNCTION_CALL_TREE>\n``` \n\n",
+    "Please answer the following question:\n<QUESTION>\n\n",
+    "Your answer should follow the following format: \n<ANSWER>\n",
+    "Guidelines:\n",
+    "- You can analyze the functions by following their caller-callee relationships in the call graph.\n",
     "- Simulate execution along all execution paths, including error-handling paths, to capture all possible pointer values.\n",
     "- Consider nested condition statements and loops. Expand branches and loops to analyze each execution path.\n",
     "- Ignore cases where a variable is used but not declared, as the declaration may have been omitted in the provided code. Focus only on detecting nil panic bugs.\n",

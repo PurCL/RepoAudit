@@ -88,6 +88,7 @@ class RepoAudit:
         self.bug_type = args.bug_type
         self.is_reachable = args.is_reachable
         self.is_backward = args.is_backward
+        self.is_inlined = args.is_inlined
         self.is_iterative = args.is_iterative
 
         self.include_test_files = args.include_test_files
@@ -148,6 +149,7 @@ class RepoAudit:
                     self.model_name,
                     self.temperature,
                     self.call_depth,
+                    self.is_inlined,
                     self.max_neural_workers,
                     include_test_files=self.include_test_files,
                 )
@@ -341,6 +343,12 @@ def configure_args():
     )
 
     # Parameters for bugscan
+    parser.add_argument(
+        "--is-inlined",
+        action="store_true",
+        help="Flag to enable inlining in the bugscan agent",
+    )
+
     parser.add_argument(
         "--is-iterative",
         action="store_true",

@@ -395,25 +395,27 @@ class TSAnalyzer(ABC):
                         self.function_callee_caller_map[callee_id].add(caller_id)
                 function_call_sites.append(call_site_node)
             else:
-                api_id = None
+                api_id: Optional[int] = None
                 arguments = self.get_arguments_at_callsite(
                     current_function, call_site_node
                 )
                 callee_name = self.get_callee_name_at_call_site(
                     call_site_node, file_content
                 )
-                tmp_api = API(-1, callee_name, len(arguments))
+                api_template = API(-1, callee_name, len(arguments))
 
                 # Insert the API into the API environment if it does not exist previously
                 with self.api_env_lock:
-                    for single_api_id in self.api_env:
-                        if self.api_env[single_api_id] == tmp_api:
-                            api_id = single_api_id
-                    if api_id == None:
-                        self.api_env[len(self.api_env)] = API(
-                            len(self.api_env), callee_name, len(arguments)
+                    # First check if the API already exists
+                    api_id = self._find_existing_api(api_template)
+                    
+                    # If not found, create a new API
+                    if api_id is None:
+                        next_id = len(self.api_env)
+                        self.api_env[next_id] = API(
+                            next_id, callee_name, len(arguments)
                         )
-                        api_id = len(self.api_env) - 1
+                        api_id = next_id
 
                 caller_id = current_function.function_id
                 # Update the caller-callee relationship between user-defined functions and library APIs
@@ -833,6 +835,17 @@ class TSAnalyzer(ABC):
         if line_number > len(file_lines):
             return ""
         return file_lines[line_number - 1]
+
+    def _find_existing_api(self, api: API) -> Optional[int]:
+        """
+        Find an existing API in the API environment.
+        :param api: The API to find.
+        :return: The ID of the existing API, or None if it does not exist.
+        """
+        for api_id, existing_api in self.api_env.items():
+            if existing_api == api:
+                return api_id
+        return None
 
 
 # Utility functions for AST node type maching

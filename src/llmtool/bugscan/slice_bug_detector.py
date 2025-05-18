@@ -12,17 +12,21 @@ BASE_PATH = Path(__file__).resolve().parent.parent.parent
 
 
 class SliceBugDetectorInput(LLMToolInput):
-    def __init__(self, buggy_construct_str: str, single_function_str: str) -> None:
+    def __init__(self, buggy_construct_str: str, code_str: str, call_tree: str, is_inlined: bool) -> None:
         """
         :param buggy_construct_str: the string indicating the buggy construct
-        :param single_function_str: the string indicating the single function
+        :param code_str: the string indicating the code that is to be analyzed
+        :param call_tree: the string indicating the call tree
+        :param is_inlined: whether the code indicated by code_str is inlined
         """
         self.buggy_construct_str = buggy_construct_str
-        self.single_function_str = single_function_str
+        self.code_str = code_str
+        self.call_tree = call_tree
+        self.is_inlined = is_inlined
         return
 
     def __hash__(self) -> int:
-        return hash((self.buggy_construct_str, self.single_function_str))
+        return hash((self.buggy_construct_str, self.code_str, self.call_tree, self.is_inlined))
 
 
 class SliceBugDetectorOutput(LLMToolOutput):
@@ -74,13 +78,19 @@ class SliceBugDetector(LLMTool):
         prompt = prompt_template_dict["task"]
         prompt += "\n" + "\n".join(prompt_template_dict["analysis_rules"])
         prompt += "\n" + "\n".join(prompt_template_dict["analysis_examples"])
-        prompt += "\n" + "".join(prompt_template_dict["meta_prompts"])
+        
+        if input.is_inlined:
+            prompt += "\n" + "".join(prompt_template_dict["meta_prompts_with_inlining"])
+        else:
+            prompt += "\n" + "".join(prompt_template_dict["meta_prompts_without_inlining"])
+            
         prompt = prompt.replace(
             "<ANSWER>", "\n".join(prompt_template_dict["answer_format"])
         )
         prompt = prompt.replace("<QUESTION>", prompt_template_dict["question_template"])
-        prompt = prompt.replace("<FUNCTION>", input.single_function_str)
+        prompt = prompt.replace("<FUNCTION>", input.code_str)
         prompt = prompt.replace("<SEED_NAME>", input.buggy_construct_str)
+        prompt = prompt.replace("<FUNCTION_CALL_TREE>", input.call_tree)
         return prompt
 
     def _parse_response(

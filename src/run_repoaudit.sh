@@ -16,6 +16,7 @@ print_usage() {
     echo "  --bug-type <type>          Required for dfbscan"
     echo "  --is-reachable             Required for dfbscan"
     echo "  --is-iterative             Required for bugscan"
+    echo "  --is-inlined               Optional for bugscan"
     echo
     echo "Optional Options (with defaults):"
     echo "  --model-name <model>          Model to use (default: claude-3.5)"
@@ -47,7 +48,7 @@ fi
 # Default values
 SCAN_TYPE=$1
 shift
-MODEL="claude-3.5"
+MODEL="o4-mini"
 TEMPERATURE="0.0"
 CALL_DEPTH="3"
 MAX_NEURAL_WORKERS="30"
@@ -94,6 +95,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --is-iterative)
             IS_ITERATIVE="--is-iterative"
+            shift
+            ;;
+        --is-inlined)
+            IS_INLINED="--is-inlined"
             shift
             ;;
         --include-test-files)
@@ -158,6 +163,7 @@ case "$SCAN_TYPE" in
           --max-neural-workers "$MAX_NEURAL_WORKERS" \
           --max-symbolic-workers "$MAX_SYMBOLIC_WORKERS" \
           $IS_ITERATIVE \
+          $IS_INLINED \
           $INCLUDE_TEST_FILES
         ;;
     dfbscan)

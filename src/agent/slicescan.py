@@ -51,7 +51,7 @@ class SliceScanAgent(Agent):
         self.model_name = model_name
         self.temperature = temperature
 
-        self.call_depth = call_depth
+        self.call_depth = call_depth        
         self.max_neural_workers = max_neural_workers
         self.MAX_QUERY_NUM = 5
 

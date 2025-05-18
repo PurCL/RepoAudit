@@ -1,7 +1,7 @@
 {
   "model_role_name": "Go Static Forward Slicer",
   "system_role": "You are a Go programmer and very good at analyzing Go code.",
-  "task": "Given a function and a specific source variable or memory object denoted as 'src', perform static slicing to extract the code statements that use 'src' or its aliases or where the function terminates.",
+  "task": "Given a function and a specific source variable or memory object denoted as 'src', perform static slicing to extract the code statements that use 'src' or its aliases or where the function terminates. You need to make your slice in the format of function, i.e., the relevant statements should be in the function, of which the function type signature is the same as the original one.",
   "analysis_rules": [
     "1. Identify all function exit points, including 'return' statements, 'exit' calls (such as 'panic', 'os.Exit', etc.), and exception handling, as they are crucial for slicing.",
     "2. Identify all aliases of 'src' by analyzing the function's data flow.",
@@ -105,6 +105,7 @@
     "Now I will give you a target function: \n```\n<FUNCTION>\n``` \n\n",
     "Please answer the following question:\n<QUESTION>\n",
     "Your answer should strictly follow the following format: \n<ANSWER>\n",
+    "You need to make your slice in the format of function, i.e., the relevant statements should be in the function, of which the function type signature is the same as the original one.",
     "When you output the external variables, do not give any additional explanation. Please strictly follow the format provided in the above examples.",
     "Formally, we should fill the contents into the holes XXX in the following template if you find a specific type of value as an external variable:",
     "External Variables:",

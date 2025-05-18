@@ -54,8 +54,8 @@ class LLM:
             output = self.infer_with_gemini(message)
         elif "gpt" in self.online_model_name:
             output = self.infer_with_openai_model(message)
-        elif "o3-mini" in self.online_model_name:
-            output = self.infer_with_o3_mini_model(message)
+        elif "o3-mini" in self.online_model_name or "o4-mini" in self.online_model_name:
+            output = self.infer_with_On_mini_model(message)
         elif "claude" in self.online_model_name:
             output = self.infer_with_claude(message)
         elif "deepseek" in self.online_model_name:
@@ -153,8 +153,8 @@ class LLM:
 
         return ""
 
-    def infer_with_o3_mini_model(self, message):
-        """Infer using the o3-mini model"""
+    def infer_with_On_mini_model(self, message):
+        """Infer using the on-mini model"""
         api_key = os.environ.get("OPENAI_API_KEY").split(":")[0]
         model_input = [
             {"role": "system", "content": self.systemRole},
