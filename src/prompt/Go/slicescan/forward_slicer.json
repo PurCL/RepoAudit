@@ -87,7 +87,7 @@
     "Explanation: {Detailed explanation of the reasoning process.}",
     "Answer:",
     "Slicing:",
-    "{Relevant code statements influenced by src}",
+    "{A function containing relevant code statements influenced by src}",
     "External Variables:",
     "- Type: Argument. Callee: Foo. Index: 0. Line: 3.",
     "- Type: Return Value. Index: 0.",
@@ -97,7 +97,7 @@
     "Explanation: {Detailed explanation of how src affects the function through different execution paths.}",
     "Answer:",
     "Slicing:",
-    "{Relevant code statements influenced by src}",
+    "{A function containing relevant code statements influenced by src}",
     "External Variables:",
     "  No external variables found."
   ],
