@@ -51,7 +51,7 @@ shift
 MODEL="o4-mini"
 TEMPERATURE="0.0"
 CALL_DEPTH="3"
-MAX_NEURAL_WORKERS="30"
+MAX_NEURAL_WORKERS="1"
 MAX_SYMBOLIC_WORKERS="10"
 
 # Parse command line arguments

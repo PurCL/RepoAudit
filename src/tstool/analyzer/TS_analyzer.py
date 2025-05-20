@@ -408,7 +408,7 @@ class TSAnalyzer(ABC):
                 with self.api_env_lock:
                     # First check if the API already exists
                     api_id = self._find_existing_api(api_template)
-                    
+
                     # If not found, create a new API
                     if api_id is None:
                         next_id = len(self.api_env)

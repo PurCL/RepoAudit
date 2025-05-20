@@ -12,7 +12,9 @@ BASE_PATH = Path(__file__).resolve().parent.parent.parent
 
 
 class SliceBugDetectorInput(LLMToolInput):
-    def __init__(self, buggy_construct_str: str, code_str: str, call_tree: str, is_inlined: bool) -> None:
+    def __init__(
+        self, buggy_construct_str: str, code_str: str, call_tree: str, is_inlined: bool
+    ) -> None:
         """
         :param buggy_construct_str: the string indicating the buggy construct
         :param code_str: the string indicating the code that is to be analyzed
@@ -26,7 +28,9 @@ class SliceBugDetectorInput(LLMToolInput):
         return
 
     def __hash__(self) -> int:
-        return hash((self.buggy_construct_str, self.code_str, self.call_tree, self.is_inlined))
+        return hash(
+            (self.buggy_construct_str, self.code_str, self.call_tree, self.is_inlined)
+        )
 
 
 class SliceBugDetectorOutput(LLMToolOutput):
@@ -78,12 +82,14 @@ class SliceBugDetector(LLMTool):
         prompt = prompt_template_dict["task"]
         prompt += "\n" + "\n".join(prompt_template_dict["analysis_rules"])
         prompt += "\n" + "\n".join(prompt_template_dict["analysis_examples"])
-        
+
         if input.is_inlined:
             prompt += "\n" + "".join(prompt_template_dict["meta_prompts_with_inlining"])
         else:
-            prompt += "\n" + "".join(prompt_template_dict["meta_prompts_without_inlining"])
-            
+            prompt += "\n" + "".join(
+                prompt_template_dict["meta_prompts_without_inlining"]
+            )
+
         prompt = prompt.replace(
             "<ANSWER>", "\n".join(prompt_template_dict["answer_format"])
         )

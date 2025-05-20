@@ -48,7 +48,7 @@ class BugScanAgent(Agent):
         model_name,
         temperature,
         call_depth,
-        is_inlined = False,
+        is_inlined=False,
         max_neural_workers=1,
         agent_id: int = 0,
         include_test_files: bool = False,
@@ -63,7 +63,7 @@ class BugScanAgent(Agent):
 
         self.call_depth = call_depth
         self.is_inlined = is_inlined
-        
+
         self.max_neural_workers = max_neural_workers
         self.MAX_QUERY_NUM = 5
 
@@ -353,7 +353,7 @@ class BugScanAgent(Agent):
                 slice_inliner_inputs: List[SliceInlinerInput] = (
                     self.__retrieve_slice_inliner_inputs(slice_scan_state)
                 )
-                
+
                 if self.is_inlined:
                     # Inline each instance to obtain the abstraction of buggy code snippets
                     for slice_inliner_input in slice_inliner_inputs:
@@ -368,7 +368,10 @@ class BugScanAgent(Agent):
 
                         # (Key Step III): Detect the bugs upon the inlined slices
                         intra_detector_input = SliceBugDetectorInput(
-                            seed_value.name, slice_inliner_output.inlined_snippet, slice_inliner_input.tree_str, True
+                            seed_value.name,
+                            slice_inliner_output.inlined_snippet,
+                            slice_inliner_input.tree_str,
+                            True,
                         )
                         intra_detector_output: SliceBugDetectorOutput = (
                             self.slice_detector.invoke(intra_detector_input)
@@ -404,18 +407,18 @@ class BugScanAgent(Agent):
                     code_str = ""
                     for _, function_id, values, slice in slice_scan_state.intra_slices:
                         code_str += slice + "\n"
-                    
+
                     inter_detector_input = SliceBugDetectorInput(
                         seed_value.name, code_str, call_tree_str, False
                     )
                     inter_detector_output: SliceBugDetectorOutput = (
                         self.slice_detector.invoke(inter_detector_input)
                     )
-                    
+
                     if inter_detector_output is None:
                         self.logger.print_log("Inter detector output is None")
                         continue
-                    
+
                     if inter_detector_output.is_buggy:
                         # Construct the bug report and update the state
                         explanation = (
@@ -535,13 +538,15 @@ class BugScanAgent(Agent):
             self.__retrieve_slice_inliner_inputs(slice_scan_state)
         )
         self.logger.print_console("slice_inliner_inputs obtained")
-        
+
         if self.is_inlined:
             # Process slice_inliner_inputs in parallel
             with ThreadPoolExecutor(max_workers=self.max_neural_workers) as executor:
                 futures = [
                     executor.submit(
-                        self.__process_slice_inliner_input, slice_inliner_input, seed_value
+                        self.__process_slice_inliner_input,
+                        slice_inliner_input,
+                        seed_value,
                     )
                     for slice_inliner_input in slice_inliner_inputs
                 ]
@@ -560,18 +565,18 @@ class BugScanAgent(Agent):
             code_str = ""
             for _, function_id, values, slice in slice_scan_state.intra_slices:
                 code_str += slice + "\n"
-            
+
             inter_detector_input = SliceBugDetectorInput(
                 seed_value.name, code_str, call_tree_str, False
             )
-            inter_detector_output: SliceBugDetectorOutput = (
-                self.slice_detector.invoke(inter_detector_input)
+            inter_detector_output: SliceBugDetectorOutput = self.slice_detector.invoke(
+                inter_detector_input
             )
-            
+
             if inter_detector_output is None:
                 self.logger.print_log("Inter detector output is None")
                 return
-            
+
             if inter_detector_output.is_buggy:
                 # Construct the bug report and update the state
                 explanation = (
@@ -594,9 +599,11 @@ class BugScanAgent(Agent):
                     bug_report_id: bug.to_dict()
                     for bug_report_id, bug in self.state.bug_reports.items()
                 }
-                with open(self.res_dir_path + "/detect_info.json", "w") as bug_info_file:
+                with open(
+                    self.res_dir_path + "/detect_info.json", "w"
+                ) as bug_info_file:
                     json.dump(bug_report_dict, bug_info_file, indent=4)
-            
+
         return
 
     def __process_slice_inliner_input(
@@ -613,7 +620,10 @@ class BugScanAgent(Agent):
 
         # Detect bugs upon the inlined slices.
         intra_detector_input = SliceBugDetectorInput(
-            seed_value.name, slice_inliner_output.inlined_snippet, slice_inliner_input.tree_str, True
+            seed_value.name,
+            slice_inliner_output.inlined_snippet,
+            slice_inliner_input.tree_str,
+            True,
         )
         intra_detector_output: SliceBugDetectorOutput = self.slice_detector.invoke(
             intra_detector_input

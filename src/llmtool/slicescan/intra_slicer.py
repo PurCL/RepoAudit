@@ -91,14 +91,15 @@ class IntraSlicerOutput(LLMToolOutput):
             "type": str,
             "callee_name": Optional[str],
             "index": Optional[int],
+            "line_number": Optional[int],
             "variable_name": Optional[str]
         }
         Here are several examples:
-        {'type': 'Argument', 'callee_name': 'log_message', 'index': 0, 'variable_name': None}
-        {'type': 'Return Value', 'callee_name': None, 'index': None, 'variable_name': None}
-        {'type': 'Parameter', 'callee_name': None, 'index': 0, 'variable_name': None}
-        {'type': 'Parameter', 'callee_name': None, 'index': 1, 'variable_name': None}
-        {'type': 'Output Value', 'callee_name': 'goo', 'index': None, 'variable_name': None}
+        {'type': 'Argument', 'callee_name': 'log_message', 'index': 0, 'line_number': 5, 'variable_name': None}
+        {'type': 'Return Value', 'callee_name': None, 'index': None, 'line_number': None, 'variable_name': None}
+        {'type': 'Parameter', 'callee_name': None, 'index': 0, 'line_number': None, 'variable_name': None}
+        {'type': 'Parameter', 'callee_name': None, 'index': 1, 'line_number': None, 'variable_name': None}
+        {'type': 'Output Value', 'callee_name': 'goo', 'index': 2, 'line_number': 6, 'variable_name': None}
         """
         self.ext_values = ext_values
 
@@ -167,12 +168,7 @@ class IntraSlicer(LLMTool):
     ) -> IntraSlicerOutput:
         slice_pattern = r"Slicing:\s*(.*?)\s*External Variables:"
         ext_values_pattern = r"External Variables:\s*((?:-.*(?:\n|$))+)"
-        # var_pattern = (
-        #     r'^\s*-\s*Type:\s*(?P<type>[^.\n]+)'
-        #     r'(?:\s*Callee:\s*(?P<callee_name>[^.\n]+))?'
-        #     r'(?:\s*Index:\s*(?P<index>\d+))?'
-        #     r'(?:\s*Name:\s*(?P<variable_name>[^\n]+))?'
-        # )
+
         var_pattern = (
             r"^\s*-\s*Type:\s*(?P<type>Output Value|Parameter|Argument|Global Variable|Return Value)\.?"
             r"(?:\s+Callee:\s*(?P<callee_name>[^.]+)\.?)?"
@@ -193,7 +189,6 @@ class IntraSlicer(LLMTool):
         output_ext_values = []
         var_match = re.search(ext_values_pattern, response, re.DOTALL)
         if var_match:
-
             var_lines = var_match.group(1).splitlines()
             for line in var_lines:
                 match = re.match(var_pattern, line)
@@ -212,9 +207,9 @@ class IntraSlicer(LLMTool):
                     continue
                 if match["type"] == "Argument" and (
                     # TODO (ZZ): We need to add line number support for other languages
-                    # match["callee_name"] is None or match["index"] is None or match["line_number"] is None
                     match["callee_name"] is None
                     or match["index"] is None
+                    or match["line_number"] is None
                 ):
                     continue
                 if (
@@ -222,7 +217,12 @@ class IntraSlicer(LLMTool):
                     and match["variable_name"] is None
                 ):
                     continue
-                if match["type"] == "Output Value" and match["callee_name"] is None:
+                if match["type"] == "Output Value" and (
+                    # TODO (Chengpeng): We need to add line number support for other languages
+                    # index is optional for output values. In C/C++/Java, index is always None and the field index in Value is -1 by default.
+                    match["callee_name"] is None
+                    or match["line_number"] is None
+                ):
                     continue
 
                 ext_value = match.groupdict()

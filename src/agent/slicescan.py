@@ -51,7 +51,7 @@ class SliceScanAgent(Agent):
         self.model_name = model_name
         self.temperature = temperature
 
-        self.call_depth = call_depth        
+        self.call_depth = call_depth
         self.max_neural_workers = max_neural_workers
         self.MAX_QUERY_NUM = 5
 
@@ -328,7 +328,7 @@ class SliceScanAgent(Agent):
                                     # XXX (ZZ): Currently, the variadic parameter is treated as a single unit;
                                     # individual arguments within it are not analyzed separately.
                                     # In the future, we may consider more fine-grained handling (this could be
-                                    # done by chaning the slicing prompt).
+                                    # done by changing the slicing prompt).
                                     for arg in args:
                                         if arg.index >= index:
                                             delta_worklist.append(
@@ -379,6 +379,16 @@ class SliceScanAgent(Agent):
                                 + 1
                             )
 
+                            # XXX (Chengpeng): May not be precise enough
+                            # when two files have the same function calls at the same line number
+                            # although such cases might be quite rare
+                            # As a call site node can not offer the file name info, we could not resolve this issue currently.
+                            if (
+                                call_site_lower_line_number
+                                != external_variable["line_number"]
+                            ):
+                                continue
+
                             new_slice_context = copy.deepcopy(slice_context)
                             context_label = ContextLabel(
                                 self.ts_analyzer.functionToFile[function.function_id],
@@ -393,6 +403,9 @@ class SliceScanAgent(Agent):
                                 )
                             )
                             for ret_value in ret_values:
+                                if external_variable["index"] is not None:
+                                    ret_value.index = external_variable["index"]
+
                                 delta_worklist.append(
                                     (
                                         new_slice_context,
@@ -455,6 +468,10 @@ class SliceScanAgent(Agent):
                             args = self.ts_analyzer.get_arguments_at_callsite(
                                 caller_function, call_site_node
                             )
+
+                            # No need to handle variadic parameters/arguments here
+                            # Match arguments by index in a demand-driven style
+                            # If the index is out of range, the argument is not offered in the call site. Just skip it.
                             for arg in args:
                                 if arg.index == index:
                                     delta_worklist.append(
@@ -505,15 +522,36 @@ class SliceScanAgent(Agent):
                             if not is_CFL_reachable:
                                 continue
 
-                            for para in callee_function.paras:
-                                if para.index == index:
-                                    delta_worklist.append(
-                                        (
-                                            new_slice_context,
-                                            callee_function.function_id,
-                                            para,
-                                        )
+                            if (
+                                index >= len(callee_function.paras)
+                                and callee_function.variadic_para is not None
+                            ):
+                                # The argument falls into a variadic parameter
+                                variadic_para = copy.deepcopy(
+                                    callee_function.variadic_para
+                                )
+
+                                # XXX (Chengpeng): We want to inform the LLM of the exact position where an argument has been passed
+                                # within a variadic parameter. For example, if the variadic parameter is `*args`, we want to
+                                # determine the index of the specific argument within `args`.
+                                variadic_para.index = index - variadic_para.index
+                                delta_worklist.append(
+                                    (
+                                        new_slice_context,
+                                        callee_function.function_id,
+                                        variadic_para,
                                     )
+                                )
+                            else:
+                                for para in callee_function.paras:
+                                    if para.index == index:
+                                        delta_worklist.append(
+                                            (
+                                                new_slice_context,
+                                                callee_function.function_id,
+                                                para,
+                                            )
+                                        )
         return delta_worklist
 
     # TODO: TO BE DEPRECATED
