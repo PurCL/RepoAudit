@@ -8,10 +8,6 @@ public public class TestCase1 {
     }
     
     public static void main(String[] args) {
-        try {
-            test1_useObj();
-        } catch (Exception e) {
-            System.out.println("Case 1 Exception: " + e);
-        }
+        test1_useObj();
     }
 }

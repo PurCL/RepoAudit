@@ -8,10 +8,6 @@ public class TestCase2 {
     }
     
     public static void main(String[] args) {
-        try {
-            test2_caller();
-        } catch (Exception e) {
-            System.out.println("Case 2 Exception: " + e);
-        }
+        test2_caller();
     }
 }

@@ -6,12 +6,9 @@ public class TestCase5 {
         // Step 1: Create an object that is null via an inter-procedural call.
         Object obj = test5_createObject();
 
-        try {
-            // Step 2: Process the object which propagates the null value.
-            test5_processObject(obj);
-        } catch (NullPointerException e) {
-            System.out.println("Caught a NullPointerException: " + e.getMessage());
-        }
+        // Step 2: Process the object which propagates the null value.
+        test5_processObject(obj);
+    
     }
 
     // Function that simulates object creation but returns null.

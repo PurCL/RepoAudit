@@ -11,10 +11,6 @@ public class TestCase3 {
     }
     
     public static void main(String[] args) {
-        try {
-            test3_main();
-        } catch (Exception e) {
-            System.out.println("Case 3 Exception: " + e);
-        }
+        test3_main();
     }
 }
