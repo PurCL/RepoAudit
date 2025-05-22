@@ -124,25 +124,21 @@ class RepoAudit:
             self.ts_analyzer = Python_TSAnalyzer(
                 self.code_in_files, self.language, self.max_symbolic_workers
             )
+
+        # MetaScanAgent is used to wrap the result of ts_analyzer and dump it to a json file
+        self.metascan_agent = MetaScanAgent(
+            self.project_path, self.language, self.ts_analyzer
+        )
+        self.metascan_agent.start_scan()
         return
 
     def start_repo_auditing(self) -> None:
         """
         Start the batch scan process.
         """
-        if self.args.scan_type == "metascan":
-            metascan_pipeline = MetaScanAgent(
-                self.project_path,
-                self.language,
-                self.ts_analyzer,
-                self.model_name,
-                self.temperature,
-            )
-            metascan_pipeline.start_scan()
-
         if self.args.scan_type == "bugscan":
             while True:
-                bugscan_agent = BugScanAgent(
+                self.bugscan_agent = BugScanAgent(
                     self.project_path,
                     self.language,
                     self.ts_analyzer,
@@ -153,28 +149,12 @@ class RepoAudit:
                     self.max_neural_workers,
                     include_test_files=self.include_test_files,
                 )
-                bugscan_agent.start_scan()
+                self.bugscan_agent.start_scan()
                 if not self.is_iterative:
                     break
 
-        if self.args.scan_type == "slicescan":
-            slicescan_agent = SliceScanAgent(
-                [],
-                self.is_backward,
-                self.project_path,
-                self.language,
-                self.ts_analyzer,
-                self.model_name,
-                self.temperature,
-                self.call_depth,
-                self.max_neural_workers,
-                include_test_files=self.include_test_files,
-            )
-            slicescan_agent.start_scan()
-            print(slicescan_agent.get_agent_result())
-
         if self.args.scan_type == "dfbscan":
-            dfbscan_agent = DFBScanAgent(
+            self.dfbscan_agent = DFBScanAgent(
                 self.bug_type,
                 self.is_reachable,
                 self.project_path,
@@ -186,10 +166,10 @@ class RepoAudit:
                 self.max_neural_workers,
                 include_test_files=self.include_test_files,
             )
-            dfbscan_agent.start_scan()
+            self.dfbscan_agent.start_scan()
 
         if self.args.scan_type == "samplescan":
-            samplescan_agent = SampleScanAgent(
+            self.samplescan_agent = SampleScanAgent(
                 self.project_path,
                 self.language,
                 self.ts_analyzer,
@@ -202,10 +182,10 @@ class RepoAudit:
                 self.max_neural_workers,
                 include_test_files=self.include_test_files,
             )
-            samplescan_agent.start_scan()
+            self.samplescan_agent.start_scan()
 
         if self.args.scan_type == "debugscan":
-            debugscan_agent = DebugScanAgent(
+            self.debugscan_agent = DebugScanAgent(
                 self.project_path,
                 self.language,
                 self.ts_analyzer,
@@ -214,7 +194,7 @@ class RepoAudit:
                 self.call_depth,
                 self.max_neural_workers,
             )
-            debugscan_agent.start_scan()
+            self.debugscan_agent.start_scan()
         return
 
     def travese_files(self, project_path: str, suffixs: List) -> None:
@@ -228,6 +208,8 @@ class RepoAudit:
                         continue
                 try:
                     with open(file, "r") as source_file:
+                        # if file != "../benchmark/Go/zap/sink.go":
+                        #     continue
                         source_file_content = source_file.read()
                         self.code_in_files[file] = source_file_content
                 except:
@@ -241,13 +223,6 @@ class RepoAudit:
         if self.args.scan_type == "bugscan":
             if not self.args.model_name:
                 err_messages.append("Error: --model-name is required for bugscan.")
-        elif self.args.scan_type == "slicescan":
-            if not self.args.is_backward:
-                err_messages.append("Error: --is-backward is required for slicescan.")
-            if not self.args.model_name:
-                err_messages.append(
-                    "Error: --inference-model-name is required for slicescan."
-                )
         elif self.args.scan_type == "dfbscan":
             if not self.args.model_name:
                 err_messages.append("Error: --model-name is required for dfbscan.")
@@ -284,8 +259,6 @@ def configure_args():
         "--scan-type",
         required=True,
         choices=[
-            "metascan",
-            "slicescan",
             "bugscan",
             "dfbscan",
             "samplescan",

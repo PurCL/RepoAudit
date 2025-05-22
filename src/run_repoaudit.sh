@@ -48,7 +48,7 @@ fi
 # Default values
 SCAN_TYPE=$1
 shift
-MODEL="o4-mini"
+MODEL="gpt-4.1-nano"
 TEMPERATURE="0.0"
 CALL_DEPTH="3"
 MAX_NEURAL_WORKERS="1"

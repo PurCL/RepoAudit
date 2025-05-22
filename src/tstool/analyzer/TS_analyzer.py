@@ -203,7 +203,6 @@ class TSAnalyzer(ABC):
             tree = self.parser.parse(bytes(source_code, "utf8"))
         except Exception as e:
             print(f"Error parsing {file_path}: {e}")
-            exit(0)
         # Call user-defined processing.
         self.extract_function_info(file_path, source_code, tree)
         self.extract_global_info(file_path, source_code, tree)
@@ -476,39 +475,6 @@ class TSAnalyzer(ABC):
             {function.function_id: function for function in caller_functions}.values()
         )
         return caller_functions
-
-    # def get_all_transitive_callee_functions(
-    #     self, function: Function, max_depth, visited=None
-    # ) -> List[Function]:
-    #     """
-    #     Get all transitive callee functions for the provided function.
-    #     """
-    #     print("print ", max_depth);
-    #     if max_depth == 0:
-    #         return []
-
-    #     if visited is None:
-    #         visited = set()
-
-    #     if function.function_id in visited:
-    #         return []
-
-    #     visited.add(function.function_id)
-
-    #     if function.function_id not in self.function_caller_callee_map:
-    #         return []
-    #     callee_ids = self.function_caller_callee_map[function.function_id]
-    #     callee_functions = [self.function_env[callee_id] for callee_id in callee_ids]
-    #     for callee_function in callee_functions:
-    #         callee_functions.extend(
-    #             self.get_all_transitive_callee_functions(
-    #                 callee_function, max_depth - 1, visited
-    #             )
-    #         )
-    #     callee_functions = list(
-    #         {function.function_id: function for function in callee_functions}.values()
-    #     )
-    #     return callee_functions
 
     def get_all_transitive_callee_functions(
         self, function: Function, max_depth
