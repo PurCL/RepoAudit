@@ -22,7 +22,7 @@ print_usage() {
     echo "  --model-name <model>          Model to use (default: claude-3.5)"
     echo "  --temperature <temp>          Temperature setting (default: 0.0)"
     echo "  --call-depth <depth>          Call depth (default: 2)"
-    echo "  --max-neural-workers <num>    Maximum neural workers (default: 30)"
+    echo "  --max-neural-workers <num>    Maximum neural workers (default: 20)"
     echo "  --max-symbolic-workers <num>  Maximum symbolic workers (default: 10)"
     echo "  --include-test-files          Analyze test files in the subject project as well"
     echo
@@ -51,8 +51,8 @@ shift
 MODEL="gpt-4.1-nano"
 TEMPERATURE="0.0"
 CALL_DEPTH="3"
-MAX_NEURAL_WORKERS="1"
 MAX_SYMBOLIC_WORKERS="10"
+MAX_NEURAL_WORKERS="20"
 
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
@@ -134,8 +134,8 @@ case "$SCAN_TYPE" in
         fi
         ;;
     dfbscan)
-        if [ -z "$BUG_TYPE" ] || [ -z "$IS_REACHABLE" ]; then
-            echo "Error: --bug-type and --is-reachable are required for dfbscan"
+        if [ -z "$BUG_TYPE" ] ; then
+            echo "Error: --bug-type is required for dfbscan"
             print_usage
             exit 1
         fi
@@ -154,41 +154,41 @@ esac
 case "$SCAN_TYPE" in
     bugscan)
         python3 repoaudit.py \
-          --language "$LANGUAGE" \
-          --model-name "$MODEL" \
-          --project-path "$PROJECT_PATH" \
-          --temperature "$TEMPERATURE" \
-          --scan-type bugscan \
-          --call-depth "$CALL_DEPTH" \
-          --max-neural-workers "$MAX_NEURAL_WORKERS" \
-          --max-symbolic-workers "$MAX_SYMBOLIC_WORKERS" \
-          $IS_ITERATIVE \
-          $IS_INLINED \
-          $INCLUDE_TEST_FILES
+            --language "$LANGUAGE" \
+            --model-name "$MODEL" \
+            --project-path "$PROJECT_PATH" \
+            --temperature "$TEMPERATURE" \
+            --scan-type bugscan \
+            --call-depth "$CALL_DEPTH" \
+            --max-neural-workers "$MAX_NEURAL_WORKERS" \
+            --max-symbolic-workers "$MAX_SYMBOLIC_WORKERS" \
+            $IS_ITERATIVE \
+            $IS_INLINED \
+            $INCLUDE_TEST_FILES
         ;;
     dfbscan)
         python3 repoaudit.py \
-          --language "$LANGUAGE" \
-          --model-name "$MODEL" \
-          --project-path "$PROJECT_PATH" \
-          --bug-type "$BUG_TYPE" \
-          --temperature "$TEMPERATURE" \
-          --scan-type dfbscan \
-          --call-depth "$CALL_DEPTH" \
-          --max-neural-workers "$MAX_NEURAL_WORKERS" \
-          --max-symbolic-workers "$MAX_SYMBOLIC_WORKERS" \
-          $IS_REACHABLE \
-          $INCLUDE_TEST_FILES
+            --language "$LANGUAGE" \
+            --model-name "$MODEL" \
+            --project-path "$PROJECT_PATH" \
+            --bug-type "$BUG_TYPE" \
+            --temperature "$TEMPERATURE" \
+            --scan-type dfbscan \
+            --call-depth "$CALL_DEPTH" \
+            --max-neural-workers "$MAX_NEURAL_WORKERS" \
+            --max-symbolic-workers "$MAX_SYMBOLIC_WORKERS" \
+            $IS_REACHABLE \
+            $INCLUDE_TEST_FILES
         ;;
     debugscan)
         python3 repoaudit.py \
-          --language "$LANGUAGE" \
-          --model-name "$MODEL" \
-          --project-path "$PROJECT_PATH" \
-          --temperature "$TEMPERATURE" \
-          --scan-type debugscan \
-          --call-depth "$CALL_DEPTH" \
-          --max-neural-workers "$MAX_NEURAL_WORKERS" \
-          --max-symbolic-workers "$MAX_SYMBOLIC_WORKERS"
+            --language "$LANGUAGE" \
+            --model-name "$MODEL" \
+            --project-path "$PROJECT_PATH" \
+            --temperature "$TEMPERATURE" \
+            --scan-type debugscan \
+            --call-depth "$CALL_DEPTH" \
+            --max-neural-workers "$MAX_NEURAL_WORKERS" \
+            --max-symbolic-workers "$MAX_SYMBOLIC_WORKERS"
         ;;
 esac
