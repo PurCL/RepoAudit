@@ -133,10 +133,10 @@ class IntraDataFlowAnalyzer(LLMTool):
         """
         if "Answer:" not in response:
             return None
-        
+
         paths = []
         response = response.split("Answer:")[1]
-        
+
         # Regex to match a path header line, e.g., "- Path 1: Lines 2 -> 3;"
         path_header_re = re.compile(r"Path\s+(\d+):\s*(.+?);?$")
 
@@ -201,8 +201,14 @@ class IntraDataFlowAnalyzer(LLMTool):
                 # Do not consider the side-effects upon fields of data structures
                 if (
                     str(detail["name"]) in {"self", "this"}
-                    or ("->" in str(detail["name"]) and str(detail["name"]) != input.summary_start.name)
-                    or ("." in str(detail["name"]) and str(detail["name"]) != input.summary_start.name)
+                    or (
+                        "->" in str(detail["name"])
+                        and str(detail["name"]) != input.summary_start.name
+                    )
+                    or (
+                        "." in str(detail["name"])
+                        and str(detail["name"]) != input.summary_start.name
+                    )
                 ):
                     continue
                 if detail["type"] == "Argument":

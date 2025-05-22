@@ -145,7 +145,7 @@ class TSAnalyzer(ABC):
         TSPATH = cwd / "../../../lib/build/"
         language_path = TSPATH / "my-languages.so"
         self.max_symbolic_workers_num = max_symbolic_workers_num
-        
+
         self.function_caller_callee_map_lock = threading.Lock()
         self.function_callee_caller_map_lock = threading.Lock()
         self.function_caller_api_callee_map_lock = threading.Lock()
@@ -416,7 +416,7 @@ class TSAnalyzer(ABC):
                         api_id = len(self.api_env) - 1
 
                 caller_id = current_function.function_id
-                # Update the caller-callee relationship between user-defined functions and library APIs 
+                # Update the caller-callee relationship between user-defined functions and library APIs
                 with self.function_caller_api_callee_map_lock:
                     if caller_id not in self.function_caller_api_callee_map:
                         self.function_caller_api_callee_map[caller_id] = set([])

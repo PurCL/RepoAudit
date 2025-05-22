@@ -345,7 +345,7 @@ def configure_args():
 def main() -> None:
     try:
         args = configure_args()
-        repoaudit = RepoAudit(args)        
+        repoaudit = RepoAudit(args)
         repoaudit.start_repo_auditing()
         return
     except RepoAuditError as e:

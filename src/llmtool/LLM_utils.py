@@ -24,7 +24,7 @@ class LLM:
     """
     An online inference model using different LLMs:
     - Gemini
-    - OpenAI: GPT-3.5, GPT-4, o3-mini
+    - OpenAI: GPT-3.5, GPT-4, o3-mini, GPT-4.1-nano, GPT-4o-mini
     - DeepSeek: V3, R1
     - Claude: 3.5 and 3.7
     """
