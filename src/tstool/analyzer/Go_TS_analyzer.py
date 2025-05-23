@@ -157,8 +157,9 @@ class Go_TSAnalyzer(TSAnalyzer):
         :param current_function: The function to be analyzed.
         :return: A set of parameters as values
         """
-        if current_function.paras_analyzed():
+        if current_function._paras is not None:
             return
+        current_function._paras = set()
 
         file_content = self.code_in_files[current_function.file_path]
         parameter_list_nodes = []
@@ -193,9 +194,7 @@ class Go_TSAnalyzer(TSAnalyzer):
 
                         if sub_node.type == "variadic_parameter_declaration":
                             assert (
-                                not current_function.paras_analyzed()
-                                or len(current_function.paras(ValueLabel.VARI_PARA))
-                                == 0
+                                len(current_function.paras(ValueLabel.VARI_PARA)) == 0
                             ), "A function can only have one variadic parameter."
                             current_function.add_para(
                                 Value(

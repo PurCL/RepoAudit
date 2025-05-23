@@ -145,9 +145,9 @@ class Python_TSAnalyzer(TSAnalyzer):
         :param current_function: The function to be analyzed.
         :return: A set of parameters as values
         """
-        # TODO (ZZ): Add support for variadic parameters in Python.
-        if current_function.paras_analyzed():
+        if current_function._paras is not None:
             return
+        current_function._paras = set()
 
         file_content = self.code_in_files[current_function.file_path]
         parameters = find_nodes_by_type(

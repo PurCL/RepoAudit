@@ -68,13 +68,6 @@ class Function:
             self._paras = set()
         self._paras.add(para)
 
-    def paras_analyzed(self) -> bool:
-        """
-        Check if the parameters of the function have been analyzed.
-        :return: True if the parameters have been analyzed, False otherwise
-        """
-        return self._paras is not None
-
     # TODO (ZZ): add cache to avoid recomputing the parameters
     def paras(self, para_label: Optional[ValueLabel]) -> Set[Value]:
         """
