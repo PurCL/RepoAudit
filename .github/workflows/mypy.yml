@@ -2,12 +2,10 @@ name: Mypy Type Checking
 
 on:
   push:
-    # Run on all branches
     paths:
       - 'src/**/*.py'
 
   pull_request:
-    # Run on all PRs, regardless of base or head branch
     paths:
       - 'src/**/*.py'
 
@@ -24,10 +22,19 @@ jobs:
         with:
           python-version: '3.x'
 
+      - name: Cache pip dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
+          pip install mypy
 
       - name: Run Mypy
         run: mypy src/
