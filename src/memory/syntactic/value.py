@@ -46,6 +46,18 @@ class ValueLabel(Enum):
         }
         return mapping[self]
 
+    def is_para(self) -> bool:
+        """
+        :return: True if the label is a parameter
+        """
+        return self in {ValueLabel.PARA, ValueLabel.VARI_PARA, ValueLabel.OBJ_PARA}
+
+    def is_arg(self) -> bool:
+        """
+        :return: True if the label is an argument
+        """
+        return self in {ValueLabel.ARG, ValueLabel.OBJ_ARG}
+
     @staticmethod
     def from_str(s: str):
         mapping = {

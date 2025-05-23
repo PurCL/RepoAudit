@@ -319,9 +319,8 @@ class TSAnalyzer(ABC):
         file_name = self.functionToFile[current_function.function_id]
         file_content = self.fileContentDic[file_name]
 
-        current_function.paras, current_function.variadic_para = (
-            self.get_parameters_in_single_function(current_function)
-        )
+        self.analyze_parameters_in_single_function(current_function)
+
         current_function.retvals = self.get_return_values_in_single_function(
             current_function
         )
@@ -562,12 +561,13 @@ class TSAnalyzer(ABC):
         callee_ids = []
         for callee_id in temp_callee_ids:
             callee = self.function_env[callee_id]
-            paras = callee.paras
-            if callee.variadic_para is None:
-                if len(paras) == len(arguments):
+            callee_paras = callee.paras(ValueLabel.PARA)
+            callee_variadic_para = callee.paras(ValueLabel.VARI_PARA)
+            if callee_variadic_para.is_empty():
+                if len(callee_paras) == len(arguments):
                     callee_ids.append(callee_id)
             else:
-                if len(paras) <= len(arguments):
+                if len(callee_paras) <= len(arguments):
                     callee_ids.append(callee_id)
         return callee_ids
 
@@ -590,6 +590,15 @@ class TSAnalyzer(ABC):
             if self.api_env[api_id] == tmp_api:
                 callee_ids.append(api_id)
         return callee_ids
+
+    # Helper functions for parameters
+    @abstractmethod
+    def analyze_parameters_in_single_function(self, current_function: Function) -> None:
+        """
+        Find the parameters of a function.
+        :param current_function: The function to be analyzed.
+        """
+        pass
 
     @abstractmethod
     def get_callsites_by_callee_name(
@@ -617,16 +626,16 @@ class TSAnalyzer(ABC):
         pass
 
     # Helper functions for parameters
-    @abstractmethod
-    def get_parameters_in_single_function(
-        self, current_function: Function
-    ) -> Tuple[Set[Value], Optional[Value]]:
+    def get_parameter_value_at_callsite(
+        self, current_function: Function, para_label: Optional[ValueLabel]
+    ) -> Set[Value]:
         """
-        Find the parameters of a function.
+        Get the parameter value from a call site.
         :param current_function: The function to be analyzed.
-        :return: A set of parameters as values
+        :param para_label: The label of the parameter.
+        :return: A set of parameter values.
         """
-        pass
+        return current_function.paras(para_label)
 
     # Helper functions for output values
     def get_output_value_at_callsite(

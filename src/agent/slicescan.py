@@ -196,6 +196,12 @@ class SliceScanAgent(Agent):
                         call_sites = self.ts_analyzer.get_callsites_by_callee_name(
                             function, callee_function.function_name
                         )
+
+                        callee_paras = callee_function.paras(ValueLabel.PARA)
+                        callee_variadic_para = list(
+                            callee_function.paras(ValueLabel.VARI_PARA)
+                        )
+
                         for call_site_node in call_sites:
                             file_content = self.ts_analyzer.code_in_files[
                                 function.file_path
@@ -233,13 +239,11 @@ class SliceScanAgent(Agent):
                                 continue
 
                             if (
-                                index >= len(callee_function.paras)
-                                and callee_function.variadic_para is not None
+                                index >= len(callee_paras)
+                                and len(callee_variadic_para) > 0
                             ):
                                 # The argument falls into a variadic argument
-                                variadic_para = copy.deepcopy(
-                                    callee_function.variadic_para
-                                )
+                                variadic_para = copy.deepcopy(callee_variadic_para[0])
 
                                 # XXX (ZZ): We want to inform the LLM of the exact position where an argument has been passed
                                 # within a variadic parameter. For example, if the variadic parameter is `*args`, we want to
@@ -253,7 +257,7 @@ class SliceScanAgent(Agent):
                                     )
                                 )
                             else:
-                                for para in callee_function.paras:
+                                for para in callee_paras:
                                     if para.index == index:
                                         delta_worklist.append(
                                             (
@@ -271,6 +275,8 @@ class SliceScanAgent(Agent):
                         function
                     )
                     index = external_variable["index"]
+
+                    function_variadic_para = function.paras(ValueLabel.VARI_PARA)
 
                     for caller_function in caller_functions:
                         new_slice_context = copy.deepcopy(slice_context)
@@ -323,8 +329,8 @@ class SliceScanAgent(Agent):
                             )
 
                             # Support variadic parameters
-                            if function.variadic_para is not None:
-                                if index == function.variadic_para.index:
+                            if function_variadic_para is not None:
+                                if index == function_variadic_para.index:
                                     # XXX (ZZ): Currently, the variadic parameter is treated as a single unit;
                                     # individual arguments within it are not analyzed separately.
                                     # In the future, we may consider more fine-grained handling (this could be
@@ -500,6 +506,11 @@ class SliceScanAgent(Agent):
                         call_sites = self.ts_analyzer.get_callsites_by_callee_name(
                             function, callee_function.function_name
                         )
+                        callee_paras = callee_function.paras(ValueLabel.PARA)
+                        callee_variadic_para = list(
+                            callee_function.paras(ValueLabel.VARI_PARA)
+                        )
+
                         for call_site_node in call_sites:
                             file_content = self.ts_analyzer.code_in_files[
                                 function.file_path
@@ -523,13 +534,11 @@ class SliceScanAgent(Agent):
                                 continue
 
                             if (
-                                index >= len(callee_function.paras)
-                                and callee_function.variadic_para is not None
+                                index >= len(callee_paras)
+                                and len(callee_variadic_para) > 0
                             ):
                                 # The argument falls into a variadic parameter
-                                variadic_para = copy.deepcopy(
-                                    callee_function.variadic_para
-                                )
+                                variadic_para = copy.deepcopy(callee_variadic_para[0])
 
                                 # XXX (Chengpeng): We want to inform the LLM of the exact position where an argument has been passed
                                 # within a variadic parameter. For example, if the variadic parameter is `*args`, we want to
@@ -543,7 +552,7 @@ class SliceScanAgent(Agent):
                                     )
                                 )
                             else:
-                                for para in callee_function.paras:
+                                for para in callee_paras:
                                     if para.index == index:
                                         delta_worklist.append(
                                             (

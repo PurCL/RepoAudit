@@ -1,4 +1,7 @@
+from typing import Optional, Set
 import tree_sitter
+
+from memory.syntactic.value import Value, ValueLabel
 
 
 class Function:
@@ -35,17 +38,41 @@ class Function:
         self.api_call_site_nodes = []  # call site info of library APIs
 
         ## Results of AST node type analysis
-        self.paras = None  # A set of parameters
-        # XXX (ZZ): in most languages, a function can only have one variadic parameter.
-        # Hence, in our current implementation, we only support one variadic parameter.
-        # However, in Python, a function can have multiple variadic parameters, for which
-        # we will support after we integrate the code with the Language Server Protocol (LSP).
-        self.variadic_para = None  # The variadic parameter if it exists
+        # XXX (ZZ): Parameters may vary in complexity (e.g., regular, variadic, or object-based).
+        # To standardize parameter access, we define self._paras as private and provide a getter
+        # function to retrieve them.
+        self._paras = None  # A set of parameters including regular, variadic, and object-based parameters
+
         self.retvals = None  # A set of returned values
 
         ## Results of intraprocedural control flow analysis
         self.if_statements = {}  # if statement info
         self.loop_statements = {}  # loop statement info
+
+    def add_para(self, para: Value) -> None:
+        """
+        Add a parameter to the function.
+        :param para: the parameter to be added
+        """
+        if self._paras is None:
+            self._paras = set()
+        self._paras.add(para)
+
+    # TODO (ZZ): add cache to avoid recomputing the parameters
+    def paras(self, para_label: Optional[ValueLabel]) -> Optional[Set[Value]]:
+        """
+        Get the parameters of the function.
+        :param para_label: the label of the parameter, if None, return all parameters
+        :return: the parameters of the function
+        """
+        if self._paras is None:
+            return None
+
+        if para_label is None:
+            return self._paras
+        else:
+            assert para_label.is_para(), "para_label should be a parameter label"
+            return set(filter(lambda x: x.label == para_label, self._paras))
 
     def __hash__(self) -> int:
         return hash(

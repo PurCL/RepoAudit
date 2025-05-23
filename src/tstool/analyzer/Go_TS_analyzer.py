@@ -151,18 +151,15 @@ class Go_TSAnalyzer(TSAnalyzer):
                         )
         return arguments
 
-    def get_parameters_in_single_function(
-        self, current_function: Function
-    ) -> Tuple[Set[Value], Optional[Value]]:
+    def analyze_parameters_in_single_function(self, current_function: Function) -> None:
         """
         Find the parameters of a function.
         :param current_function: The function to be analyzed.
         :return: A set of parameters as values
         """
-        if current_function.paras is not None:
-            return current_function.paras, current_function.variadic_para
-        current_function.paras = set([])
-        current_function.variadic_paras = set([])
+        if current_function.paras(None) is not None:
+            return
+
         file_content = self.code_in_files[current_function.file_path]
         parameter_list_nodes = []
         for sub_node in current_function.parse_tree_root_node.children:
@@ -195,18 +192,22 @@ class Go_TSAnalyzer(TSAnalyzer):
                         )
 
                         if sub_node.type == "variadic_parameter_declaration":
-                            assert (
-                                current_function.variadic_para is None
-                            ), "A function can only have one variadic parameter."
-                            current_function.variadic_para = Value(
-                                parameter_name,
-                                line_number,
-                                ValueLabel.VARI_PARA,
-                                current_function.file_path,
-                                index,
+                            assert current_function.paras(
+                                ValueLabel.VARI_PARA
+                            ).is_empty(), (
+                                "A function can only have one variadic parameter."
+                            )
+                            current_function.add_para(
+                                Value(
+                                    parameter_name,
+                                    line_number,
+                                    ValueLabel.VARI_PARA,
+                                    current_function.file_path,
+                                    index,
+                                )
                             )
                         else:
-                            current_function.paras.add(
+                            current_function.add_para(
                                 Value(
                                     parameter_name,
                                     line_number,
@@ -217,15 +218,16 @@ class Go_TSAnalyzer(TSAnalyzer):
                             )
                         index += 1
 
-        if current_function.variadic_para is not None:
-            assert current_function.variadic_para.index == len(
-                current_function.paras
-            ), (
+        paras = current_function.paras(ValueLabel.PARA)
+        variadic_para = current_function.paras(ValueLabel.VARI_PARA)
+        if not variadic_para.is_empty():
+            variadic_para = variadic_para.pop()
+            assert variadic_para.index == len(paras), (
                 f"The index of the variadic parameter should be equal to the number of parameters: "
-                f"{current_function.variadic_para.index} != {len(current_function.paras)} in {current_function.function_name}."
+                f"{variadic_para.index} != {len(paras)} in {current_function.function_name}."
             )
 
-        return current_function.paras, current_function.variadic_para
+        return
 
     def get_return_values_in_single_function(
         self, current_function: Function
