@@ -162,60 +162,103 @@ class Go_TSAnalyzer(TSAnalyzer):
         current_function._paras = set()
 
         file_content = self.code_in_files[current_function.file_path]
-        parameter_list_nodes = []
-        for sub_node in current_function.parse_tree_root_node.children:
-            if sub_node.type == "parameter_list":
-                parameter_list_nodes.append(sub_node)
 
-        # In Go, a function can have at least one `parameter_list` (i.e., parameters) and at most two `parameter_list`s (i.e., parameters and return values).
+        # There are a lot of different syntaxes for function declarations in Go.
+        #   - func gee(x int)
+        #   - func foo(x int) (y int)
+        #   - func (A *Data) haa(x int)
+        #   - func (A *Data) kuu(x int) (y int)
+        root_node = current_function.parse_tree_root_node
         assert (
-            1 <= len(parameter_list_nodes) <= 3
-        ), f"The function {current_function.function_name} has {len(parameter_list_nodes)} parameter lists, which is not valid in Go."
-        if len(parameter_list_nodes) == 3:
+            root_node.children[0].type == "func"
+        ), f"The first child of the root node should be 'func', but got {root_node.children[0].type}."
+
+        # XXX (ZZ): There are some shaky parts I observed in the Go parser, which might
+        # change if the codebased of Tree-sitter is updated.
+        parameter_list_nodes: List[Tuple[Node, bool]] = []
+        if root_node.children[1].type == "parameter_list":
             # This will be the case for a method for a struct.
-            parameter_list_node = parameter_list_nodes[1]
+            #   - func (A *Data) haa(x int)
+            assert (
+                root_node.children[2].type == "field_identifier"
+            ), f"The third child of the root node should be 'field_identifier', but got {root_node.children[2].type}."
+            parameter_list_nodes.append((root_node.children[1], True))
+
+            assert (
+                root_node.children[3].type == "parameter_list"
+            ), f"The fourth child of the root node should be 'parameter_list', but got {root_node.children[3].type}."
+            parameter_list_nodes.append((root_node.children[3], False))
         else:
-            parameter_list_node = parameter_list_nodes[0]
+            # This will be the case for a normal function.
+            #   - func gee(x int)
+            assert (
+                root_node.children[1].type == "identifier"
+            ), f"The second child of the root node should be 'identifier', but got {root_node.children[1].type}."
+
+            assert (
+                root_node.children[2].type == "parameter_list"
+            ), f"The third child of the root node should be 'parameter_list', but got {root_node.children[2].type}."
+            parameter_list_nodes.append((root_node.children[2], False))
 
         index = 0
-        for sub_node in parameter_list_node.children:
-            if sub_node.type in [
-                "parameter_declaration",
-                "variadic_parameter_declaration",
-            ]:
-                for sub_sub_node in sub_node.children:
-                    if sub_sub_node.type == "identifier":
-                        parameter_name = file_content[
-                            sub_sub_node.start_byte : sub_sub_node.end_byte
-                        ]
-                        line_number = (
-                            file_content[: sub_sub_node.start_byte].count("\n") + 1
-                        )
+        for parameter_list_node, is_receiver in parameter_list_nodes:
+            assert (
+                parameter_list_node.type == "parameter_list"
+            ), f"The parameter list node should be 'parameter_list', but got {parameter_list_node.type}."
 
-                        if sub_node.type == "variadic_parameter_declaration":
-                            assert (
-                                len(current_function.paras(ValueLabel.VARI_PARA)) == 0
-                            ), "A function can only have one variadic parameter."
-                            current_function.add_para(
-                                Value(
-                                    parameter_name,
-                                    line_number,
-                                    ValueLabel.VARI_PARA,
-                                    current_function.file_path,
-                                    index,
-                                )
+            for sub_node in parameter_list_node.children:
+                if sub_node.type in [
+                    "parameter_declaration",
+                    "variadic_parameter_declaration",
+                ]:
+                    for sub_sub_node in sub_node.children:
+                        if sub_sub_node.type == "identifier":
+                            parameter_name = file_content[
+                                sub_sub_node.start_byte : sub_sub_node.end_byte
+                            ]
+                            line_number = (
+                                file_content[: sub_sub_node.start_byte].count("\n") + 1
                             )
-                        else:
-                            current_function.add_para(
-                                Value(
-                                    parameter_name,
-                                    line_number,
-                                    ValueLabel.PARA,
-                                    current_function.file_path,
-                                    index,
+
+                            if is_receiver:
+                                assert sub_node.type == "parameter_declaration"
+                                current_function.add_para(
+                                    Value(
+                                        parameter_name,
+                                        line_number,
+                                        ValueLabel.OBJ_PARA,
+                                        current_function.file_path,
+                                        -1,
+                                    )
                                 )
-                            )
-                        index += 1
+
+                            elif sub_node.type == "variadic_parameter_declaration":
+                                assert (
+                                    len(current_function.paras(ValueLabel.VARI_PARA))
+                                    == 0
+                                ), "A function can only have one variadic parameter."
+                                current_function.add_para(
+                                    Value(
+                                        parameter_name,
+                                        line_number,
+                                        ValueLabel.VARI_PARA,
+                                        current_function.file_path,
+                                        index,
+                                    )
+                                )
+                            else:
+                                assert sub_node.type == "parameter_declaration"
+
+                                current_function.add_para(
+                                    Value(
+                                        parameter_name,
+                                        line_number,
+                                        ValueLabel.PARA,
+                                        current_function.file_path,
+                                        index,
+                                    )
+                                )
+                                index += 1
 
         paras = current_function.paras(ValueLabel.PARA)
         variadic_para = list(current_function.paras(ValueLabel.VARI_PARA))
