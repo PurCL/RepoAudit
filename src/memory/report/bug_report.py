@@ -10,7 +10,7 @@ class BugReport:
         buggy_value: Value,
         relevant_functions: Dict[int, Function],
         explanation: str,
-        is_human_confirmed_true: bool = None,
+        is_human_confirmed_true: Optional[bool] = None,
     ) -> None:
         """
         :param bug_type: the bug type

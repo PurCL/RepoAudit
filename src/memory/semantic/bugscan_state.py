@@ -11,7 +11,7 @@ class BugScanState(State):
         :param seed_values: the seed values indicating the potential buggy points or root causes
         """
         self.seed_values = seed_values
-        self.seed_values_in_scope = []
+        self.seed_values_in_scope: List[Tuple[Value, bool]] = []
         self.bug_reports: dict[int, BugReport] = {}
         self.total_bug_count = 0
         return

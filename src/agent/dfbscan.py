@@ -343,9 +343,9 @@ class DFBScanAgent(Agent):
 
         # Process if the current value has reachable paths.
         if current_value_with_context in self.state.reachable_values_per_path:
-            reachable_values_paths: List[Set[Tuple[Value, CallContext]]] = (
-                self.state.reachable_values_per_path[current_value_with_context]
-            )
+            reachable_values_paths: List[
+                Set[Tuple[Value, CallContext]]
+            ] = self.state.reachable_values_per_path[current_value_with_context]
             for path_set in reachable_values_paths:
                 if not path_set:
                     # For memory leak-style bug types we only update when the path is empty.

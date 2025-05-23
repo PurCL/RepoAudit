@@ -11,11 +11,11 @@ class SampleScanState(State):
         :param seed_values: the seed values indicating the potential buggy points or root causes
         """
         self.seed_values = seed_values
-        self.sampled_seed_values = []
+        self.sampled_seed_values: List[Tuple[Value, bool]] = []
         self.bug_report_items: dict[Value, BugReport] = {}
-        self.bug_report_lines: dict[int, Tuple[str, int]] = (
-            {}
-        )  # id --> file name, function id, line number
+        self.bug_report_lines: dict[
+            int, Tuple[str, int]
+        ] = {}  # id --> file name, function id, line number
         self.total_bug_count = 0
         self.total_buggy_line_count = 0
         return

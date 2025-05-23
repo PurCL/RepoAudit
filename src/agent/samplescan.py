@@ -146,7 +146,6 @@ class SampleScanAgent(Agent):
         agent_id: int = 0,
         include_test_files: bool = False,
     ) -> None:
-
         self.project_path = project_path
         self.project_name = project_path.split("/")[-1]
 
@@ -409,9 +408,9 @@ class SampleScanAgent(Agent):
             slice_scan_state = slice_scan_agent.get_agent_state()
 
             # Obtain all the inliner instances
-            slice_inliner_inputs: List[SliceInlinerInput] = (
-                self.__retrieve_slice_inliner_inputs(slice_scan_state)
-            )
+            slice_inliner_inputs: List[
+                SliceInlinerInput
+            ] = self.__retrieve_slice_inliner_inputs(slice_scan_state)
 
             # Inline each instance to obtain the abstraction of buggy code snippets (consisting of slices in the relevant functions)
             for slice_inliner_input in tqdm(
@@ -598,9 +597,9 @@ class SampleScanAgent(Agent):
         slice_scan_state = slice_scan_agent.get_agent_state()
 
         # Obtain all the inliner instances
-        slice_inliner_inputs: List[SliceInlinerInput] = (
-            self.__retrieve_slice_inliner_inputs(slice_scan_state)
-        )
+        slice_inliner_inputs: List[
+            SliceInlinerInput
+        ] = self.__retrieve_slice_inliner_inputs(slice_scan_state)
 
         self.logger.print_console("---------------------------------------------------")
         self.logger.print_console(

@@ -569,9 +569,9 @@ class SliceScanAgent(Agent):
     # TODO: TO BE DEPRECATED
     def start_scan_sequential(self) -> None:
         self.logger.print_console("Start slice scanning...")
-        worklist: List[Tuple[CallContext, int, Set[Value]]] = (
-            []
-        )  # The list of (slice_contxt, function_id, set of seed_value)
+        worklist: List[
+            Tuple[CallContext, int, Set[Value]]
+        ] = []  # The list of (slice_contxt, function_id, set of seed_value)
 
         # Initially, the call stack is empty.
         initial_context = CallContext(self.is_backward)

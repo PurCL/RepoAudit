@@ -15,6 +15,7 @@ class RATypeError(RepoAuditError, TypeError):
 
     pass
 
+
 class RAAnalysisError(RepoAuditError):
     """Exception raised for analysis errors in RepoAudit."""
 

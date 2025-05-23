@@ -10,7 +10,7 @@ class DebugReport:
         slicing_seed: Value,
         slice: str,
         explanation: str,
-        is_human_confirmed_true: bool = None,
+        is_human_confirmed_true: Optional[bool] = None,
     ) -> None:
         """
         :param error_message: the error message

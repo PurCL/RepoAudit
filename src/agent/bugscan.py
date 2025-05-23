@@ -350,9 +350,9 @@ class BugScanAgent(Agent):
                 slice_scan_state = slice_scan_agent.get_agent_state()
 
                 # Obtain all the inliner instances
-                slice_inliner_inputs: List[SliceInlinerInput] = (
-                    self.__retrieve_slice_inliner_inputs(slice_scan_state)
-                )
+                slice_inliner_inputs: List[
+                    SliceInlinerInput
+                ] = self.__retrieve_slice_inliner_inputs(slice_scan_state)
 
                 if self.is_inlined:
                     # Inline each instance to obtain the abstraction of buggy code snippets
@@ -534,9 +534,9 @@ class BugScanAgent(Agent):
         slice_scan_state = slice_scan_agent.get_agent_state()
 
         # Obtain all the inliner instances.
-        slice_inliner_inputs: List[SliceInlinerInput] = (
-            self.__retrieve_slice_inliner_inputs(slice_scan_state)
-        )
+        slice_inliner_inputs: List[
+            SliceInlinerInput
+        ] = self.__retrieve_slice_inliner_inputs(slice_scan_state)
         self.logger.print_console("slice_inliner_inputs obtained")
 
         if self.is_inlined:
