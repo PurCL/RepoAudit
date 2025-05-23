@@ -6,7 +6,7 @@ import argparse
 
 
 class Cpp_UAF_Extractor(DFBScanExtractor):
-    def extract_sources(self, function: Function) -> List[Tuple[Value, bool]]:
+    def extract_sources(self, function: Function) -> List[Value]:
         """
         Extract the sources that can cause the use-after-free bugs from C/C++ programs.
         :param: function: Function object.

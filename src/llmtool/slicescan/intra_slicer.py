@@ -2,6 +2,7 @@ from os import path
 import json
 import time
 from typing import List, Set, Optional, Dict
+from errors import RATypeError
 from llmtool.LLM_utils import *
 from llmtool.LLM_tool import *
 from memory.syntactic.function import *
@@ -129,7 +130,12 @@ class IntraSlicer(LLMTool):
         )
         return
 
-    def _get_prompt(self, input: IntraSlicerInput) -> str:
+    def _get_prompt(self, input: LLMToolInput) -> str:
+        if not isinstance(input, IntraSlicerInput):
+            raise RATypeError(
+                f"Input type {type(input)} is not supported. Expected IntraSlicerInput."
+            )
+
         prompt_file = (
             self.forward_prompt_file
             if not input.is_backward
@@ -164,8 +170,13 @@ class IntraSlicer(LLMTool):
         return prompt
 
     def _parse_response(
-        self, response: str, input: IntraSlicerInput
-    ) -> IntraSlicerOutput:
+        self, response: str, input: Optional[LLMToolInput] = None
+    ) -> Optional[LLMToolOutput]:
+        if not isinstance(input, IntraSlicerInput):
+            raise RATypeError(
+                f"Input type {type(input)} is not supported. Expected IntraSlicerInput."
+            )
+
         slice_pattern = r"Slicing:\s*(.*?)\s*External Variables:"
         ext_values_pattern = r"External Variables:\s*((?:-.*(?:\n|$))+)"
 

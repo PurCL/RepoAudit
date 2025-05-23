@@ -81,9 +81,12 @@ class AuditRequestFormulator(LLMTool):
         self.prompt_file = f"{BASE_PATH}/prompt/utility/audit_request_formulator.json"
         return
 
-    def _get_prompt(
-        self, audit_request_formulator_input: AuditRequestFormulatorInput
-    ) -> str:
+    def _get_prompt(self, audit_request_formulator_input: LLMToolInput) -> str:
+        if not isinstance(audit_request_formulator_input, AuditRequestFormulatorInput):
+            raise RAValueError(
+                f"Input type {type(audit_request_formulator_input)} is not supported."
+            )
+
         with open(self.prompt_file, "r") as f:
             prompt_template_dict = json.load(f)
 
@@ -98,14 +101,21 @@ class AuditRequestFormulator(LLMTool):
         return prompt
 
     def _parse_response(
-        self, response: str, audit_request_formulator_input: AuditRequestFormulatorInput
-    ) -> AuditRequestFormulatorOutput:
+        self,
+        response: str,
+        audit_request_formulator_input: Optional[LLMToolInput] = None,
+    ) -> Optional[LLMToolOutput]:
         """
         Parse the response from the model.
         :param response: the response from the model
         :param audit_request_formulator_input: the audit_request_formulator_input of the tool
         :return: the output of the tool
         """
+        if not isinstance(audit_request_formulator_input, AuditRequestFormulatorInput):
+            raise RAValueError(
+                f"Input type {type(audit_request_formulator_input)} is not supported."
+            )
+
         pattern = r"- Bug Type:\s*(.*?)[,;]?\s*\n- Scope Type:\s*(.*?)[,;]?\s*\n- Scope:\s*(.*?)[,;]?\s*$"
         match = re.search(pattern, response, re.MULTILINE)
         if match:
@@ -114,7 +124,10 @@ class AuditRequestFormulator(LLMTool):
             scope_str = match.group(3).strip()
             scope_list = [s.strip() for s in scope_str.split(",")]
 
-            bug_type = bug_type if bug_type in {"NPD", "MLK", "UAF", "BOF"} else None
+            if bug_type not in {"NPD", "MLK", "UAF", "BOF"}:
+                return None
+
+            scope: AuditRequestFormulatorOutput.Scope
             if scope_type == "FileLevel":
                 scope = AuditRequestFormulatorOutput.FileScope(scope_list)
             elif scope_type == "DirectoryLevel":
@@ -122,7 +135,8 @@ class AuditRequestFormulator(LLMTool):
             elif scope_type == "RepoLevel":
                 scope = AuditRequestFormulatorOutput.RepoScope()
             else:
-                scope = None
+                return None
+
             return AuditRequestFormulatorOutput(bug_type, scope)
         else:
             print("No match found")

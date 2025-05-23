@@ -20,8 +20,8 @@ class DFBScanExtractor(ABC):
 
     def __init__(self, ts_analyzer: TSAnalyzer):
         self.ts_analyzer = ts_analyzer
-        self.sources = []
-        self.sinks = []
+        self.sources: List[Value] = []
+        self.sinks: List[Value] = []
         return
 
     def extract_all(self, include_test_files: bool = False):

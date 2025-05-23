@@ -62,11 +62,16 @@ class IntraFunctionDetector(LLMTool):
         )
         return
 
-    def _get_prompt(self, input: FunctionBugDetectorInput) -> str:
+    def _get_prompt(self, input: LLMToolInput) -> str:
         """
         :param input: the input of intra-procedural detector
         :return: the prompt string
         """
+        if not isinstance(input, FunctionBugDetectorInput):
+            raise RAValueError(
+                f"Input type {type(input)} is not supported for {type(self).__name__}."
+            )
+
         with open(self.prompt_file, "r") as f:
             prompt_template_dict = json.load(f)
         prompt = prompt_template_dict["task"]
@@ -81,12 +86,17 @@ class IntraFunctionDetector(LLMTool):
         return prompt
 
     def _parse_response(
-        self, response: str, input: FunctionBugDetectorInput
-    ) -> FunctionBugDetectorOutput:
+        self, response: str, input: Optional[LLMToolInput] = None
+    ) -> Optional[LLMToolOutput]:
         """
         :param response: the string response from the model
         :return: the output of intra-procedural detector
         """
+        if not isinstance(input, FunctionBugDetectorInput):
+            raise RAValueError(
+                f"Input type {type(input)} is not supported for {type(self).__name__}."
+            )
+
         answer_match = re.search(r"Answer:\s*(\w+)", response)
         poc_match = re.search(r"Explanation:\s*(.*)", response, re.DOTALL)
 

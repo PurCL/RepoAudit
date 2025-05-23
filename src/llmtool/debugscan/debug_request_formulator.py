@@ -58,9 +58,12 @@ class DebugRequestFormulator(LLMTool):
         )
         return
 
-    def _get_prompt(
-        self, debug_request_formulator_input: DebugRequestFormulatorInput
-    ) -> str:
+    def _get_prompt(self, debug_request_formulator_input: LLMToolInput) -> str:
+        if not isinstance(debug_request_formulator_input, DebugRequestFormulatorInput):
+            raise TypeError(
+                f"Input type {type(debug_request_formulator_input)} is not supported for {type(self).__name__}."
+            )
+
         with open(self.prompt_file, "r") as f:
             prompt_template_dict = json.load(f)
 
@@ -78,14 +81,21 @@ class DebugRequestFormulator(LLMTool):
         return prompt
 
     def _parse_response(
-        self, response: str, debug_request_formulator_input: DebugRequestFormulatorInput
-    ) -> DebugRequestFormulatorOutput:
+        self,
+        response: str,
+        debug_request_formulator_input: Optional[LLMToolInput] = None,
+    ) -> Optional[LLMToolOutput]:
         """
         Parse the response from the model.
         :param response: the string response from the model
         :param debug_request_formulator_input: the input of the model
         :return: the output of the tool
         """
+        if not isinstance(debug_request_formulator_input, DebugRequestFormulatorInput):
+            raise TypeError(
+                f"Input type {type(debug_request_formulator_input)} is not supported for {type(self).__name__}."
+            )
+
         print("Response:", response)
         pattern = r"- Expression Name:\s*(\w+)[,;]?\s*\n- Line Number:\s*(\d+)[,;]?\s*\n- File Name:\s*([\w.]+)"
         match = re.search(pattern, response, re.MULTILINE)

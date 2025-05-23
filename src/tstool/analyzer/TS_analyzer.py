@@ -1,16 +1,13 @@
 import sys
 from os import path
 from pathlib import Path
-import copy
 import concurrent.futures
 import threading
 from typing import List, Optional, Tuple, Dict, Set
 from abc import ABC, abstractmethod
 
-import tree_sitter
-from tree_sitter import Language
+from tree_sitter import Language, Node, Parser, Tree
 from tqdm import tqdm
-import networkx as nx
 
 sys.path.append(path.dirname(path.dirname(path.dirname(path.abspath(__file__)))))
 
@@ -66,6 +63,8 @@ class CallContext:
 
         # Get the top element from the context stack
         top_label = self.get_top_unmatched_context_label()
+        # TODO (ZZ): this assertion is added to satisfy the mypy check. Update the code to remove this assertion
+        assert top_label is not None, "Top label should not be None"
 
         # Determine which labels to match based on analysis direction
         first_label_parenthesis = (
@@ -99,7 +98,7 @@ class CallContext:
             self.context.append(label)
         return is_CFL_reachable
 
-    def get_top_unmatched_context_label(self) -> ContextLabel:
+    def get_top_unmatched_context_label(self) -> Optional[ContextLabel]:
         """
         Get the top unmatched context label.
         :return: The top unmatched context label.
@@ -116,7 +115,10 @@ class CallContext:
             [str(label) for label in self.context]
         )
 
-    def __eq__(self, other: "CallContext") -> bool:
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, CallContext):
+            return NotImplemented
+
         return self.__str__() == other.__str__()
 
     def __hash__(self) -> int:
@@ -153,7 +155,7 @@ class TSAnalyzer(ABC):
         self.api_env_lock = threading.Lock()
 
         # Initialize tree-sitter parser
-        self.parser = tree_sitter.Parser()
+        self.parser = Parser()
         self.language_name = language_name
         if language_name == "C":
             self.language = Language(str(language_path), "c")
@@ -170,23 +172,23 @@ class TSAnalyzer(ABC):
         self.parser.set_language(self.language)
 
         # Results of parsing
-        self.functionRawDataDic = {}
-        self.functionNameToId = {}
-        self.functionToFile = {}
-        self.fileContentDic = {}
-        self.glb_var_map = {}  # global var info
+        self.functionRawDataDic: Dict[int, Tuple[str, int, int, Node]] = {}
+        self.functionNameToId: Dict[str, Set[int]] = {}
+        self.functionToFile: Dict[int, str] = {}
+        self.fileContentDic: Dict[str, str] = {}
+        self.glb_var_map: Dict[str, str] = {}  # global var info
 
-        self.function_env: dict[int, Function] = {}
-        self.api_env: dict[int, API] = {}
+        self.function_env: Dict[int, Function] = {}
+        self.api_env: Dict[int, API] = {}
 
         # Results of call graph analysis
         ## Caller-callee relationship between user-defined functions
-        self.function_caller_callee_map = {}
-        self.function_callee_caller_map = {}
+        self.function_caller_callee_map: Dict[int, Set[int]] = {}
+        self.function_callee_caller_map: Dict[int, Set[int]] = {}
 
         ## Caller-callee relationship between user-defined functions and library APIs
-        self.function_caller_api_callee_map = {}
-        self.api_callee_function_caller_map = {}
+        self.function_caller_api_callee_map: Dict[int, Set[int]] = {}
+        self.api_callee_function_caller_map: Dict[int, Set[int]] = {}
 
         # Analyze stage I: Project AST parsing
         self.parse_project()
@@ -209,8 +211,8 @@ class TSAnalyzer(ABC):
         return file_path, source_code
 
     def _analyze_single_function(
-        self, function_id: int, raw_data: Tuple
-    ) -> Tuple[int, "Function"]:
+        self, function_id: int, raw_data: Tuple[str, int, int, Node]
+    ) -> Tuple[int, Function]:
         """
         Helper function to analyze a single function.
         """
@@ -234,40 +236,50 @@ class TSAnalyzer(ABC):
         """
         Parse all project files using tree-sitter.
         """
-        with concurrent.futures.ThreadPoolExecutor(
-            max_workers=self.max_symbolic_workers_num
-        ) as executor:
-            futures = {}
-            pbar = tqdm(total=len(self.code_in_files), desc="Parsing files")
-            for file_path, source_code in self.code_in_files.items():
-                # Submit a task for each file.
-                future = executor.submit(
-                    self._parse_single_file, file_path, source_code
-                )
-                futures[future] = file_path
-            # Collect results.
-            for future in concurrent.futures.as_completed(futures):
-                file_path, source = future.result()
-                self.fileContentDic[file_path] = source
-                pbar.update(1)
-            pbar.close()
 
-        with concurrent.futures.ThreadPoolExecutor(
-            max_workers=self.max_symbolic_workers_num
-        ) as executor:
-            futures = {}
-            pbar = tqdm(total=len(self.functionRawDataDic), desc="Analyzing functions")
-            for function_id, raw_data in self.functionRawDataDic.items():
-                future = executor.submit(
-                    self._analyze_single_function, function_id, raw_data
-                )
-                futures[future] = function_id
+        # XXX (ZZ): There is likely a mypy error here. We seperate the parsing of files and functions
+        # into two functions to avoid the mypy error.
+        def parse_files():
+            with concurrent.futures.ThreadPoolExecutor(
+                max_workers=self.max_symbolic_workers_num
+            ) as executor:
+                futures = {}
+                pbar = tqdm(total=len(self.code_in_files), desc="Parsing files")
+                for file_path, source_code in self.code_in_files.items():
+                    # Submit a task for each file.
+                    future = executor.submit(
+                        self._parse_single_file, file_path, source_code
+                    )
+                    futures[future] = file_path
+                # Collect results.
+                for future in concurrent.futures.as_completed(futures):
+                    file_path, source = future.result()
+                    self.fileContentDic[file_path] = source
+                    pbar.update(1)
+                pbar.close()
 
-            for future in concurrent.futures.as_completed(futures):
-                func_id, current_function = future.result()
-                self.function_env[func_id] = current_function
-                pbar.update(1)
-            pbar.close()
+        def parse_functions():
+            with concurrent.futures.ThreadPoolExecutor(
+                max_workers=self.max_symbolic_workers_num
+            ) as executor:
+                futures = {}
+                pbar = tqdm(
+                    total=len(self.functionRawDataDic), desc="Analyzing functions"
+                )
+                for function_id, raw_data in self.functionRawDataDic.items():
+                    future = executor.submit(
+                        self._analyze_single_function, function_id, raw_data
+                    )
+                    futures[future] = function_id
+
+                for future in concurrent.futures.as_completed(futures):
+                    func_id, current_function = future.result()
+                    self.function_env[func_id] = current_function
+                    pbar.update(1)
+                pbar.close()
+
+        parse_files()
+        parse_functions()
         return
 
     def analyze_call_graph(self) -> None:
@@ -299,7 +311,7 @@ class TSAnalyzer(ABC):
     ###########################################
     @abstractmethod
     def extract_function_info(
-        self, file_path: str, source_code: str, tree: tree_sitter.Tree
+        self, file_path: str, source_code: str, tree: Tree
     ) -> None:
         """
         Parse function information from a source file.
@@ -319,9 +331,8 @@ class TSAnalyzer(ABC):
         file_name = self.functionToFile[current_function.function_id]
         file_content = self.fileContentDic[file_name]
 
-        current_function.paras, current_function.variadic_para = (
-            self.get_parameters_in_single_function(current_function)
-        )
+        self.analyze_parameters_in_single_function(current_function)
+
         current_function.retvals = self.get_return_values_in_single_function(
             current_function
         )
@@ -334,9 +345,7 @@ class TSAnalyzer(ABC):
         return current_function
 
     @abstractmethod
-    def extract_global_info(
-        self, file_path: str, source_code: str, tree: tree_sitter.Tree
-    ) -> None:
+    def extract_global_info(self, file_path: str, source_code: str, tree: Tree) -> None:
         """
         Parse macro or global variable information from a source file.
         :param file_path: Path of the source file.
@@ -528,9 +537,7 @@ class TSAnalyzer(ABC):
         return callee_list
 
     @abstractmethod
-    def get_callee_name_at_call_site(
-        self, node: tree_sitter.Node, source_code: str
-    ) -> str:
+    def get_callee_name_at_call_site(self, node: Node, source_code: str) -> str:
         """
         Get the callee name at the call site.
         :param node: The node of the call site.
@@ -540,7 +547,7 @@ class TSAnalyzer(ABC):
         pass
 
     def get_callee_function_ids_at_callsite(
-        self, current_function: Function, call_site_node: tree_sitter.Node
+        self, current_function: Function, call_site_node: Node
     ) -> List[int]:
         """
         Determine the callee function(s) from a call site.
@@ -552,6 +559,9 @@ class TSAnalyzer(ABC):
         source_code = self.code_in_files[file_name]
         callee_name = self.get_callee_name_at_call_site(call_site_node, source_code)
         arguments = self.get_arguments_at_callsite(current_function, call_site_node)
+        receiver = self.get_receiver_arguments_at_callsite(
+            current_function, call_site_node
+        )
         temp_callee_ids = []
         # TODO: Jinyao. TO be improved.
         # while callee_name in self.glb_var_map:
@@ -562,17 +572,28 @@ class TSAnalyzer(ABC):
         callee_ids = []
         for callee_id in temp_callee_ids:
             callee = self.function_env[callee_id]
-            paras = callee.paras
-            if callee.variadic_para is None:
-                if len(paras) == len(arguments):
+
+            # Check reciver
+            callee_receiver_para = callee.paras(ValueLabel.OBJ_PARA)
+            if (receiver is not None and len(callee_receiver_para) == 0) or (
+                receiver is None and len(callee_receiver_para) > 0
+            ):
+                # If the callee has no receiver parameter but the callsite has one, or vice versa, skip this callee
+                continue
+
+            # Check parameter count
+            callee_paras = callee.paras(ValueLabel.PARA)
+            callee_variadic_para = callee.paras(ValueLabel.VARI_PARA)
+            if len(callee_variadic_para) == 0:
+                if len(callee_paras) == len(arguments):
                     callee_ids.append(callee_id)
             else:
-                if len(paras) <= len(arguments):
+                if len(callee_paras) <= len(arguments):
                     callee_ids.append(callee_id)
         return callee_ids
 
     def get_callee_api_ids_at_callsite(
-        self, current_function: Function, call_site_node: tree_sitter.Node
+        self, current_function: Function, call_site_node: Node
     ) -> List[int]:
         """
         Determine the callee api(s) from a call site.
@@ -591,10 +612,19 @@ class TSAnalyzer(ABC):
                 callee_ids.append(api_id)
         return callee_ids
 
+    # Helper functions for parameters
+    @abstractmethod
+    def analyze_parameters_in_single_function(self, current_function: Function) -> None:
+        """
+        Find the parameters of a function.
+        :param current_function: The function to be analyzed.
+        """
+        pass
+
     @abstractmethod
     def get_callsites_by_callee_name(
         self, current_function: Function, callee_name: str
-    ) -> List[tree_sitter.Node]:
+    ) -> List[Node]:
         """
         Find the call site nodes by callee name.
         :param current_function: The function to be analyzed.
@@ -606,7 +636,7 @@ class TSAnalyzer(ABC):
     # Helper functions for arguments
     @abstractmethod
     def get_arguments_at_callsite(
-        self, current_function: Function, call_site_node: tree_sitter.Node
+        self, current_function: Function, call_site_node: Node
     ) -> Set[Value]:
         """
         Get arguments from a call site in a function.
@@ -616,21 +646,34 @@ class TSAnalyzer(ABC):
         """
         pass
 
+    # Helper functions for receiver arguments
+    def get_receiver_arguments_at_callsite(
+        self, current_function: Function, call_site_node: Node
+    ) -> Optional[Value]:
+        """
+        Get the receiver argument from a call site in a function.
+        :param current_function: the function to be analyzed
+        :param call_site_node: the node of the call site
+        """
+
+        # For most non-object-oriented languages, the receiver is None
+        return None
+
     # Helper functions for parameters
-    @abstractmethod
-    def get_parameters_in_single_function(
-        self, current_function: Function
-    ) -> Tuple[Set[Value], Optional[Value]]:
+    def get_parameter_value_at_callsite(
+        self, current_function: Function, para_label: Optional[ValueLabel]
+    ) -> Set[Value]:
         """
-        Find the parameters of a function.
+        Get the parameter value from a call site.
         :param current_function: The function to be analyzed.
-        :return: A set of parameters as values
+        :param para_label: The label of the parameter.
+        :return: A set of parameter values.
         """
-        pass
+        return current_function.paras(para_label)
 
     # Helper functions for output values
     def get_output_value_at_callsite(
-        self, current_function: Function, call_site_node: tree_sitter.Node
+        self, current_function: Function, call_site_node: Node
     ) -> Value:
         """
         Get the output value from a call site.
@@ -662,7 +705,7 @@ class TSAnalyzer(ABC):
     @abstractmethod
     def get_if_statements(
         self, function: Function, source_code: str
-    ) -> Dict[Tuple, Tuple]:
+    ) -> Dict[Scope, IfStatement]:
         """
         Identify if-statements within a function.
         :param function: The function to be analyzed.
@@ -674,7 +717,7 @@ class TSAnalyzer(ABC):
     @abstractmethod
     def get_loop_statements(
         self, function: Function, source_code: str
-    ) -> Dict[Tuple, Tuple]:
+    ) -> Dict[Scope, LoopStatement]:
         """
         Identify loop statements within a function.
         :param function: The function to be analyzed.
@@ -684,7 +727,7 @@ class TSAnalyzer(ABC):
         pass
 
     def check_control_order(
-        self, function: Function, src_line_number: str, sink_line_number: str
+        self, function: Function, src_line_number: int, sink_line_number: int
     ) -> bool:
         """
         Check if the source line could execute before the sink line.
@@ -737,7 +780,7 @@ class TSAnalyzer(ABC):
         return True
 
     def check_control_reachability(
-        self, function: Function, src_line_number: str, sink_line_number: str
+        self, function: Function, src_line_number: int, sink_line_number: int
     ) -> bool:
         """
         Check if control can reach from the source line to the sink line, considering return statements.
@@ -749,9 +792,7 @@ class TSAnalyzer(ABC):
 
     # Other helper functions
 
-    def get_node_by_line_number(
-        self, line_number: int
-    ) -> List[Tuple[str, tree_sitter.Node]]:
+    def get_node_by_line_number(self, line_number: int) -> List[Tuple[str, Node]]:
         """
         Find nodes that contain a specific line number.
         """
@@ -776,7 +817,7 @@ class TSAnalyzer(ABC):
                     code_node_list.append((function.function_code, node))
         return code_node_list
 
-    def get_function_from_localvalue(self, value: Value) -> Function:
+    def get_function_from_localvalue(self, value: Value) -> Optional[Function]:
         """
         Retrieve the function corresponding to a local value.
         """
@@ -817,7 +858,7 @@ class TSAnalyzer(ABC):
 # Utility functions for AST node type maching
 
 
-def find_all_nodes(root_node: tree_sitter.Node) -> List[tree_sitter.Node]:
+def find_all_nodes(root_node: Node) -> List[Node]:
     """
     Recursively find all nodes in the tree starting at root_node.
     """
@@ -831,9 +872,7 @@ def find_all_nodes(root_node: tree_sitter.Node) -> List[tree_sitter.Node]:
 
 # XXX(ZZ): node_type(s) could be designed as a list of types, which will make
 # the function more flexible.
-def find_nodes_by_type(
-    root_node: tree_sitter.Node, node_type: str, k=0
-) -> List[tree_sitter.Node]:
+def find_nodes_by_type(root_node: Node, node_type: str, k=0) -> List[Node]:
     """
     Recursively find all nodes of a given type.
     """
