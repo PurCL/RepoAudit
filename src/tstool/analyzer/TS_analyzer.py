@@ -407,9 +407,6 @@ class TSAnalyzer(ABC):
                 arguments = self.get_arguments_at_callsite(
                     current_function, call_site_node
                 )
-                receiver = self.get_receiver_arguments_at_callsite(
-                    current_function, call_site_node
-                )  # MDZZ
                 callee_name = self.get_callee_name_at_call_site(
                     call_site_node, file_content
                 )
@@ -564,7 +561,7 @@ class TSAnalyzer(ABC):
         arguments = self.get_arguments_at_callsite(current_function, call_site_node)
         receiver = self.get_receiver_arguments_at_callsite(
             current_function, call_site_node
-        )  # MDZZ
+        )
         temp_callee_ids = []
         # TODO: Jinyao. TO be improved.
         # while callee_name in self.glb_var_map:
@@ -575,6 +572,16 @@ class TSAnalyzer(ABC):
         callee_ids = []
         for callee_id in temp_callee_ids:
             callee = self.function_env[callee_id]
+
+            # Check reciver
+            callee_receiver_para = callee.paras(ValueLabel.OBJ_PARA)
+            if (receiver is not None and len(callee_receiver_para) == 0) or (
+                receiver is None and len(callee_receiver_para) > 0
+            ):
+                # If the callee has no receiver parameter but the callsite has one, or vice versa, skip this callee
+                continue
+
+            # Check parameter count
             callee_paras = callee.paras(ValueLabel.PARA)
             callee_variadic_para = callee.paras(ValueLabel.VARI_PARA)
             if len(callee_variadic_para) == 0:
@@ -598,9 +605,6 @@ class TSAnalyzer(ABC):
         source_code = self.code_in_files[file_name]
         callee_name = self.get_callee_name_at_call_site(call_site_node, source_code)
         arguments = self.get_arguments_at_callsite(current_function, call_site_node)
-        receiver = self.get_receiver_arguments_at_callsite(
-            current_function, call_site_node
-        )  # MDZZ
         callee_ids = []
         tmp_api = API(-1, callee_name, len(arguments))
         for api_id in self.api_env:
