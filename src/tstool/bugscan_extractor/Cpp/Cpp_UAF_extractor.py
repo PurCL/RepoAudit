@@ -16,13 +16,13 @@ class Cpp_UAF_Extractor(BugScanExtractor):
         1. free
         """
         nodes = find_nodes_by_type(root_node, "call_expression")
-        free_functions = {
+        free_functions: Set[str] = {
             "free",
             "ngx_free",
             "ngx_mail_close_connection",
             "ngx_destroy_black_list_link",
         }
-        spec_apis = {}  # specific user-defined APIs
+        spec_apis: Set[str] = set()  # specific user-defined APIs
         seeds = []
         for node in nodes:
             is_seed_node = False

@@ -115,7 +115,10 @@ class Value:
             + ")"
         )
 
-    def __eq__(self, other: "Value") -> bool:
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, Value):
+            return NotImplemented
+
         return self.__str__() == other.__str__()
 
     def __repr__(self) -> str:
@@ -144,6 +147,8 @@ class Value:
             ValueLabel.GLOBAL: "global variable",
         }
         type_description = mapping.get(self.label)
+        if type_description is None:
+            raise RAValueError(f"Invalid label: {self.label}")
 
         if self.index != -1:
             if self.index % 10 == 0:

@@ -180,7 +180,7 @@ class Cpp_TSAnalyzer(TSAnalyzer):
         :param call_site_node: the node of the call site
         :return: the arguments
         """
-        arguments = set([])
+        arguments: Set[Value] = set([])
         file_name = current_function.file_path
         source_code = self.code_in_files[file_name]
         for sub_node in call_site_node.children:
@@ -206,7 +206,7 @@ class Cpp_TSAnalyzer(TSAnalyzer):
         :param current_function: The function to be analyzed.
         :return: A set of parameters as values
         """
-        if current_function.paras(None) is not None:
+        if current_function.paras_analyzed():
             return
 
         file_content = self.code_in_files[current_function.file_path]
@@ -264,7 +264,7 @@ class Cpp_TSAnalyzer(TSAnalyzer):
 
     def get_if_statements(
         self, function: Function, source_code: str
-    ) -> Dict[Tuple, Tuple]:
+    ) -> Dict[Scope, IfStatement]:
         """
         Identify if-statements in the function.
         """
@@ -315,7 +315,7 @@ class Cpp_TSAnalyzer(TSAnalyzer):
 
     def get_loop_statements(
         self, function: Function, source_code: str
-    ) -> Dict[Tuple, Tuple]:
+    ) -> Dict[Scope, LoopStatement]:
         """
         Identify loop statements in the function.
         """

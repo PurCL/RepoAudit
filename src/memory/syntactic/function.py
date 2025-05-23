@@ -1,7 +1,13 @@
-from typing import Optional, Set
-import tree_sitter
+import copy
+from typing import Dict, List, Optional, Set, Tuple
+from tree_sitter import Node
 
+from errors import RAAnalysisError
 from memory.syntactic.value import Value, ValueLabel
+
+Scope = Tuple[int, int]
+IfStatement = Tuple[int, int, str, Scope, Scope]
+LoopStatement = Tuple[int, int, str, int, int]
 
 
 class Function:
@@ -12,7 +18,7 @@ class Function:
         function_code: str,
         start_line_number: int,
         end_line_number: int,
-        function_node: tree_sitter.Node,
+        function_node: Node,
         file_path: str,
     ) -> None:
         """
@@ -34,20 +40,24 @@ class Function:
         self.parse_tree_root_node = (
             function_node  # root node of the parse tree of the current function
         )
-        self.function_call_site_nodes = []  # call site info of user-defined functions
-        self.api_call_site_nodes = []  # call site info of library APIs
+        self.function_call_site_nodes: List[Node] = (
+            []
+        )  # call site info of user-defined functions
+        self.api_call_site_nodes: List[Node] = []  # call site info of library APIs
 
         ## Results of AST node type analysis
         # XXX (ZZ): Parameters may vary in complexity (e.g., regular, variadic, or object-based).
         # To standardize parameter access, we define self._paras as private and provide a getter
         # function to retrieve them.
-        self._paras = None  # A set of parameters including regular, variadic, and object-based parameters
+        self._paras: Optional[Set[Value]] = (
+            None  # A set of parameters including regular, variadic, and object-based parameters
+        )
 
-        self.retvals = None  # A set of returned values
+        self.retvals: Optional[Set[Value]] = None  # A set of returned values
 
         ## Results of intraprocedural control flow analysis
-        self.if_statements = {}  # if statement info
-        self.loop_statements = {}  # loop statement info
+        self.if_statements: Dict[Scope, IfStatement] = {}  # if statement info
+        self.loop_statements: Dict[Scope, LoopStatement] = {}  # loop statement info
 
     def add_para(self, para: Value) -> None:
         """
@@ -58,18 +68,28 @@ class Function:
             self._paras = set()
         self._paras.add(para)
 
+    def paras_analyzed(self) -> bool:
+        """
+        Check if the parameters of the function have been analyzed.
+        :return: True if the parameters have been analyzed, False otherwise
+        """
+        return self._paras is not None
+
     # TODO (ZZ): add cache to avoid recomputing the parameters
-    def paras(self, para_label: Optional[ValueLabel]) -> Optional[Set[Value]]:
+    def paras(self, para_label: Optional[ValueLabel]) -> Set[Value]:
         """
         Get the parameters of the function.
         :param para_label: the label of the parameter, if None, return all parameters
         :return: the parameters of the function
         """
         if self._paras is None:
-            return None
+            raise RAAnalysisError(
+                f"The parameters of function {self.function_name} has not been analyzed yet. "
+                "Please call the analyze function first."
+            )
 
         if para_label is None:
-            return self._paras
+            return copy.copy(self._paras)
         else:
             assert para_label.is_para(), "para_label should be a parameter label"
             return set(filter(lambda x: x.label == para_label, self._paras))

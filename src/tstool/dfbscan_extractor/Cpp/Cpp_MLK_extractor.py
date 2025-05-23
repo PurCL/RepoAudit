@@ -26,7 +26,7 @@ class Cpp_MLK_Extractor(DFBScanExtractor):
         """
         nodes = find_nodes_by_type(root_node, "call_expression")
         nodes.extend(find_nodes_by_type(root_node, "new_expression"))
-        mem_allocations = {
+        mem_allocations: Set[str] = {
             "malloc",
             "calloc",
             "realloc",
@@ -36,7 +36,7 @@ class Cpp_MLK_Extractor(DFBScanExtractor):
             "vasprintf",
             "getline",
         }
-        spec_apis = {}  # specific user-defined APIs that allocate memory
+        spec_apis: Set[str] = set()  # specific user-defined APIs that allocate memory
         sources = []
         for node in nodes:
             is_seed_node = False

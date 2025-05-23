@@ -32,7 +32,7 @@ class Cpp_MLK_Extractor(BugScanExtractor):
             "vasprintf",
             "getline",
         }
-        spec_apis = {}  # specific user-defined APIs that allocate memory
+        spec_apis: Set[str] = set()  # specific user-defined APIs that allocate memory
         seeds = []
         for node in nodes:
             is_seed_node = False

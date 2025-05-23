@@ -131,7 +131,7 @@ class Go_TSAnalyzer(TSAnalyzer):
             call_site_node.type == "call_expression"
         ), f"Expected a call_expression node, but got {call_site_node.type}."
 
-        arguments = set([])
+        arguments: Set[Value] = set()
         file_name = current_function.file_path
         source_code = self.code_in_files[file_name]
         for sub_node in call_site_node.children:
@@ -157,7 +157,7 @@ class Go_TSAnalyzer(TSAnalyzer):
         :param current_function: The function to be analyzed.
         :return: A set of parameters as values
         """
-        if current_function.paras(None) is not None:
+        if current_function.paras_analyzed():
             return
 
         file_content = self.code_in_files[current_function.file_path]
@@ -192,11 +192,9 @@ class Go_TSAnalyzer(TSAnalyzer):
                         )
 
                         if sub_node.type == "variadic_parameter_declaration":
-                            assert current_function.paras(
-                                ValueLabel.VARI_PARA
-                            ).is_empty(), (
-                                "A function can only have one variadic parameter."
-                            )
+                            assert (
+                                len(current_function.paras(ValueLabel.VARI_PARA)) == 0
+                            ), "A function can only have one variadic parameter."
                             current_function.add_para(
                                 Value(
                                     parameter_name,
@@ -219,12 +217,11 @@ class Go_TSAnalyzer(TSAnalyzer):
                         index += 1
 
         paras = current_function.paras(ValueLabel.PARA)
-        variadic_para = current_function.paras(ValueLabel.VARI_PARA)
-        if not variadic_para.is_empty():
-            variadic_para = variadic_para.pop()
-            assert variadic_para.index == len(paras), (
+        variadic_para = list(current_function.paras(ValueLabel.VARI_PARA))
+        if len(variadic_para) > 0:
+            assert variadic_para[0].index == len(paras), (
                 f"The index of the variadic parameter should be equal to the number of parameters: "
-                f"{variadic_para.index} != {len(paras)} in {current_function.function_name}."
+                f"{variadic_para[0].index} != {len(paras)} in {current_function.function_name}."
             )
 
         return
@@ -279,7 +276,7 @@ class Go_TSAnalyzer(TSAnalyzer):
 
     def get_if_statements(
         self, function: Function, source_code: str
-    ) -> Dict[Tuple, Tuple]:
+    ) -> Dict[Scope, IfStatement]:
         """
         Find if-statements in the Go function.
         Assume the structure: condition, block and optional else clause.
@@ -348,7 +345,7 @@ class Go_TSAnalyzer(TSAnalyzer):
 
     def get_loop_statements(
         self, function: Function, source_code: str
-    ) -> Dict[Tuple, Tuple]:
+    ) -> Dict[Scope, LoopStatement]:
         """
         Find loop statements in the Go function.
         """

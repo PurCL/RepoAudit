@@ -72,6 +72,9 @@ class SliceScanAgent(Agent):
         self.seed_function = self.ts_analyzer.get_function_from_localvalue(
             self.seed_values[0]
         )
+        # TODO (ZZ): This is a temporary fix to satisfy the mypy type checker. Change the code to
+        # better handle the case when the seed function is not found.
+        assert self.seed_function is not None, "The seed value should be a local value"
 
         # LLM tool used by SliceScanAgent
         self.intra_slicer = IntraSlicer(
