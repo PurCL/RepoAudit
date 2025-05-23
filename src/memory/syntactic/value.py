@@ -1,5 +1,5 @@
 import re
-from typing import Set
+from typing import Optional, Set
 from enum import Enum
 
 from errors import RAValueError
@@ -83,7 +83,13 @@ class ValueLabel(Enum):
 
 class Value:
     def __init__(
-        self, name: str, line_number: int, label: ValueLabel, file: str, index: int = -1
+        self,
+        name: str,
+        line_number: int,
+        label: ValueLabel,
+        file: str,
+        index: int = -1,
+        comment: Optional[str] = None,
     ) -> None:
         """
         :param name: the name of the value. It can be a variable/parameter name or the expression tokenized string
@@ -91,12 +97,16 @@ class Value:
         :param label: the label of the value
         :param file: the file path of the value
         :param index: the index of the value. For PARA, RET, ARG, it start from 0. Otherwise, it is -1.
+        :param comment: the comment of the value, if any
         """
         self.name = name
         self.line_number = line_number
         self.label = label
         self.file = file
         self.index = index
+        self.comment = (
+            comment  # optional, `comment` is not used in __str__ and __eq__ methods
+        )
 
     def __str__(self) -> str:
         return (
