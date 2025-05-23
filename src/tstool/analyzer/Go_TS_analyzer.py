@@ -1,7 +1,7 @@
 import sys
 from os import path
 from typing import List, Optional, Tuple, Dict, Set
-import tree_sitter
+from tree_sitter import Node, Tree
 
 sys.path.append(path.dirname(path.dirname(path.dirname(path.abspath(__file__)))))
 
@@ -16,8 +16,30 @@ class Go_TSAnalyzer(TSAnalyzer):
     Implements Go-specific parsing and analysis.
     """
 
+    def __init__(
+        self,
+        code_in_files: Dict[str, str],
+        language_name: str,
+        max_symbolic_workers_num=10,
+    ) -> None:
+        """
+        Initialize the Go_TSAnalyzer.
+        :param code_in_files: A dictionary mapping file paths to their content.
+        :param language_name: The name of the programming language (e.g., "Go").
+        :param max_symbolic_workers_num: The maximum number of symbolic workers.
+        """
+        # We need to consider packages imported by each source file:
+        #     <file_path> -> <package_name> -> <package_path>
+        # For example:
+        #     /path/to/file.go -> "fmt" -> "fmt" (import "fmt")
+        #     /path/to/file.go -> "mypackage" -> "myapp/mypackage" (import "myapp/mypackage")
+        #     /path/to/file.go -> "m" -> "myapp/mypackage" (import m "myapp/mypackage")
+        self.imported_packages: Dict[str, Dict[str, str]] = {}
+
+        super().__init__(code_in_files, language_name, max_symbolic_workers_num)
+
     def extract_function_info(
-        self, file_path: str, source_code: str, tree: tree_sitter.Tree
+        self, file_path: str, source_code: str, tree: Tree
     ) -> None:
         """
         Parse the function information in a source file.
@@ -57,21 +79,42 @@ class Go_TSAnalyzer(TSAnalyzer):
             self.functionNameToId[function_name].add(function_id)
         return
 
-    def extract_global_info(
-        self, file_path: str, source_code: str, tree: tree_sitter.Tree
-    ) -> None:
+    def extract_global_info(self, file_path: str, source_code: str, tree: Tree) -> None:
         """
         Parse global (macro) information in a Go source file.
         Currently not implemented.
         """
-        # TODO: Implement parsing of global information if necessary.
-        # XXX(ZZ): Go does not have preprocessor macros like C/C++.
-        # XXX(ZZ): Channels and goroutines might be considered as global variables?
+
+        if file_path not in self.imported_packages:
+            self.imported_packages[file_path] = {}
+
+        # Parsing imports in Go
+        all_import_specs = find_nodes_by_type(tree.root_node, "import_spec")
+        for import_spec in all_import_specs:
+            package_paths = find_nodes_by_type(
+                import_spec, "interpreted_string_literal"
+            )
+            assert len(package_paths) == 1
+            package_path = source_code[
+                package_paths[0].start_byte : package_paths[0].end_byte
+            ][1:-1]
+
+            package_identifiers = find_nodes_by_type(import_spec, "package_identifier")
+            assert 0 <= len(package_identifiers) <= 1
+
+            if len(package_identifiers) == 1:
+                package_identifier = source_code[
+                    package_identifiers[0].start_byte : package_identifiers[0].end_byte
+                ]
+                self.imported_packages[file_path][package_identifier] = package_path
+            else:
+                # If no package identifier is found, use the package path as the key.
+                package_identifier = package_path.split("/")[-1]
+                self.imported_packages[file_path][package_identifier] = package_path
+
         return
 
-    def get_callee_name_at_call_site(
-        self, node: tree_sitter.Node, source_code: str
-    ) -> str:
+    def get_callee_name_at_call_site(self, node: Node, source_code: str) -> str:
         """
         Get the callee name at the call site.
         """
@@ -101,7 +144,7 @@ class Go_TSAnalyzer(TSAnalyzer):
 
     def get_callsites_by_callee_name(
         self, current_function: Function, callee_name: str
-    ) -> List[tree_sitter.Node]:
+    ) -> List[Node]:
         """
         Find the call site nodes by the callee name.
         """
@@ -118,8 +161,59 @@ class Go_TSAnalyzer(TSAnalyzer):
                 results.append(call_site)
         return results
 
+    def get_receiver_arguments_at_callsite(
+        self, current_function: Function, call_site_node: Node
+    ) -> Optional[Value]:
+        assert (
+            call_site_node.type == "call_expression"
+        ), f"Expected a call_expression node, but got {call_site_node.type}."
+
+        method_node = call_site_node.children[0]
+        if method_node.type == "identifier":
+            # This is a normal function call.
+            return None
+
+        assert (
+            method_node.type == "selector_expression"
+        ), f"Expected a selector_expression node, but got {call_site_node.children[0].type}."
+
+        file_name = current_function.file_path
+        source_code = self.code_in_files[file_name]
+
+        receiver_node = method_node.children[0]
+        assert (
+            receiver_node.type == "identifier"
+            or receiver_node.type == "selector_expression"
+        ), f"Expected an identifier or selector_expression node, but got {receiver_node.type}."
+
+        first_identifier = receiver_node
+        while first_identifier.type == "selector_expression":
+            first_identifier = first_identifier.children[0]
+        assert (
+            first_identifier.type == "identifier"
+        ), f"Expected an identifier node, but got {first_identifier.type}."
+
+        first_identifier_name = source_code[
+            first_identifier.start_byte : first_identifier.end_byte
+        ]
+
+        # TODO (ZZ): Name collisions are not handled—e.g., reusing an identifier for a variable within the same scope.
+        if first_identifier_name in self.imported_packages[file_name]:
+            # This is an imported method.
+            return None
+
+        receiver_name = source_code[receiver_node.start_byte : receiver_node.end_byte]
+        line_number = source_code[: receiver_node.start_byte].count("\n") + 1
+        return Value(
+            receiver_name,
+            line_number,
+            ValueLabel.OBJ_ARG,
+            file_name,
+            -1,
+        )
+
     def get_arguments_at_callsite(
-        self, current_function: Function, call_site_node: tree_sitter.Node
+        self, current_function: Function, call_site_node: Node
     ) -> Set[Value]:
         """
         Get arguments from a call site in a function.
@@ -134,6 +228,7 @@ class Go_TSAnalyzer(TSAnalyzer):
         arguments: Set[Value] = set()
         file_name = current_function.file_path
         source_code = self.code_in_files[file_name]
+
         for sub_node in call_site_node.children:
             if sub_node.type == "argument_list":
                 arg_list = sub_node.children[1:-1]

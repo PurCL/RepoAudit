@@ -407,6 +407,9 @@ class TSAnalyzer(ABC):
                 arguments = self.get_arguments_at_callsite(
                     current_function, call_site_node
                 )
+                receiver = self.get_receiver_arguments_at_callsite(
+                    current_function, call_site_node
+                )  # MDZZ
                 callee_name = self.get_callee_name_at_call_site(
                     call_site_node, file_content
                 )
@@ -559,6 +562,9 @@ class TSAnalyzer(ABC):
         source_code = self.code_in_files[file_name]
         callee_name = self.get_callee_name_at_call_site(call_site_node, source_code)
         arguments = self.get_arguments_at_callsite(current_function, call_site_node)
+        receiver = self.get_receiver_arguments_at_callsite(
+            current_function, call_site_node
+        )  # MDZZ
         temp_callee_ids = []
         # TODO: Jinyao. TO be improved.
         # while callee_name in self.glb_var_map:
@@ -592,6 +598,9 @@ class TSAnalyzer(ABC):
         source_code = self.code_in_files[file_name]
         callee_name = self.get_callee_name_at_call_site(call_site_node, source_code)
         arguments = self.get_arguments_at_callsite(current_function, call_site_node)
+        receiver = self.get_receiver_arguments_at_callsite(
+            current_function, call_site_node
+        )  # MDZZ
         callee_ids = []
         tmp_api = API(-1, callee_name, len(arguments))
         for api_id in self.api_env:
@@ -632,6 +641,19 @@ class TSAnalyzer(ABC):
         :return: the arguments
         """
         pass
+
+    # Helper functions for receiver arguments
+    def get_receiver_arguments_at_callsite(
+        self, current_function: Function, call_site_node: Node
+    ) -> Optional[Value]:
+        """
+        Get the receiver argument from a call site in a function.
+        :param current_function: the function to be analyzed
+        :param call_site_node: the node of the call site
+        """
+
+        # For most non-object-oriented languages, the receiver is None
+        return None
 
     # Helper functions for parameters
     def get_parameter_value_at_callsite(

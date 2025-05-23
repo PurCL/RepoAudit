@@ -1,7 +1,15 @@
 package main
 
+import "anotherapp/anotherpackage"
+
+import m "myapp/mypackage"
+
+import "fmt"
+
 import (
+	"anotherapp/anotherpackage"
 	"fmt"
+	m "myapp/mypackage"
 )
 
 type Counter struct {
@@ -21,5 +29,7 @@ func main() {
 	newValue_1 := counter_1.Increment(1)
 	newValue_2 := counter_2.Increment(2)
 
+	m.Writer.Print("Initial value:", initialValue)
+	anotherpackage.Writer.Print("Counter 1 incremented value:", newValue_1)
 	fmt.Println("New values:", newValue_1, newValue_2)
 }
