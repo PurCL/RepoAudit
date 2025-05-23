@@ -1,7 +1,8 @@
+package bad;
 import java.util.ArrayList;
 
 public class Test05 {
-    ArrayList<String> names;
+    static ArrayList<String> names;
 
     public static void test5_main(String[] args) {
         names.add("Dominic");

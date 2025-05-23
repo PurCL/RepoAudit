@@ -1,3 +1,4 @@
+package bad;
 public class Test03 {
     public static String[] test3_getArray() {
         return new String[] { "Hello", null, "World" };
@@ -7,6 +8,6 @@ public class Test03 {
         return arr[1].length();
     }
     public static void test3_main(String[] args) {
-        test4_useArray()
+        test3_useArray();
     }
 }

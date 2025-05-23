@@ -1,3 +1,4 @@
+package bad;
 public class Test01 {
     public static Object test1_getObj() {
         return null;
