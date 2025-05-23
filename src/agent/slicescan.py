@@ -279,7 +279,7 @@ class SliceScanAgent(Agent):
                     )
                     index = external_variable["index"]
 
-                    function_variadic_para = function.paras(ValueLabel.VARI_PARA)
+                    function_variadic_para = list(function.paras(ValueLabel.VARI_PARA))
 
                     for caller_function in caller_functions:
                         new_slice_context = copy.deepcopy(slice_context)
@@ -332,8 +332,8 @@ class SliceScanAgent(Agent):
                             )
 
                             # Support variadic parameters
-                            if function_variadic_para is not None:
-                                if index == function_variadic_para.index:
+                            if len(function_variadic_para) > 0:
+                                if index == function_variadic_para[0].index:
                                     # XXX (ZZ): Currently, the variadic parameter is treated as a single unit;
                                     # individual arguments within it are not analyzed separately.
                                     # In the future, we may consider more fine-grained handling (this could be
@@ -568,15 +568,18 @@ class SliceScanAgent(Agent):
 
     # TODO: TO BE DEPRECATED
     def start_scan_sequential(self) -> None:
+        if self.seed_function is None:
+            return
+
         self.logger.print_console("Start slice scanning...")
-        worklist: List[
-            Tuple[CallContext, int, Set[Value]]
-        ] = []  # The list of (slice_contxt, function_id, set of seed_value)
+        worklist: List[Tuple[CallContext, int, Set[Value]]] = (
+            []
+        )  # The list of (slice_contxt, function_id, set of seed_value)
 
         # Initially, the call stack is empty.
         initial_context = CallContext(self.is_backward)
         worklist.append(
-            (initial_context, self.seed_function.function_id, self.seed_values)
+            (initial_context, self.seed_function.function_id, set(self.seed_values))
         )
 
         while True:
@@ -587,23 +590,26 @@ class SliceScanAgent(Agent):
             if len(slice_context.context) > self.state.call_depth:
                 continue
 
-            input: IntraSlicerInput = IntraSlicerInput(
-                self.ts_analyzer.function_env[function_id], seed_set, self.is_backward
+            seed_list = list(seed_set)
+            slice_input: IntraSlicerInput = IntraSlicerInput(
+                self.ts_analyzer.function_env[function_id], seed_list, self.is_backward
             )
-            output: IntraSlicerOutput = self.intra_slicer.invoke(input)
+            slice_output = self.intra_slicer.invoke(slice_input, IntraSlicerOutput)
 
-            if output is None:
+            if slice_output is None:
                 continue
 
             self.state.update_intra_slices_in_state(
                 slice_context,
                 self.ts_analyzer.function_env[function_id],
-                seed_set,
-                output.slice,
+                seed_list,
+                slice_output.slice,
             )
 
             # Add more functions to the worklist according to the external variables in the intra-slicing output
-            delta_worklist = self.__update_worklist(input, output, slice_context)
+            delta_worklist = self.__update_worklist(
+                slice_input, slice_output, slice_context
+            )
             for (
                 delta_slice_context,
                 delta_function_id,
@@ -651,30 +657,34 @@ class SliceScanAgent(Agent):
             return []
 
         input_data = IntraSlicerInput(
-            self.ts_analyzer.function_env[function_id], seed_set, self.is_backward
+            self.ts_analyzer.function_env[function_id], list(seed_set), self.is_backward
         )
-        output = self.intra_slicer.invoke(input_data)
+        output_data = self.intra_slicer.invoke(input_data, IntraSlicerOutput)
 
-        if output is None:
+        if output_data is None:
             return []
 
         self.state.update_intra_slices_in_state(
             slice_context,
             self.ts_analyzer.function_env[function_id],
-            seed_set,
-            output.slice,
+            list(seed_set),
+            output_data.slice,
         )
 
-        delta_worklist = self.__update_worklist(input_data, output, slice_context)
+        delta_worklist = self.__update_worklist(input_data, output_data, slice_context)
         return delta_worklist
 
     def start_scan(self) -> None:
+        if self.seed_function is None:
+            self.logger.print_console("No seed function found.")
+            return
+
         self.logger.print_console("Start slice scanning in parallel...")
         # worklist: list of tuples (CallContext, function_id, set of seed values)
         worklist: List[Tuple[CallContext, int, Set[Value]]] = []
         initial_context = CallContext(self.is_backward)
         worklist.append(
-            (initial_context, self.seed_function.function_id, self.seed_values)
+            (initial_context, self.seed_function.function_id, set(self.seed_values))
         )
 
         with ThreadPoolExecutor(max_workers=self.max_neural_workers) as executor:

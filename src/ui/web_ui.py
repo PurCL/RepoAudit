@@ -245,9 +245,9 @@ def display_results():
                     ),
                     key=toggle_key,
                 ):
-                    st.session_state.show_function[
-                        toggle_key
-                    ] = not st.session_state.show_function.get(toggle_key, False)
+                    st.session_state.show_function[toggle_key] = (
+                        not st.session_state.show_function.get(toggle_key, False)
+                    )
 
                 if st.session_state.show_function.get(toggle_key):
                     files, names, code_snippets = item.get(

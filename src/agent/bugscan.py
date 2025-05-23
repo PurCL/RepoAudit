@@ -102,6 +102,9 @@ class BugScanAgent(Agent):
 
         # Initialize the bug specific llm tools and result files
         self.audit_request_output, self.target_files = self.formulate_audit_request()
+        if self.audit_request_output is None:
+            raise RAValueError("Audit request output is invalid")
+
         self.bug_type = self.audit_request_output.bug_type
         self.slice_detector = SliceBugDetector(
             self.bug_type,
@@ -131,7 +134,9 @@ class BugScanAgent(Agent):
         self.state = BugScanState(self.seeds)
         return
 
-    def formulate_audit_request(self) -> Tuple[AuditRequestFormulatorOutput, List[str]]:
+    def formulate_audit_request(
+        self,
+    ) -> Tuple[Optional[AuditRequestFormulatorOutput], List[str]]:
         self.logger.print_console("Please enter your analysis request:")
 
         is_valid_input = False
@@ -143,16 +148,25 @@ class BugScanAgent(Agent):
                 self.logger.print_console("User prompt is empty")
                 raise RAValueError("User prompt is empty")
             audit_input = AuditRequestFormulatorInput(user_prompt_str)
-            audit_request_output: AuditRequestFormulatorOutput = (
-                self.audit_request_formulator.invoke(audit_input)
+            audit_request_output = self.audit_request_formulator.invoke(
+                audit_input, AuditRequestFormulatorOutput
             )
+
             if (
                 audit_request_output is not None
                 and audit_request_output.bug_type is not None
             ):
                 target_files = []
                 if audit_request_output.scope.type == "FileLevel":
-                    for file_path in audit_request_output.scope.file_paths:
+                    assert isinstance(
+                        audit_request_output.scope,
+                        AuditRequestFormulatorOutput.FileScope,
+                    )
+                    file_scope = cast(
+                        AuditRequestFormulatorOutput.FileScope,
+                        audit_request_output.scope,
+                    )
+                    for file_path in file_scope.file_paths:
                         full_file_path = os.path.join(self.project_path, file_path)
                         if not os.path.isfile(full_file_path):
                             self.logger.print_console(
@@ -166,7 +180,15 @@ class BugScanAgent(Agent):
                             target_files.append(full_file_path)
                     is_valid_input = True
                 elif audit_request_output.scope.type == "DirectoryLevel":
-                    for dir_path in audit_request_output.scope.directory_paths:
+                    assert isinstance(
+                        audit_request_output.scope,
+                        AuditRequestFormulatorOutput.DirectoryScope,
+                    )
+                    dir_scope = cast(
+                        AuditRequestFormulatorOutput.DirectoryScope,
+                        audit_request_output.scope,
+                    )
+                    for dir_path in dir_scope.directory_paths:
                         full_dir_path = os.path.join(self.project_path, dir_path)
                         if not os.path.isdir(full_dir_path):
                             self.logger.print_console(
@@ -226,8 +248,10 @@ class BugScanAgent(Agent):
         elif self.language == "Python":
             if self.bug_type == "NPD":
                 return Python_NPD_Extractor(self.ts_analyzer)
-        # TODO: otherwise, sythesize the extractor
-        return None
+
+        raise RAValueError(
+            f"Bug type {self.bug_type} is not supported for language {self.language}."
+        )
 
     def __retrieve_slice_inliner_inputs(
         self, slicescan_state: SliceScanState
@@ -257,7 +281,7 @@ class BugScanAgent(Agent):
 
         for root_function_id in root_function_ids:
             relevant_function_ids = [root_function_id]
-            function_caller_callee_map = {}
+            function_caller_callee_map: Dict[int, Set[int]] = {}
             while True:
                 new_added_function_ids = []
                 for function_id in relevant_function_ids:
@@ -350,16 +374,16 @@ class BugScanAgent(Agent):
                 slice_scan_state = slice_scan_agent.get_agent_state()
 
                 # Obtain all the inliner instances
-                slice_inliner_inputs: List[
-                    SliceInlinerInput
-                ] = self.__retrieve_slice_inliner_inputs(slice_scan_state)
+                slice_inliner_inputs: List[SliceInlinerInput] = (
+                    self.__retrieve_slice_inliner_inputs(slice_scan_state)
+                )
 
                 if self.is_inlined:
                     # Inline each instance to obtain the abstraction of buggy code snippets
                     for slice_inliner_input in slice_inliner_inputs:
                         # (Key Step II): Inline the slices
-                        slice_inliner_output: SliceInlinerOutput = (
-                            self.slice_inliner.invoke(slice_inliner_input)
+                        slice_inliner_output = self.slice_inliner.invoke(
+                            slice_inliner_input, SliceInlinerOutput
                         )
 
                         if slice_inliner_output is None:
@@ -373,8 +397,8 @@ class BugScanAgent(Agent):
                             slice_inliner_input.tree_str,
                             True,
                         )
-                        intra_detector_output: SliceBugDetectorOutput = (
-                            self.slice_detector.invoke(intra_detector_input)
+                        intra_detector_output = self.slice_detector.invoke(
+                            intra_detector_input, SliceBugDetectorOutput
                         )
 
                         if intra_detector_output is None:
@@ -411,8 +435,8 @@ class BugScanAgent(Agent):
                     inter_detector_input = SliceBugDetectorInput(
                         seed_value.name, code_str, call_tree_str, False
                     )
-                    inter_detector_output: SliceBugDetectorOutput = (
-                        self.slice_detector.invoke(inter_detector_input)
+                    inter_detector_output = self.slice_detector.invoke(
+                        inter_detector_input, SliceBugDetectorOutput
                     )
 
                     if inter_detector_output is None:
@@ -534,9 +558,9 @@ class BugScanAgent(Agent):
         slice_scan_state = slice_scan_agent.get_agent_state()
 
         # Obtain all the inliner instances.
-        slice_inliner_inputs: List[
-            SliceInlinerInput
-        ] = self.__retrieve_slice_inliner_inputs(slice_scan_state)
+        slice_inliner_inputs: List[SliceInlinerInput] = (
+            self.__retrieve_slice_inliner_inputs(slice_scan_state)
+        )
         self.logger.print_console("slice_inliner_inputs obtained")
 
         if self.is_inlined:
@@ -569,8 +593,8 @@ class BugScanAgent(Agent):
             inter_detector_input = SliceBugDetectorInput(
                 seed_value.name, code_str, call_tree_str, False
             )
-            inter_detector_output: SliceBugDetectorOutput = self.slice_detector.invoke(
-                inter_detector_input
+            inter_detector_output = self.slice_detector.invoke(
+                inter_detector_input, SliceBugDetectorOutput
             )
 
             if inter_detector_output is None:
@@ -610,8 +634,8 @@ class BugScanAgent(Agent):
         self, slice_inliner_input: SliceInlinerInput, seed_value: Value
     ) -> None:
         # Inline the slices.
-        slice_inliner_output: SliceInlinerOutput = self.slice_inliner.invoke(
-            slice_inliner_input
+        slice_inliner_output = self.slice_inliner.invoke(
+            slice_inliner_input, SliceInlinerOutput
         )
 
         if slice_inliner_output is None:
@@ -625,8 +649,8 @@ class BugScanAgent(Agent):
             slice_inliner_input.tree_str,
             True,
         )
-        intra_detector_output: SliceBugDetectorOutput = self.slice_detector.invoke(
-            intra_detector_input
+        intra_detector_output = self.slice_detector.invoke(
+            intra_detector_input, SliceBugDetectorOutput
         )
 
         if intra_detector_output is None:

@@ -1,6 +1,6 @@
 from llmtool.LLM_utils import *
 from abc import ABC, abstractmethod
-from typing import Dict, Optional
+from typing import Dict, Optional, Type, TypeVar, cast
 from ui.logger import Logger
 
 
@@ -19,6 +19,9 @@ class LLMToolInput(ABC):
 class LLMToolOutput(ABC):
     def __init__(self):
         pass
+
+
+T = TypeVar("T", bound=LLMToolOutput)
 
 
 class LLMTool(ABC):
@@ -44,7 +47,24 @@ class LLMTool(ABC):
         self.output_token_cost = 0
         self.total_query_num = 0
 
-    def invoke(self, input: LLMToolInput) -> Optional[LLMToolOutput]:
+    def invoke(self, input: LLMToolInput, cls: Type[T]) -> Optional[T]:
+        """
+        Invoke the LLM tool with the given input.
+        :param input: the input of the LLM tool
+        :param cls: the class of the output
+        :return: the output of the LLM tool
+        """
+        output = self._invoke(input)
+
+        if output is None:
+            return None
+
+        if not isinstance(output, cls):
+            raise TypeError(f"Expected output of type {cls}, but got {type(output)}")
+
+        return cast(T, output)
+
+    def _invoke(self, input: LLMToolInput) -> Optional[LLMToolOutput]:
         class_name = type(self).__name__
         self.logger.print_console(f"The LLM Tool {class_name} is invoked.")
         if input in self.cache:

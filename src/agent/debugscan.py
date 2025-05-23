@@ -2,7 +2,6 @@ import json
 import os
 import re
 import threading
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from tqdm import tqdm
 
@@ -56,7 +55,9 @@ class DebugScanAgent(Agent):
 
         with self.lock:
             self.log_dir_path = f"{BASE_PATH}/log/debugscan/{self.model_name}/{self.language}/{self.project_name}/{time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())}-{agent_id}"
-            self.res_dir_path = f"{BASE_PATH}/result/debugscan/{self.model_name}/{self.bug_type}/{self.language}/{self.project_name}/{time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())}-{agent_id}"
+            # XXX (ZZ): I change self.bug_type as "debug"
+            # self.res_dir_path = f"{BASE_PATH}/result/debugscan/{self.model_name}/{self.bug_type}/{self.language}/{self.project_name}/{time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())}-{agent_id}"
+            self.res_dir_path = f"{BASE_PATH}/result/debugscan/{self.model_name}/debug/{self.language}/{self.project_name}/{time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())}-{agent_id}"
             if not os.path.exists(self.log_dir_path):
                 os.makedirs(self.log_dir_path)
             self.logger = Logger(self.log_dir_path + "/" + "debugscan.log")
@@ -79,7 +80,7 @@ class DebugScanAgent(Agent):
             self.MAX_QUERY_NUM,
             self.logger,
         )
-        self.slice_scan_agent: SliceScanAgent = None
+        self.slice_scan_agent: Optional[SliceScanAgent] = None
 
         (
             self.error_message,
@@ -88,7 +89,7 @@ class DebugScanAgent(Agent):
             self.error_line_number,
             self.debug_request,
         ) = self.__receive_audit_request()
-        self.seed: Value = None
+        self.seed: Optional[Value] = None
         self.state = DebugScanState(self.error_message)
         return
 
@@ -156,9 +157,14 @@ Exception in thread "main" java.lang.NullPointerException: Cannot invoke "String
             crash_function.file_path,
             self.debug_request,
         )
-        debug_request_output: DebugRequestFormulatorOutput = (
-            self.debug_request_formulator.invoke(debug_request_input)
+        debug_request_output = self.debug_request_formulator.invoke(
+            debug_request_input, DebugRequestFormulatorOutput
         )
+        if debug_request_output is None:
+            raise RAValueError(
+                f"Failed to extract the debug seed. Please check the error message."
+            )
+
         self.state.update_debug_seed(debug_request_output.debug_seed)
 
         # Step II: Slice from the debug seed
@@ -183,14 +189,19 @@ Exception in thread "main" java.lang.NullPointerException: Cannot invoke "String
             debug_slice,
             self.debug_request,
         )
-        self.debug_slice_analyzer_output: DebugSliceAnalyzerOutput = (
-            self.debug_slice_analyzer.invoke(self.debug_slice_analyzer_input)
+        self.debug_slice_analyzer_output = self.debug_slice_analyzer.invoke(
+            self.debug_slice_analyzer_input, DebugSliceAnalyzerOutput
         )
+
+        if self.debug_slice_analyzer_output is None:
+            raise RAValueError(
+                f"Failed to analyze the debug slice. Please check the error message."
+            )
 
         debug_report = DebugReport(
             self.error_message,
             debug_request_output.debug_seed,
-            debug_request_output.debug_seed,
+            debug_slice,
             self.debug_slice_analyzer_output.explanation_str,
         )
         self.state.update_debug_report(debug_report)
@@ -202,8 +213,8 @@ Exception in thread "main" java.lang.NullPointerException: Cannot invoke "String
             "explanation": str(self.debug_slice_analyzer_output.explanation_str),
         }
 
-        with open(self.res_dir_path + "/detect_info.json", "w") as debug_report:
-            json.dump(debug_report_dict, debug_report, indent=4)
+        with open(self.res_dir_path + "/detect_info.json", "w") as debug_report_f:
+            json.dump(debug_report_dict, debug_report_f, indent=4)
 
         self.logger.print_console(
             f"The bug report(s) has/have been dumped to {self.res_dir_path}/detect_info.json"
@@ -217,6 +228,8 @@ Exception in thread "main" java.lang.NullPointerException: Cannot invoke "String
         return self.state
 
     def get_log_files(self) -> List[str]:
+        assert self.slice_scan_agent is not None, "SliceScanAgent is not initialized."
+
         log_files = []
         log_files.append(self.log_dir_path + "/" + "debugscan.log")
         log_files.append(self.slice_scan_agent.log_dir_path + "/" + "slicescan.log")
