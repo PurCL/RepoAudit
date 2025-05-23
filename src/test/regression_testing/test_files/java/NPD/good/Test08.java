@@ -1,3 +1,4 @@
+package good;
 public class Test08 {
     private static String test8_processString(String str) {
         return str.toUpperCase();
