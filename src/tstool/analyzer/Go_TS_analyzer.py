@@ -193,7 +193,9 @@ class Go_TSAnalyzer(TSAnalyzer):
 
                         if sub_node.type == "variadic_parameter_declaration":
                             assert (
-                                len(current_function.paras(ValueLabel.VARI_PARA)) == 0
+                                not current_function.paras_analyzed()
+                                or len(current_function.paras(ValueLabel.VARI_PARA))
+                                == 0
                             ), "A function can only have one variadic parameter."
                             current_function.add_para(
                                 Value(

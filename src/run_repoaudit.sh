@@ -19,7 +19,7 @@ print_usage() {
     echo "  --is-inlined               Optional for bugscan"
     echo
     echo "Optional Options (with defaults):"
-    echo "  --model-name <model>          Model to use (default: claude-3.5)"
+    echo "  --model-name <model>          Model to use (default: gpt-4.1-nano)"
     echo "  --temperature <temp>          Temperature setting (default: 0.0)"
     echo "  --call-depth <depth>          Call depth (default: 2)"
     echo "  --max-neural-workers <num>    Maximum neural workers (default: 20)"
