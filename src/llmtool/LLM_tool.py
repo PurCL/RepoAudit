@@ -55,7 +55,6 @@ class LLMTool(ABC):
         :return: the output of the LLM tool
         """
         output = self._invoke(input)
-
         if output is None:
             return None
 

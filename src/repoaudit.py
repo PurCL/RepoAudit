@@ -1,19 +1,21 @@
 import argparse
 import glob
 import sys
-from agent.dfbscan import DFBScanAgent
+
 from agent.metascan import MetaScanAgent
+from agent.cgscan import CGScanAgent
+from agent.dfbscan import DFBScanAgent
 from agent.bugscan import BugScanAgent
 from agent.samplescan import SampleScanAgent
 from agent.debugscan import DebugScanAgent
 
-from errors import RAValueError, RepoAuditError
 from tstool.analyzer.TS_analyzer import *
 from tstool.analyzer.Cpp_TS_analyzer import *
 from tstool.analyzer.Go_TS_analyzer import *
 from tstool.analyzer.Java_TS_analyzer import *
 from tstool.analyzer.Python_TS_analyzer import *
 
+from errors import RAValueError, RepoAuditError
 from typing import List
 
 
@@ -130,6 +132,15 @@ class RepoAudit:
             self.project_path, self.language, self.ts_analyzer
         )
         self.metascan_agent.start_scan()
+        self.cgscan_agent = CGScanAgent(
+            self.project_path,
+            self.language,
+            self.metascan_agent,
+            self.model_name,
+            self.temperature,
+            self.max_neural_workers,
+        )
+        self.cgscan_agent.start_scan()
         return
 
     def start_repo_auditing(self) -> None:

@@ -48,6 +48,7 @@ class LLM:
     def infer(
         self, message: str, is_measure_cost: bool = False
     ) -> Tuple[str, int, int]:
+        print(self.online_model_name)
         self.logger.print_log(self.online_model_name, "is running")
         output = ""
         if "gemini" in self.online_model_name:
