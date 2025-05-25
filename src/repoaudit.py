@@ -354,6 +354,7 @@ def main() -> None:
     try:
         args = configure_args()
         repoaudit = RepoAudit(args)
+        exit(0)
         repoaudit.start_repo_auditing()
         return
     except RepoAuditError as e:

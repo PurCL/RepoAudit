@@ -11,20 +11,20 @@ from memory.syntactic.api import *
 BASE_PATH = Path(__file__).resolve().parent.parent.parent
 
 
-class CallEdgeAnalyzerInput(LLMToolInput):
+class CallerCalleeAnalyzerInput(LLMToolInput):
     def __init__(
         self,
         caller_function: Function,
-        call_site_line_number: int,
+        call_site_line_number_in_function: int,
         callee_candidates: List[Function],
     ) -> None:
         """
         :param caller_function: the caller function
-        :param call_site_line_number: the line number of the call site
+        :param call_site_line_number_in_function: the line number of the call site in the caller function
         :param callee_candidates: the candidates of the callee
         """
         self.caller_function = caller_function
-        self.call_site_line_number = call_site_line_number
+        self.call_site_line_number_in_function = call_site_line_number_in_function
         self.callee_candidates = callee_candidates
         return
 
@@ -35,13 +35,13 @@ class CallEdgeAnalyzerInput(LLMToolInput):
         return hash(
             (
                 self.caller_function.function_id,
-                self.call_site_line_number,
+                self.call_site_line_number_in_function,
                 str(sorted_callee_ids),
             )
         )
 
 
-class CallEdgeAnalyzerOutput(LLMToolOutput):
+class CallerCalleeAnalyzerOutput(LLMToolOutput):
     def __init__(self, callee_ids: List[int]) -> None:
         """
         callee_ids: the ids of the callee functions
@@ -53,7 +53,7 @@ class CallEdgeAnalyzerOutput(LLMToolOutput):
         return f"Callee IDs: {self.callee_ids}"
 
 
-class CallEdgeAnalyzer(LLMTool):
+class CallerCalleeAnalyzer(LLMTool):
     def __init__(
         self,
         model_name: str,
@@ -64,14 +64,14 @@ class CallEdgeAnalyzer(LLMTool):
     ) -> None:
         super().__init__(model_name, temperature, language, max_query_num, logger)
         self.prompt_file = (
-            f"{BASE_PATH}/prompt/{language}/cgscan/call_edge_analyzer.json"
+            f"{BASE_PATH}/prompt/{language}/cgscan/caller_callee_analyzer.json"
         )
         return
 
-    def _get_prompt(self, call_edge_analyzer_input: LLMToolInput) -> str:
-        if not isinstance(call_edge_analyzer_input, CallEdgeAnalyzerInput):
+    def _get_prompt(self, caller_callee_analyzer: LLMToolInput) -> str:
+        if not isinstance(caller_callee_analyzer, CallerCalleeAnalyzerInput):
             raise RAValueError(
-                f"Input type {type(call_edge_analyzer_input)} is not supported."
+                f"Input type {type(caller_callee_analyzer)} is not supported."
             )
 
         with open(self.prompt_file, "r") as f:
@@ -80,19 +80,15 @@ class CallEdgeAnalyzer(LLMTool):
         prompt = prompt_template_dict["task"]
         prompt += "\n" + "".join(prompt_template_dict["meta_prompts"])
         prompt = prompt.replace(
-            "<CALLER_FUNCTION>", call_edge_analyzer_input.caller_function.lined_code
+            "<CALLER_FUNCTION>", caller_callee_analyzer.caller_function.lined_code
         )
         prompt = prompt.replace(
-            "<LINE_NUMBER>", str(call_edge_analyzer_input.call_site_line_number)
+            "<LINE_NUMBER>",
+            str(caller_callee_analyzer.call_site_line_number_in_function),
         )
 
-        # # The code snippet you provided is a commented-out section that seems to be intended to
-        # generate a formatted string containing information about callee functions. It appears to
-        # iterate over the `callee_candidates` list in the `CallEdgeAnalyzerInput` class and
-        # construct a string `callee_candidates_with_ids` that includes details such as function ID,
-        # file name, function name, and function code for each callee function.
         callee_candidates_with_ids = ""
-        for callee in call_edge_analyzer_input.callee_candidates:
+        for callee in caller_callee_analyzer.callee_candidates:
             callee_candidates_with_ids += "----------------------------------------\n"
             callee_candidates_with_ids += f"Function ID: {callee.function_id}\n"
             callee_candidates_with_ids += f"File Name: {callee.file_path}\n"
@@ -112,17 +108,17 @@ class CallEdgeAnalyzer(LLMTool):
     def _parse_response(
         self,
         response: str,
-        call_edge_analyzer_input: Optional[LLMToolInput] = None,
+        caller_callee_analyzer: Optional[LLMToolInput] = None,
     ) -> Optional[LLMToolOutput]:
         """
         Parse the response from the model.
         :param response: the response from the model
-        :param call_edge_analyzer_input: the call_edge_analyzer_input of the tool
+        :param caller_callee_analyzer: the caller_callee_analyzer of the tool
         :return: the output of the tool
         """
-        if not isinstance(call_edge_analyzer_input, CallEdgeAnalyzerInput):
+        if not isinstance(caller_callee_analyzer, CallerCalleeAnalyzerInput):
             raise RAValueError(
-                f"Input type {type(call_edge_analyzer_input)} is not supported."
+                f"Input type {type(caller_callee_analyzer)} is not supported."
             )
 
         callee_ids = []
@@ -134,5 +130,5 @@ class CallEdgeAnalyzer(LLMTool):
                 callee_ids = [int(id_str) for id_str in callee_ids_str.split(",")]
                 break
 
-        call_edge_analyzer_output = CallEdgeAnalyzerOutput(callee_ids)
+        call_edge_analyzer_output = CallerCalleeAnalyzerOutput(callee_ids)
         return call_edge_analyzer_output

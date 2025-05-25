@@ -10,49 +10,63 @@ class CallGraphScanState(State):
         """
         Maintain the caller-callee edges
         """
-        self.caller_callee_edges: Dict[int, Tuple[tree_sitter.Node, set[int]]] = (
+        self.refined_caller_callee_edges: Dict[int, Dict[int, List[int]]] = (
             {}
-        )  # function_id -> (call_site, callee_ids)
+        )  # caller_id -> {call_site_node_id -> callee_ids}
+
+        self.refined_callee_caller_edges: Dict[int, Dict[int, List[int]]] = (
+            {}
+        )  # callee_id -> {caller_id -> call_site_node_ids}
         return
 
     def update_caller_callee_edges(
-        self, caller_id: int, call_site_node: tree_sitter.Node, callee_ids: set[int]
+        self, caller_id: int, call_site_node_id: int, callee_id: int
     ) -> None:
         """
         Update the caller-callee edges
         """
-        if caller_id not in self.caller_callee_edges:
-            self.caller_callee_edges[caller_id] = (call_site_node, callee_ids)
+        if caller_id not in self.refined_caller_callee_edges:
+            self.refined_caller_callee_edges[caller_id] = {
+                call_site_node_id: [callee_id]
+            }
         else:
-            for single_call_site_node, single_callee_ids in self.caller_callee_edges[
-                caller_id
-            ][0]:
-                if single_call_site_node == call_site_node:
-                    single_callee_ids.update(callee_ids)
-                    break
+            if call_site_node_id not in self.refined_caller_callee_edges[caller_id]:
+                self.refined_caller_callee_edges[caller_id][call_site_node_id] = [
+                    callee_id
+                ]
+            else:
+                if (
+                    callee_id
+                    not in self.refined_caller_callee_edges[caller_id][
+                        call_site_node_id
+                    ]
+                ):
+                    self.refined_caller_callee_edges[caller_id][
+                        call_site_node_id
+                    ].append(callee_id)
         return
 
-    def get_callee_ids_of_call_site_at_caller(
-        self, caller_id: int, call_site_node: tree_sitter.Node
-    ) -> set[int]:
+    def update_callee_caller_edge(
+        self, callee_id: int, caller_id: int, call_site_node_id: int
+    ) -> None:
         """
-        Get the callee ids of the call site at the caller
+        Update the callee-caller edges
         """
-        if caller_id not in self.caller_callee_edges:
-            return set()
-        for single_call_site_node, single_callee_ids in self.caller_callee_edges[
-            caller_id
-        ][0]:
-            if single_call_site_node == call_site_node:
-                return single_callee_ids
-        return set()
-
-    def get_caller_ids_of_callee(self, callee_id: int) -> set[int]:
-        """
-        Get the caller ids of the callee
-        """
-        caller_ids = set()
-        for caller_id, (call_site_node, callee_ids) in self.caller_callee_edges.items():
-            if callee_id in callee_ids:
-                caller_ids.add(caller_id)
-        return caller_ids
+        if callee_id not in self.refined_callee_caller_edges:
+            self.refined_callee_caller_edges[callee_id] = {
+                caller_id: [call_site_node_id]
+            }
+        else:
+            if caller_id not in self.refined_callee_caller_edges[callee_id]:
+                self.refined_callee_caller_edges[callee_id][caller_id] = [
+                    call_site_node_id
+                ]
+            else:
+                if (
+                    call_site_node_id
+                    not in self.refined_callee_caller_edges[callee_id][caller_id]
+                ):
+                    self.refined_callee_caller_edges[callee_id][caller_id].append(
+                        call_site_node_id
+                    )
+        return

@@ -90,7 +90,7 @@ class BugScanAgent(Agent):
             self.logger,
         )
         self.slice_inliner = SliceInliner(
-            "gpt-4.1-nano",
+            self.model_name,
             self.temperature,
             self.language,
             self.MAX_QUERY_NUM,
@@ -108,7 +108,7 @@ class BugScanAgent(Agent):
         self.bug_type = self.audit_request_output.bug_type
         self.slice_detector = SliceBugDetector(
             self.bug_type,
-            "gpt-4.1-mini",
+            self.model_name,
             self.temperature,
             self.language,
             self.MAX_QUERY_NUM,
