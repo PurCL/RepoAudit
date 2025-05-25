@@ -220,8 +220,8 @@ class CGScanAgent(Agent):
                             caller_function, call_site_start_line, callee_candidates
                         )
                         for callee_id in callee_ids:
-                            self.state.update_callee_caller_edge(
-                                callee_id, function_id, call_site_id
+                            self.state.update_caller_callee_edges(
+                                function_id, call_site_id, callee_id
                             )
                         pbar.update(1)
                     except Exception as e:
