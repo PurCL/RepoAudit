@@ -119,7 +119,7 @@ class Python_TSAnalyzer(TSAnalyzer):
         :param call_site_node: the node of the call site
         :return: the arguments
         """
-        arguments = set([])
+        arguments: Set[Value] = set([])
         file_name = current_function.file_path
         source_code = self.code_in_files[file_name]
         for sub_node in call_site_node.children:
@@ -139,18 +139,16 @@ class Python_TSAnalyzer(TSAnalyzer):
                         )
         return arguments
 
-    def get_parameters_in_single_function(
-        self, current_function: Function
-    ) -> Tuple[Set[Value], Optional[Value]]:
+    def analyze_parameters_in_single_function(self, current_function: Function) -> None:
         """
         Find the parameters of a function.
         :param current_function: The function to be analyzed.
         :return: A set of parameters as values
         """
-        # TODO (ZZ): Add support for variadic parameters in Python.
-        if current_function.paras is not None:
-            return current_function.paras, None
-        current_function.paras = set([])
+        if current_function._paras is not None:
+            return
+        current_function._paras = set()
+
         file_content = self.code_in_files[current_function.file_path]
         parameters = find_nodes_by_type(
             current_function.parse_tree_root_node, "parameters"
@@ -166,7 +164,7 @@ class Python_TSAnalyzer(TSAnalyzer):
                     break
             if parameter_name != "" and parameter_name != "self":
                 line_number = file_content[: sub_node.start_byte].count("\n") + 1
-                current_function.paras.add(
+                current_function.add_para(
                     Value(
                         parameter_name,
                         line_number,
@@ -176,7 +174,7 @@ class Python_TSAnalyzer(TSAnalyzer):
                     )
                 )
                 index += 1
-        return current_function.paras, None
+        return
 
     def get_return_values_in_single_function(
         self, current_function: Function
@@ -241,7 +239,7 @@ class Python_TSAnalyzer(TSAnalyzer):
 
     def get_if_statements(
         self, function: Function, source_code: str
-    ) -> Dict[Tuple, Tuple]:
+    ) -> Dict[Scope, IfStatement]:
         """
         Identify if-statements in the Python function.
         This is a simplified analysis for illustrative purposes.
@@ -258,7 +256,7 @@ class Python_TSAnalyzer(TSAnalyzer):
 
     def get_loop_statements(
         self, function: Function, source_code: str
-    ) -> Dict[Tuple, Tuple]:
+    ) -> Dict[Scope, LoopStatement]:
         """
         Identify loop statements (for and while) in the Python function.
         """

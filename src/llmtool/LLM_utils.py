@@ -16,7 +16,7 @@ import json
 from botocore.config import Config
 from botocore.exceptions import BotoCoreError, ClientError
 import boto3
-from errors import RAValueError
+from errors import RALLMAPIError, RAValueError
 from ui.logger import Logger
 
 
@@ -24,7 +24,7 @@ class LLM:
     """
     An online inference model using different LLMs:
     - Gemini
-    - OpenAI: GPT-3.5, GPT-4, o3-mini
+    - OpenAI: GPT-3.5, GPT-4, o3-mini, GPT-4.1-nano, GPT-4o-mini
     - DeepSeek: V3, R1
     - Claude: 3.5 and 3.7
     """
@@ -125,6 +125,11 @@ class LLM:
 
     def infer_with_openai_model(self, message):
         """Infer using the OpenAI model"""
+        if os.environ.get("OPENAI_API_KEY") is None:
+            raise RALLMAPIError(
+                "Please set the OPENAI_API_KEY environment variable to use OpenAI models."
+            )
+
         api_key = os.environ.get("OPENAI_API_KEY").split(":")[0]
         model_input = [
             {"role": "system", "content": self.systemRole},

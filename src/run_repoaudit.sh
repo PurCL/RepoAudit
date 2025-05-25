@@ -19,10 +19,10 @@ print_usage() {
     echo "  --is-inlined               Optional for bugscan"
     echo
     echo "Optional Options (with defaults):"
-    echo "  --model-name <model>          Model to use (default: claude-3.5)"
+    echo "  --model-name <model>          Model to use (default: gpt-4.1-nano)"
     echo "  --temperature <temp>          Temperature setting (default: 0.0)"
     echo "  --call-depth <depth>          Call depth (default: 2)"
-    echo "  --max-neural-workers <num>    Maximum neural workers (default: 30)"
+    echo "  --max-neural-workers <num>    Maximum neural workers (default: 20)"
     echo "  --max-symbolic-workers <num>  Maximum symbolic workers (default: 10)"
     echo "  --include-test-files          Analyze test files in the subject project as well"
     echo
@@ -134,8 +134,8 @@ case "$SCAN_TYPE" in
         fi
         ;;
     dfbscan)
-        if [ -z "$BUG_TYPE" ] || [ -z "$IS_REACHABLE" ]; then
-            echo "Error: --bug-type and --is-reachable are required for dfbscan"
+        if [ -z "$BUG_TYPE" ] ; then
+            echo "Error: --bug-type is required for dfbscan"
             print_usage
             exit 1
         fi

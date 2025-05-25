@@ -54,7 +54,12 @@ class SeedSelector(LLMTool):
         )
         return
 
-    def _get_prompt(self, input: SeedSelectorInput) -> str:
+    def _get_prompt(self, input: LLMToolInput) -> str:
+        if not isinstance(input, SeedSelectorInput):
+            raise TypeError(
+                f"Input type {type(input)} is not supported for {type(self).__name__}."
+            )
+
         with open(self.prompt_file, "r") as f:
             prompt_template_dict = json.load(f)
 
@@ -88,14 +93,19 @@ class SeedSelector(LLMTool):
         return prompt
 
     def _parse_response(
-        self, response: str, input: SeedSelectorInput
-    ) -> SeedSelectorOutput:
+        self, response: str, input: Optional[LLMToolInput] = None
+    ) -> Optional[LLMToolOutput]:
         """
         Parse the response from the model.
         :param response: the response from the model
         :param input: the input of the tool
         :return: the output of the tool
         """
+        if not isinstance(input, SeedSelectorInput):
+            raise TypeError(
+                f"Input type {type(input)} is not supported for {type(self).__name__}."
+            )
+
         if "Answer" not in response:
             return None
 

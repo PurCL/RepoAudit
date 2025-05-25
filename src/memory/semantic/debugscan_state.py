@@ -11,8 +11,8 @@ class DebugScanState(State):
         :param seed_values: the seed values indicating the potential buggy points or root causes
         """
         self.error_message = error_message
-        self.debug_seed: Value = None
-        self.debug_report: DebugReport = None
+        self.debug_seed: Optional[Value] = None
+        self.debug_report: Optional[DebugReport] = None
         return
 
     def update_debug_seed(self, debug_seed: Value) -> None:

@@ -1,7 +1,7 @@
 import sys
 from os import path
 from typing import List, Optional, Tuple, Dict, Set
-import tree_sitter
+from tree_sitter import Node, Tree
 
 sys.path.append(path.dirname(path.dirname(path.dirname(path.abspath(__file__)))))
 
@@ -16,8 +16,30 @@ class Go_TSAnalyzer(TSAnalyzer):
     Implements Go-specific parsing and analysis.
     """
 
+    def __init__(
+        self,
+        code_in_files: Dict[str, str],
+        language_name: str,
+        max_symbolic_workers_num=10,
+    ) -> None:
+        """
+        Initialize the Go_TSAnalyzer.
+        :param code_in_files: A dictionary mapping file paths to their content.
+        :param language_name: The name of the programming language (e.g., "Go").
+        :param max_symbolic_workers_num: The maximum number of symbolic workers.
+        """
+        # We need to consider packages imported by each source file:
+        #     <file_path> -> <package_name> -> <package_path>
+        # For example:
+        #     /path/to/file.go -> "fmt" -> "fmt" (import "fmt")
+        #     /path/to/file.go -> "mypackage" -> "myapp/mypackage" (import "myapp/mypackage")
+        #     /path/to/file.go -> "m" -> "myapp/mypackage" (import m "myapp/mypackage")
+        self.imported_packages: Dict[str, Dict[str, str]] = {}
+
+        super().__init__(code_in_files, language_name, max_symbolic_workers_num)
+
     def extract_function_info(
-        self, file_path: str, source_code: str, tree: tree_sitter.Tree
+        self, file_path: str, source_code: str, tree: Tree
     ) -> None:
         """
         Parse the function information in a source file.
@@ -57,21 +79,42 @@ class Go_TSAnalyzer(TSAnalyzer):
             self.functionNameToId[function_name].add(function_id)
         return
 
-    def extract_global_info(
-        self, file_path: str, source_code: str, tree: tree_sitter.Tree
-    ) -> None:
+    def extract_global_info(self, file_path: str, source_code: str, tree: Tree) -> None:
         """
         Parse global (macro) information in a Go source file.
         Currently not implemented.
         """
-        # TODO: Implement parsing of global information if necessary.
-        # XXX(ZZ): Go does not have preprocessor macros like C/C++.
-        # XXX(ZZ): Channels and goroutines might be considered as global variables?
+
+        if file_path not in self.imported_packages:
+            self.imported_packages[file_path] = {}
+
+        # Parsing imports in Go
+        all_import_specs = find_nodes_by_type(tree.root_node, "import_spec")
+        for import_spec in all_import_specs:
+            package_paths = find_nodes_by_type(
+                import_spec, "interpreted_string_literal"
+            )
+            assert len(package_paths) == 1
+            package_path = source_code[
+                package_paths[0].start_byte : package_paths[0].end_byte
+            ][1:-1]
+
+            package_identifiers = find_nodes_by_type(import_spec, "package_identifier")
+            assert 0 <= len(package_identifiers) <= 1
+
+            if len(package_identifiers) == 1:
+                package_identifier = source_code[
+                    package_identifiers[0].start_byte : package_identifiers[0].end_byte
+                ]
+                self.imported_packages[file_path][package_identifier] = package_path
+            else:
+                # If no package identifier is found, use the package path as the key.
+                package_identifier = package_path.split("/")[-1]
+                self.imported_packages[file_path][package_identifier] = package_path
+
         return
 
-    def get_callee_name_at_call_site(
-        self, node: tree_sitter.Node, source_code: str
-    ) -> str:
+    def get_callee_name_at_call_site(self, node: Node, source_code: str) -> str:
         """
         Get the callee name at the call site.
         """
@@ -101,7 +144,7 @@ class Go_TSAnalyzer(TSAnalyzer):
 
     def get_callsites_by_callee_name(
         self, current_function: Function, callee_name: str
-    ) -> List[tree_sitter.Node]:
+    ) -> List[Node]:
         """
         Find the call site nodes by the callee name.
         """
@@ -118,8 +161,59 @@ class Go_TSAnalyzer(TSAnalyzer):
                 results.append(call_site)
         return results
 
+    def get_receiver_arguments_at_callsite(
+        self, current_function: Function, call_site_node: Node
+    ) -> Optional[Value]:
+        assert (
+            call_site_node.type == "call_expression"
+        ), f"Expected a call_expression node, but got {call_site_node.type}."
+
+        method_node = call_site_node.children[0]
+        if method_node.type == "identifier":
+            # This is a normal function call.
+            return None
+
+        assert (
+            method_node.type == "selector_expression"
+        ), f"Expected a selector_expression node, but got {call_site_node.children[0].type}."
+
+        file_name = current_function.file_path
+        source_code = self.code_in_files[file_name]
+
+        receiver_node = method_node.children[0]
+        assert (
+            receiver_node.type == "identifier"
+            or receiver_node.type == "selector_expression"
+        ), f"Expected an identifier or selector_expression node, but got {receiver_node.type}."
+
+        first_identifier = receiver_node
+        while first_identifier.type == "selector_expression":
+            first_identifier = first_identifier.children[0]
+        assert (
+            first_identifier.type == "identifier"
+        ), f"Expected an identifier node, but got {first_identifier.type}."
+
+        first_identifier_name = source_code[
+            first_identifier.start_byte : first_identifier.end_byte
+        ]
+
+        # TODO (ZZ): Name collisions are not handled—e.g., reusing an identifier for a variable within the same scope.
+        if first_identifier_name in self.imported_packages[file_name]:
+            # This is an imported method.
+            return None
+
+        receiver_name = source_code[receiver_node.start_byte : receiver_node.end_byte]
+        line_number = source_code[: receiver_node.start_byte].count("\n") + 1
+        return Value(
+            receiver_name,
+            line_number,
+            ValueLabel.OBJ_ARG,
+            file_name,
+            -1,
+        )
+
     def get_arguments_at_callsite(
-        self, current_function: Function, call_site_node: tree_sitter.Node
+        self, current_function: Function, call_site_node: Node
     ) -> Set[Value]:
         """
         Get arguments from a call site in a function.
@@ -131,9 +225,10 @@ class Go_TSAnalyzer(TSAnalyzer):
             call_site_node.type == "call_expression"
         ), f"Expected a call_expression node, but got {call_site_node.type}."
 
-        arguments = set([])
+        arguments: Set[Value] = set()
         file_name = current_function.file_path
         source_code = self.code_in_files[file_name]
+
         for sub_node in call_site_node.children:
             if sub_node.type == "argument_list":
                 arg_list = sub_node.children[1:-1]
@@ -151,81 +246,144 @@ class Go_TSAnalyzer(TSAnalyzer):
                         )
         return arguments
 
-    def get_parameters_in_single_function(
-        self, current_function: Function
-    ) -> Tuple[Set[Value], Optional[Value]]:
+    def analyze_parameters_in_single_function(self, current_function: Function) -> None:
         """
         Find the parameters of a function.
         :param current_function: The function to be analyzed.
         :return: A set of parameters as values
         """
-        if current_function.paras is not None:
-            return current_function.paras, current_function.variadic_para
-        current_function.paras = set([])
-        current_function.variadic_paras = set([])
-        file_content = self.code_in_files[current_function.file_path]
-        parameter_list_nodes = []
-        for sub_node in current_function.parse_tree_root_node.children:
-            if sub_node.type == "parameter_list":
-                parameter_list_nodes.append(sub_node)
+        if current_function._paras is not None:
+            return
+        current_function._paras = set()
 
-        # In Go, a function can have at least one `parameter_list` (i.e., parameters) and at most two `parameter_list`s (i.e., parameters and return values).
+        file_content = self.code_in_files[current_function.file_path]
+
+        # There are a lot of different syntaxes for function declarations in Go.
+        #   - func gee(x int)
+        #   - func foo(x int) (y int)
+        #   - func Objects[T zapcore.ObjectMarshaler](key string, values []T) Field
+        #   - func (A *Data) haa(x int)
+        #   - func (A *Data) kuu(x int) (y int)
+        #   - func (m MyType) DoSomething[T any](val T)
+        root_node = current_function.parse_tree_root_node
         assert (
-            1 <= len(parameter_list_nodes) <= 3
-        ), f"The function {current_function.function_name} has {len(parameter_list_nodes)} parameter lists, which is not valid in Go."
-        if len(parameter_list_nodes) == 3:
+            root_node.children[0].type == "func"
+        ), f"The first child of the root node should be 'func', but got {root_node.children[0].type}."
+
+        # XXX (ZZ): There are some shaky parts I observed in the Go parser, which might
+        # change if the codebased of Tree-sitter is updated.
+        parameter_list_nodes: List[Tuple[Node, bool]] = []
+        if root_node.children[1].type == "parameter_list":
             # This will be the case for a method for a struct.
-            parameter_list_node = parameter_list_nodes[1]
+            #   - func (A *Data) haa(x int)
+            #   - func (m MyType) DoSomething[T any](val T)
+            parameter_list_nodes.append((root_node.children[1], True))
+            assert (
+                root_node.children[2].type == "field_identifier"
+            ), f"The third child of the root node should be 'field_identifier', but got {root_node.children[2].type}."
+
+            if root_node.children[3].type == "parameter_list":
+                #   - func (A *Data) haa(x int)
+                parameter_list_nodes.append((root_node.children[3], False))
+            else:
+                #   - func (m MyType) DoSomething[T any](val T)
+                assert (
+                    root_node.children[3].type == "type_parameter_list"
+                ), f"The third child of the root node should be 'type_parameter_list', but got {root_node.children[3].type}."
+                assert (
+                    root_node.children[4].type == "parameter_list"
+                ), f"The fourth child of the root node should be 'parameter_list', but got {root_node.children[4].type}."
+                parameter_list_nodes.append((root_node.children[4], False))
         else:
-            parameter_list_node = parameter_list_nodes[0]
+            # This will be the case for a normal function.
+            #   - func gee(x int)
+            #   - func Objects[T zapcore.ObjectMarshaler](key string, values []T) Field
+            assert (
+                root_node.children[1].type == "identifier"
+            ), f"The second child of the root node should be 'identifier', but got {root_node.children[1].type}."
+
+            if root_node.children[2].type == "parameter_list":
+                #   - func gee(x int)
+                parameter_list_nodes.append((root_node.children[2], False))
+            else:
+                #   - func Objects[T zapcore.ObjectMarshaler](key string, values []T) Field
+                assert (
+                    root_node.children[2].type == "type_parameter_list"
+                ), f"The second child of the root node should be 'type_parameter_list', but got {root_node.children[2].type}."
+                assert (
+                    root_node.children[3].type == "parameter_list"
+                ), f"The third child of the root node should be 'parameter_list', but got {root_node.children[3].type}."
+                parameter_list_nodes.append((root_node.children[3], False))
 
         index = 0
-        for sub_node in parameter_list_node.children:
-            if sub_node.type in [
-                "parameter_declaration",
-                "variadic_parameter_declaration",
-            ]:
-                for sub_sub_node in sub_node.children:
-                    if sub_sub_node.type == "identifier":
-                        parameter_name = file_content[
-                            sub_sub_node.start_byte : sub_sub_node.end_byte
-                        ]
-                        line_number = (
-                            file_content[: sub_sub_node.start_byte].count("\n") + 1
-                        )
+        for parameter_list_node, is_receiver in parameter_list_nodes:
+            assert (
+                parameter_list_node.type == "parameter_list"
+            ), f"The parameter list node should be 'parameter_list', but got {parameter_list_node.type}."
 
-                        if sub_node.type == "variadic_parameter_declaration":
-                            assert (
-                                current_function.variadic_para is None
-                            ), "A function can only have one variadic parameter."
-                            current_function.variadic_para = Value(
-                                parameter_name,
-                                line_number,
-                                ValueLabel.VARI_PARA,
-                                current_function.file_path,
-                                index,
+            for sub_node in parameter_list_node.children:
+                if sub_node.type in [
+                    "parameter_declaration",
+                    "variadic_parameter_declaration",
+                ]:
+                    for sub_sub_node in sub_node.children:
+                        if sub_sub_node.type == "identifier":
+                            parameter_name = file_content[
+                                sub_sub_node.start_byte : sub_sub_node.end_byte
+                            ]
+                            line_number = (
+                                file_content[: sub_sub_node.start_byte].count("\n") + 1
                             )
-                        else:
-                            current_function.paras.add(
-                                Value(
-                                    parameter_name,
-                                    line_number,
-                                    ValueLabel.PARA,
-                                    current_function.file_path,
-                                    index,
+
+                            if is_receiver:
+                                assert sub_node.type == "parameter_declaration"
+                                current_function.add_para(
+                                    Value(
+                                        parameter_name,
+                                        line_number,
+                                        ValueLabel.OBJ_PARA,
+                                        current_function.file_path,
+                                        -1,
+                                    )
                                 )
-                            )
-                        index += 1
 
-        if current_function.variadic_para is not None:
-            assert current_function.variadic_para.index == len(
-                current_function.paras
-            ), (
+                            elif sub_node.type == "variadic_parameter_declaration":
+                                assert (
+                                    len(current_function.paras(ValueLabel.VARI_PARA))
+                                    == 0
+                                ), "A function can only have one variadic parameter."
+                                current_function.add_para(
+                                    Value(
+                                        parameter_name,
+                                        line_number,
+                                        ValueLabel.VARI_PARA,
+                                        current_function.file_path,
+                                        index,
+                                    )
+                                )
+                            else:
+                                assert sub_node.type == "parameter_declaration"
+
+                                current_function.add_para(
+                                    Value(
+                                        parameter_name,
+                                        line_number,
+                                        ValueLabel.PARA,
+                                        current_function.file_path,
+                                        index,
+                                    )
+                                )
+                                index += 1
+
+        paras = current_function.paras(ValueLabel.PARA)
+        variadic_para = list(current_function.paras(ValueLabel.VARI_PARA))
+        if len(variadic_para) > 0:
+            assert variadic_para[0].index == len(paras), (
                 f"The index of the variadic parameter should be equal to the number of parameters: "
-                f"{current_function.variadic_para.index} != {len(current_function.paras)} in {current_function.function_name}."
+                f"{variadic_para[0].index} != {len(paras)} in {current_function.function_name}."
             )
 
-        return current_function.paras, current_function.variadic_para
+        return
 
     def get_return_values_in_single_function(
         self, current_function: Function
@@ -277,7 +435,7 @@ class Go_TSAnalyzer(TSAnalyzer):
 
     def get_if_statements(
         self, function: Function, source_code: str
-    ) -> Dict[Tuple, Tuple]:
+    ) -> Dict[Scope, IfStatement]:
         """
         Find if-statements in the Go function.
         Assume the structure: condition, block and optional else clause.
@@ -346,7 +504,7 @@ class Go_TSAnalyzer(TSAnalyzer):
 
     def get_loop_statements(
         self, function: Function, source_code: str
-    ) -> Dict[Tuple, Tuple]:
+    ) -> Dict[Scope, LoopStatement]:
         """
         Find loop statements in the Go function.
         """
