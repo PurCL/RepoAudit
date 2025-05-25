@@ -261,8 +261,10 @@ class Go_TSAnalyzer(TSAnalyzer):
         # There are a lot of different syntaxes for function declarations in Go.
         #   - func gee(x int)
         #   - func foo(x int) (y int)
+        #   - func Objects[T zapcore.ObjectMarshaler](key string, values []T) Field
         #   - func (A *Data) haa(x int)
         #   - func (A *Data) kuu(x int) (y int)
+        #   - func (m MyType) DoSomething[T any](val T)
         root_node = current_function.parse_tree_root_node
         assert (
             root_node.children[0].type == "func"
@@ -274,26 +276,44 @@ class Go_TSAnalyzer(TSAnalyzer):
         if root_node.children[1].type == "parameter_list":
             # This will be the case for a method for a struct.
             #   - func (A *Data) haa(x int)
+            #   - func (m MyType) DoSomething[T any](val T)
+            parameter_list_nodes.append((root_node.children[1], True))
             assert (
                 root_node.children[2].type == "field_identifier"
             ), f"The third child of the root node should be 'field_identifier', but got {root_node.children[2].type}."
-            parameter_list_nodes.append((root_node.children[1], True))
 
-            assert (
-                root_node.children[3].type == "parameter_list"
-            ), f"The fourth child of the root node should be 'parameter_list', but got {root_node.children[3].type}."
-            parameter_list_nodes.append((root_node.children[3], False))
+            if root_node.children[3].type == "parameter_list":
+                #   - func (A *Data) haa(x int)
+                parameter_list_nodes.append((root_node.children[3], False))
+            else:
+                #   - func (m MyType) DoSomething[T any](val T)
+                assert (
+                    root_node.children[3].type == "type_parameter_list"
+                ), f"The third child of the root node should be 'type_parameter_list', but got {root_node.children[3].type}."
+                assert (
+                    root_node.children[4].type == "parameter_list"
+                ), f"The fourth child of the root node should be 'parameter_list', but got {root_node.children[4].type}."
+                parameter_list_nodes.append((root_node.children[4], False))
         else:
             # This will be the case for a normal function.
             #   - func gee(x int)
+            #   - func Objects[T zapcore.ObjectMarshaler](key string, values []T) Field
             assert (
                 root_node.children[1].type == "identifier"
             ), f"The second child of the root node should be 'identifier', but got {root_node.children[1].type}."
 
-            assert (
-                root_node.children[2].type == "parameter_list"
-            ), f"The third child of the root node should be 'parameter_list', but got {root_node.children[2].type}."
-            parameter_list_nodes.append((root_node.children[2], False))
+            if root_node.children[2].type == "parameter_list":
+                #   - func gee(x int)
+                parameter_list_nodes.append((root_node.children[2], False))
+            else:
+                #   - func Objects[T zapcore.ObjectMarshaler](key string, values []T) Field
+                assert (
+                    root_node.children[2].type == "type_parameter_list"
+                ), f"The second child of the root node should be 'type_parameter_list', but got {root_node.children[2].type}."
+                assert (
+                    root_node.children[3].type == "parameter_list"
+                ), f"The third child of the root node should be 'parameter_list', but got {root_node.children[3].type}."
+                parameter_list_nodes.append((root_node.children[3], False))
 
         index = 0
         for parameter_list_node, is_receiver in parameter_list_nodes:

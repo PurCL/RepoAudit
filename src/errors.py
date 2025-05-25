@@ -20,3 +20,9 @@ class RAAnalysisError(RepoAuditError):
     """Exception raised for analysis errors in RepoAudit."""
 
     pass
+
+
+class RALLMAPIError(RepoAuditError):
+    """Exception raised for API-related errors in RepoAudit."""
+
+    pass
