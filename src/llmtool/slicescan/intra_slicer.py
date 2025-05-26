@@ -161,9 +161,12 @@ class IntraSlicer(LLMTool):
         prompt += "\n" + "\n".join(prompt_template_dict["meta_prompts"])
 
         question = (
-            prompt_template_dict["question_template"]
-            .replace("<SEED_DESCRIPTION>", f"{input.seed_description}")
+            prompt_template_dict["question_template"].replace(
+                "<SEED_DESCRIPTION>", f"{input.seed_description}"
+            )
+            # XXX (ZZ): keep for compatibility
             .replace("<SEED_NAME>", f"'{input.seed_name}'")
+            # XXX (ZZ): keep for compatibility
             .replace(
                 "<SEED_LINE>",
                 (
@@ -172,6 +175,7 @@ class IntraSlicer(LLMTool):
                     else f"line {input.seed_line_number - input.function.start_line_number + 1}"
                 ),
             )
+            # XXX (ZZ): keep for compatibility
             .replace("<SEED_TYPE>", str(input.seed_type))
         )
         answer_format = "\n".join(prompt_template_dict["answer_format_cot"])
@@ -217,7 +221,7 @@ class IntraSlicer(LLMTool):
             for line in var_lines:
                 match = re.match(var_pattern, line)
                 if not match:
-                    self.logger.print_log("not matched")
+                    self.logger.print_log("not matched", line)
                     continue
                 if match["type"] not in [
                     "Return Value",
