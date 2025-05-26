@@ -11,6 +11,7 @@ from tqdm import tqdm
 class Go_NPD_Extractor(BugScanExtractor):
     def find_seeds(self, function: Function) -> List[Tuple[Value, bool]]:
         root_node = function.parse_tree_root_node
+        function_start_line = function.start_line_number
         source_code = self.ts_analyzer.code_in_files[function.file_path]
         file_name = function.file_path
 
@@ -32,7 +33,7 @@ class Go_NPD_Extractor(BugScanExtractor):
                                         Value(
                                             name,
                                             line_number,
-                                            ValueLabel.NON_BUF_ACCESS_EXPR,
+                                            ValueLabel.DECLARATION,
                                             file_name,
                                         ),
                                         False,
@@ -61,7 +62,7 @@ class Go_NPD_Extractor(BugScanExtractor):
                             Value(
                                 name,
                                 line_number,
-                                ValueLabel.NON_BUF_ACCESS_EXPR,
+                                ValueLabel.CONSTANT,
                                 file_name,
                             ),
                             False,

@@ -68,7 +68,8 @@ class Function:
             self._paras = set()
         self._paras.add(para)
 
-    # TODO (ZZ): add cache to avoid recomputing the parameters
+    # TODO (ZZ): add cache to avoid recomputing the parameters.
+    # XXX (ZZ): ensure the returned values are new instances, not the original ones
     def paras(self, para_label: Optional[ValueLabel]) -> Set[Value]:
         """
         Get the parameters of the function.

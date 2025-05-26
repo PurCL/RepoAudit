@@ -40,16 +40,27 @@ class IntraSlicerInput(LLMToolInput):
 
         if len(self.seed_list) > 1:
             if self.seed_list[0].label != ValueLabel.RET:
+                self.seed_description = "; ".join(
+                    [seed.description(function) for seed in self.seed_list]
+                )
+
+                # XXX (ZZ): keep for compatibility
                 self.seed_type = self.seed_list[0].type_description()
                 self.seed_line_number = self.seed_list[0].line_number
                 self.seed_name = ""
                 for seed in self.seed_list:
                     self.seed_name += seed.name + ", "
             else:
+                self.seed_description = "return values"
+
+                # XXX (ZZ): keep for compatibility
                 self.seed_name = "return values"
                 self.seed_type = ""
                 self.seed_line_number = -1
         else:
+            self.seed_description = self.seed_list[0].description(function)
+
+            # XXX (ZZ): keep for compatibility
             self.seed_name = self.seed_list[0].name
             self.seed_type = self.seed_list[0].type_description()
             self.seed_line_number = self.seed_list[0].line_number
@@ -151,6 +162,7 @@ class IntraSlicer(LLMTool):
 
         question = (
             prompt_template_dict["question_template"]
+            .replace("<SEED_DESCRIPTION>", f"{input.seed_description}")
             .replace("<SEED_NAME>", f"'{input.seed_name}'")
             .replace(
                 "<SEED_LINE>",
@@ -181,10 +193,11 @@ class IntraSlicer(LLMTool):
         ext_values_pattern = r"External Variables:\s*((?:-.*(?:\n|$))+)"
 
         var_pattern = (
-            r"^\s*-\s*Type:\s*(?P<type>Output Value|Parameter|Argument|Global Variable|Return Value)\.?"
+            r"^\s*-\s*Type:\s*(?P<type>Output Value|Parameter|Parameter \(Receiver\)|Argument|Argument \(Receiver\)|Global Variable|Return Value)\.?"
             r"(?:\s+Callee:\s*(?P<callee_name>[^.]+)\.?)?"
             r"(?:\s+Index:\s*(?P<index>\d+)\.?)?"
             r"(?:\s+Name:\s*(?P<variable_name>[^.]+)\.?)?"
+            r"(?:\s+Field Name:\s*(?P<field_name>[^.]+)\.?)?"
             r"(?:\s+Line:\s*(?P<line_number>[^.]+)\.?)?"
             r"\.?$"
         )
@@ -209,7 +222,9 @@ class IntraSlicer(LLMTool):
                 if match["type"] not in [
                     "Return Value",
                     "Parameter",
+                    "Parameter (Receiver)",
                     "Argument",
+                    "Argument (Receiver)",
                     "Global Variable",
                     "Output Value",
                 ]:
@@ -221,6 +236,12 @@ class IntraSlicer(LLMTool):
                     match["callee_name"] is None
                     or match["index"] is None
                     or match["line_number"] is None
+                ):
+                    continue
+                if match["type"] == "Argument (Receiver)" and (
+                    # TODO (ZZ): We need to add line number support for other languages
+                    match["callee_name"]
+                    is None
                 ):
                     continue
                 if (
@@ -247,6 +268,9 @@ class IntraSlicer(LLMTool):
                             ext_value[field] = None
                     else:
                         ext_value[field] = None
+
+                if ext_value.get("field_name") is None:
+                    ext_value["field_name"] = None
 
                 output_ext_values.append(ext_value)
         output = IntraSlicerOutput(output_slice, output_ext_values)
