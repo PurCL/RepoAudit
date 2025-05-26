@@ -197,13 +197,13 @@ class IntraSlicer(LLMTool):
         ext_values_pattern = r"External Variables:\s*((?:-.*(?:\n|$))+)"
 
         var_pattern = (
-            r"^\s*-\s*Type:\s*(?P<type>Output Value|Parameter|Parameter \(Receiver\)|Argument|Argument \(Receiver\)|Global Variable|Return Value)\.?"
-            r"(?:\s+Callee:\s*(?P<callee_name>[^.]+)\.?)?"
-            r"(?:\s+Index:\s*(?P<index>\d+)\.?)?"
-            r"(?:\s+Name:\s*(?P<variable_name>[^.]+)\.?)?"
-            r"(?:\s+Field Name:\s*(?P<field_name>[^.]+)\.?)?"
-            r"(?:\s+Line:\s*(?P<line_number>[^.]+)\.?)?"
-            r"\.?$"
+            r"^\s*-\s*Type:\s*(?P<type>Output Value|Parameter|Parameter \(Receiver\)|Argument|Argument \(Receiver\)|Global Variable|Return Value)\."
+            r"(?:\s+Callee:\s*(?P<callee_name>[^\s]+)\.)?"
+            r"(?:\s+Index:\s*(?P<index>\d+)\.)?"
+            r"(?:\s+Name:\s*(?P<variable_name>[^\s]+)\.)?"
+            r"(?:\s+Field Name:\s*(?P<field_name>[^\s.]+)\.)?"
+            r"(?:\s+Line:\s*(?P<line_number>\d+)\.)?"
+            r"\s*$"
         )
 
         slice_match = re.search(slice_pattern, response, re.DOTALL)

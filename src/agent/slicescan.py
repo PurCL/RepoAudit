@@ -579,6 +579,7 @@ class SliceScanAgent(Agent):
                                 )
                             )
                             for ret_value in ret_values:
+                                ret_value = copy.deepcopy(ret_value)
                                 if external_variable["index"] is not None:
                                     ret_value.index = external_variable["index"]
 
