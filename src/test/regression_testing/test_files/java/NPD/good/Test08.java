@@ -22,4 +22,8 @@ public class Test08 {
         String str = null;
         System.out.println(test8_inner1(str));
     }
+
+    public static void main(String[] args) {
+        test8_main(args);
+    }
 }

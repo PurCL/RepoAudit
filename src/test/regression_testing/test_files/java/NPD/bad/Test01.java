@@ -10,4 +10,8 @@ public class Test01 {
     public static void test1_main(String[] args) {
         System.out.println(test1_useObj());
     }
+
+    public static void main(String[] args) {
+        test1_main(args);
+    }
 }

@@ -9,4 +9,8 @@ public class Test06 {
         names.add("Dominic");
         System.out.println("Name length: " + names.size());
     }
+
+    public static void main(String[] args) {
+        test6_main(args);
+    }
 }

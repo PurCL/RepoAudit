@@ -22,4 +22,8 @@ public class Test07 {
         String str = null;
         System.out.println(test7_inner1(str));
     }
+
+    public static void main(String[] args) {
+        test7_main(args);
+    }
 }

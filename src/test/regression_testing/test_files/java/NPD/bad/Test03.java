@@ -10,4 +10,8 @@ public class Test03 {
     public static void test3_main(String[] args) {
         test3_useArray();
     }
+
+    public static void main(String[] args) {
+        test3_main(args);
+    }
 }
