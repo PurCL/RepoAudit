@@ -175,3 +175,6 @@ cython_debug/
 #.idea/
 
 testcases/**
+
+# java class files in regression testing
+src/test/regression_testing/test_files/java/*.class
