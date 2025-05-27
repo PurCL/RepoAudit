@@ -1,0 +1,9 @@
+{
+    "test01.py-3": ["print(value.upper())"],
+    "test02.py-5": ["return data[0]"],
+    "test03.py-21": ["return self.value.attr"],
+    "test04.py-7": ["next_user = users[idx + 1]"],
+    "test05.py-5": ["phone_number_no_area_code = phone_number[:3]"],
+    "test06.py-5": ["username = email.split(\"@\")[0]"],
+    "test07.py-5": ["first_num = sorted_list[0]"]
+}
