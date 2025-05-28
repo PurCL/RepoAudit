@@ -127,7 +127,11 @@ class CallerCalleeAnalyzer(LLMTool):
                 index1 = line.index("[")
                 index2 = line.index("]")
                 callee_ids_str = line[index1 + 1 : index2]
-                callee_ids = [int(id_str.strip()) for id_str in callee_ids_str.split(",") if id_str.strip()]
+                callee_ids = [
+                    int(id_str.strip())
+                    for id_str in callee_ids_str.split(",")
+                    if id_str.strip()
+                ]
                 break
 
         call_edge_analyzer_output = CallerCalleeAnalyzerOutput(callee_ids)

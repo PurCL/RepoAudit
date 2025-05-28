@@ -36,7 +36,7 @@ class CalleeCallerAnalyzerOutput(LLMToolOutput):
         return
 
     def __str__(self) -> str:
-        return f"Caller IDs: {self.caller_ids}"
+        return f"Caller IDs: {self.caller_ids_to_call_site_node_ids}"
 
 
 class CalleeCallerAnalyzer(LLMTool):
@@ -60,33 +60,36 @@ class CalleeCallerAnalyzer(LLMTool):
                 f"Input type {type(callee_caller_analyzer_input)} is not supported."
             )
 
+        # XXX (Chengpeng): We do not distinguish different call sites in the caller function
+        # that have the same names of callee functions.
+        # Maybe imprecise though the introduced imprecision should be acceptable in most cases.
+
         with open(self.prompt_file, "r") as f:
             prompt_template_dict = json.load(f)
 
-        # prompt = prompt_template_dict["task"]
-        # prompt += "\n" + "".join(prompt_template_dict["meta_prompts"])
-        # prompt = prompt.replace(
-        #     "<CALLEE_FUNCTION>", callee_caller_analyzer_input.callee_function.lined_code
-        # )
+        prompt = prompt_template_dict["task"]
+        prompt += "\n" + "".join(prompt_template_dict["meta_prompts"])
+        prompt = prompt.replace(
+            "<CALLEE_FUNCTION>", callee_caller_analyzer_input.callee_function.lined_code
+        )
 
-        # caller_candidates_with_ids = ""
-        # for caller in callee_caller_analyzer_input.caller_candidates:
-        #     caller_candidates_with_ids += "----------------------------------------\n"
-        #     caller_candidates_with_ids += f"Function ID: {caller.function_id}\n"
-        #     caller_candidates_with_ids += f"File Name: {caller.file_path}\n"
-        #     caller_candidates_with_ids += (
-        #         f"Function Code:\n\n```\n{caller.lined_code}\n```\n\n"
-        #     )
+        caller_candidates_with_ids = ""
+        for caller in callee_caller_analyzer_input.potential_caller_functions:
+            caller_candidates_with_ids += "----------------------------------------\n"
+            caller_candidates_with_ids += f"Function ID: {caller.function_id}\n"
+            caller_candidates_with_ids += f"File Name: {caller.file_path}\n"
+            caller_candidates_with_ids += (
+                f"Function Code:\n\n```\n{caller.lined_code}\n```\n\n"
+            )
 
-        # prompt = prompt.replace(
-        #     "<CANDIDATE_CALLER_FUNCTIONS_WITH_IDS>", caller_candidates_with_ids
-        # )
+        prompt = prompt.replace(
+            "<CANDIDATE_CALLER_FUNCTIONS_WITH_IDS>", caller_candidates_with_ids
+        )
 
-        # prompt = prompt.replace(
-        #     "<ANSWER>", "\n".join(prompt_template_dict["answer_format"])
-        # )
-        # return prompt
-        return ""
+        prompt = prompt.replace(
+            "<ANSWER>", "\n".join(prompt_template_dict["answer_format"])
+        )
+        return prompt
 
     def _parse_response(
         self,
@@ -104,19 +107,22 @@ class CalleeCallerAnalyzer(LLMTool):
                 f"Input type {type(callee_caller_analyzer_input)} is not supported."
             )
 
-        # caller_ids = []
-        # for line in response.split("\n"):
-        #     if "Caller functions:" in line and "[" in line and "]" in line:
-        #         index1 = line.index("[")
-        #         index2 = line.index("]")
-        #         caller_ids_str = line[index1 + 1 : index2]
-        #         caller_ids = [int(id_str) for id_str in caller_ids_str.split(",")]
-        #         break
+        caller_ids = []
+        for line in response.split("\n"):
+            if "Caller functions:" in line and "[" in line and "]" in line:
+                index1 = line.index("[")
+                index2 = line.index("]")
+                caller_ids_str = line[index1 + 1 : index2]
+                caller_ids = [int(id_str) for id_str in caller_ids_str.split(",")]
+                break
 
-        # callee_caller_analyzer_output = CalleeCallerAnalyzerOutput(caller_ids)
-        # return callee_caller_analyzer_output
+        refined_caller_ids_to_call_site_node_ids = {}
+        for caller_id in caller_ids:
+            refined_caller_ids_to_call_site_node_ids[caller_id] = (
+                callee_caller_analyzer_input.caller_ids_to_call_site_node_ids[caller_id]
+            )
 
-        # Directly return the parsing-based result
-        return CalleeCallerAnalyzerOutput(
-            callee_caller_analyzer_input.caller_ids_to_call_site_node_ids
+        callee_caller_analyzer_output = CalleeCallerAnalyzerOutput(
+            refined_caller_ids_to_call_site_node_ids
         )
+        return callee_caller_analyzer_output

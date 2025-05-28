@@ -90,6 +90,7 @@ class RepoAudit:
         self.is_reachable = args.is_reachable
         self.is_backward = args.is_backward
         self.is_inlined = args.is_inlined
+        self.cg_refine = args.cg_refine
         self.is_iterative = args.is_iterative
 
         self.include_test_files = args.include_test_files
@@ -127,7 +128,7 @@ class RepoAudit:
                 self.code_in_files, self.language, self.max_symbolic_workers
             )
 
-        # MetaScanAgent is used to wrap the result of ts_analyzer and dump it to a json file
+        # Initialize the universal agents
         self.metascan_agent = MetaScanAgent(
             self.project_path, self.language, self.ts_analyzer
         )
@@ -140,7 +141,6 @@ class RepoAudit:
             self.temperature,
             self.max_neural_workers,
         )
-        self.cgscan_agent.start_scan()
         return
 
     def start_repo_auditing(self) -> None:
@@ -158,6 +158,7 @@ class RepoAudit:
                     self.call_depth,
                     self.is_inlined,
                     self.max_neural_workers,
+                    cgscan_agent=self.cgscan_agent if self.cg_refine else None,
                     include_test_files=self.include_test_files,
                 )
                 self.bugscan_agent.start_scan()
@@ -334,6 +335,12 @@ def configure_args():
     )
 
     parser.add_argument(
+        "--cg-refine",
+        action="store_true",
+        help="Flag to refine the call graph with LLM",
+    )
+
+    parser.add_argument(
         "--is-iterative",
         action="store_true",
         help="Flag for iterative analysis with multiple rounds",
@@ -354,7 +361,6 @@ def main() -> None:
     try:
         args = configure_args()
         repoaudit = RepoAudit(args)
-        exit(0)
         repoaudit.start_repo_auditing()
         return
     except RepoAuditError as e:

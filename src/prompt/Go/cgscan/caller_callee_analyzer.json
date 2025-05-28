@@ -1,5 +1,5 @@
 {
-    "model_role_name": "Go Call Graph Edge Analyzer",
+    "model_role_name": "Go Caller-Callee Edge Analyzer",
     "system_role": "You are a good Go programmer and good at analyzing Go programs.",
     "task": "Given a caller function, a call site at a specific program line, and a list of candidate callee functions, please identify the possible callee functions from our provided list of candidate callee functions.",
     "answer_format": [

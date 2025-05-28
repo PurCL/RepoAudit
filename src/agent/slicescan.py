@@ -5,6 +5,7 @@ import copy
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from agent.agent import *
+from agent.cgscan import *
 
 from tstool.analyzer.TS_analyzer import *
 from tstool.analyzer.Cpp_TS_analyzer import *
@@ -38,6 +39,7 @@ class SliceScanAgent(Agent):
         max_neural_workers: int = 1,
         agent_id: int = 0,
         include_test_files: bool = False,
+        cgscan_agent: Optional[CGScanAgent] = None,
     ) -> None:
         self.seed_values = seed_values
         self.is_backward = is_backward
@@ -56,6 +58,7 @@ class SliceScanAgent(Agent):
         self.MAX_QUERY_NUM = 5
 
         self.include_test_files = include_test_files
+        self.cgscan_agent = cgscan_agent
 
         self.lock = threading.Lock()
 
@@ -113,9 +116,15 @@ class SliceScanAgent(Agent):
                 ext_val_type = external_variable["type"]
 
                 if ext_val_type == "Return Value":
-                    caller_functions = self.ts_analyzer.get_all_caller_functions(
-                        function
-                    )
+                    if not self.cgscan_agent:
+                        caller_functions = self.ts_analyzer.get_all_caller_functions(
+                            function
+                        )
+                    else:
+                        caller_functions = self.cgscan_agent.query_caller_functions(
+                            function, is_llm_refined=True
+                        )
+
                     for caller_function in caller_functions:
                         # Forward slicing: Return back to caller function from the current function.
 
@@ -187,46 +196,50 @@ class SliceScanAgent(Agent):
                     index = external_variable["index"]
                     line_number = external_variable["line_number"]
 
-                    callee_functions = [
-                        callee_function
-                        for callee_function in self.ts_analyzer.get_all_callee_functions(
-                            function
-                        )
-                        if callee_function.function_name == callee_name
-                    ]
+                    call_sites = self.ts_analyzer.get_callsites_by_callee_name(
+                        function, callee_function.function_name
+                    )
 
-                    for callee_function in callee_functions:
-                        call_sites = self.ts_analyzer.get_callsites_by_callee_name(
-                            function, callee_function.function_name
-                        )
-
-                        callee_paras = callee_function.paras(ValueLabel.PARA)
-                        callee_variadic_para = list(
-                            callee_function.paras(ValueLabel.VARI_PARA)
+                    for call_site_node in call_sites:
+                        file_content = self.ts_analyzer.code_in_files[
+                            function.file_path
+                        ]
+                        call_site_lower_line_number = (
+                            file_content[: call_site_node.start_byte].count("\n") + 1
                         )
 
-                        for call_site_node in call_sites:
-                            file_content = self.ts_analyzer.code_in_files[
-                                function.file_path
+                        # Ensure the call site line number matches
+                        # XXX (ZZ): This check is crucial to prevent slicing explosion, especially when a caller
+                        # has multiple call sites to the same callee.
+                        # XXX (ZZ): For correctness, this assumes the caller function begins on the first line
+                        # of the code snippet provided to the LLM.
+                        # TODO (ZZ): We need to add line number support for other languages.
+                        # if call_site_lower_line_number != line_number:
+                        if (
+                            line_number is not None
+                            and call_site_lower_line_number
+                            != line_number + function.start_line_number - 1
+                        ):
+                            continue
+
+                        if not self.cgscan_agent:
+                            callee_functions = [
+                                callee_function
+                                for callee_function in self.ts_analyzer.get_all_callee_functions(
+                                    function
+                                )
+                                if callee_function.function_name == callee_name
                             ]
-                            call_site_lower_line_number = (
-                                file_content[: call_site_node.start_byte].count("\n")
-                                + 1
+                        else:
+                            callee_functions = self.cgscan_agent.query_callee_functions(
+                                function, is_llm_refined=True
                             )
 
-                            # Ensure the call site line number matches
-                            # XXX (ZZ): This check is crucial to prevent slicing explosion, especially when a caller
-                            # has multiple call sites to the same callee.
-                            # XXX (ZZ): For correctness, this assumes the caller function begins on the first line
-                            # of the code snippet provided to the LLM.
-                            # TODO (ZZ): We need to add line number support for other languages.
-                            # if call_site_lower_line_number != line_number:
-                            if (
-                                line_number is not None
-                                and call_site_lower_line_number
-                                != line_number + function.start_line_number - 1
-                            ):
-                                continue
+                        for callee_function in callee_functions:
+                            callee_paras = callee_function.paras(ValueLabel.PARA)
+                            callee_variadic_para = list(
+                                callee_function.paras(ValueLabel.VARI_PARA)
+                            )
 
                             new_slice_context = copy.deepcopy(slice_context)
                             context_label = ContextLabel(
@@ -274,9 +287,15 @@ class SliceScanAgent(Agent):
                     # Consider side-effect.
                     # Example: the parameter *p is used in the function: p->f = null;
                     # We need to consider the side-effect of p.
-                    caller_functions = self.ts_analyzer.get_all_caller_functions(
-                        function
-                    )
+                    if not self.cgscan_agent:
+                        caller_functions = self.ts_analyzer.get_all_caller_functions(
+                            function
+                        )
+                    else:
+                        caller_functions = self.cgscan_agent.query_caller_functions(
+                            function, is_llm_refined=True
+                        )
+
                     index = external_variable["index"]
 
                     function_variadic_para = list(function.paras(ValueLabel.VARI_PARA))
@@ -368,36 +387,43 @@ class SliceScanAgent(Agent):
                 ext_val_type = external_variable["type"]
                 if ext_val_type == "Output Value":
                     callee_name = external_variable["callee_name"]
-                    callee_functions = [
-                        function
-                        for function in self.ts_analyzer.get_all_callee_functions(
-                            function
+
+                    call_sites = self.ts_analyzer.get_callsites_by_callee_name(
+                        function, callee_function.function_name
+                    )
+
+                    for call_site_node in call_sites:
+                        file_content = self.ts_analyzer.code_in_files[
+                            function.file_path
+                        ]
+                        call_site_lower_line_number = (
+                            file_content[: call_site_node.start_byte].count("\n") + 1
                         )
-                        if function.function_name == callee_name
-                    ]
-                    for callee_function in callee_functions:
-                        call_sites = self.ts_analyzer.get_callsites_by_callee_name(
-                            function, callee_function.function_name
-                        )
-                        for call_site_node in call_sites:
-                            file_content = self.ts_analyzer.code_in_files[
-                                function.file_path
+
+                        # XXX (Chengpeng): May not be precise enough
+                        # when two files have the same function calls at the same line number
+                        # although such cases might be quite rare
+                        # As a call site node can not offer the file name info, we could not resolve this issue currently.
+                        if (
+                            call_site_lower_line_number
+                            != external_variable["line_number"]
+                        ):
+                            continue
+
+                        if not self.cgscan_agent:
+                            callee_functions = [
+                                callee_function
+                                for callee_function in self.ts_analyzer.get_all_callee_functions(
+                                    function
+                                )
+                                if callee_function.function_name == callee_name
                             ]
-                            call_site_lower_line_number = (
-                                file_content[: call_site_node.start_byte].count("\n")
-                                + 1
+                        else:
+                            callee_functions = self.cgscan_agent.query_callee_functions(
+                                function, is_llm_refined=True
                             )
 
-                            # XXX (Chengpeng): May not be precise enough
-                            # when two files have the same function calls at the same line number
-                            # although such cases might be quite rare
-                            # As a call site node can not offer the file name info, we could not resolve this issue currently.
-                            if (
-                                call_site_lower_line_number
-                                != external_variable["line_number"]
-                            ):
-                                continue
-
+                        for callee_function in callee_functions:
                             new_slice_context = copy.deepcopy(slice_context)
                             context_label = ContextLabel(
                                 self.ts_analyzer.functionToFile[function.function_id],
@@ -425,9 +451,15 @@ class SliceScanAgent(Agent):
 
                 elif ext_val_type == "Parameter":
                     index = external_variable["index"]
-                    caller_functions = self.ts_analyzer.get_all_caller_functions(
-                        function
-                    )
+                    if not self.cgscan_agent:
+                        caller_functions = self.ts_analyzer.get_all_caller_functions(
+                            function
+                        )
+                    else:
+                        caller_functions = self.cgscan_agent.query_caller_functions(
+                            function, is_llm_refined=True
+                        )
+
                     for caller_function in caller_functions:
                         # Backward slicing: Trace back to the caller function from the current function
                         call_site_nodes = self.ts_analyzer.get_callsites_by_callee_name(
@@ -496,31 +528,52 @@ class SliceScanAgent(Agent):
                     # Example: the argument *p used at a call site foo(p) is further utilized, i.e., x = p->f;
                     # We need to consider the side-effect of the callee foo.
                     callee_name = external_variable["callee_name"]
-                    callee_functions = [
-                        function
-                        for function in self.ts_analyzer.get_all_callee_functions(
-                            function
-                        )
-                        if function.function_name == callee_name
-                    ]
                     index = external_variable["index"]
-                    for callee_function in callee_functions:
-                        # Backward slicing: Trace back to the callee function from the current function
-                        call_sites = self.ts_analyzer.get_callsites_by_callee_name(
-                            function, callee_function.function_name
-                        )
-                        callee_paras = callee_function.paras(ValueLabel.PARA)
-                        callee_variadic_para = list(
-                            callee_function.paras(ValueLabel.VARI_PARA)
+                    line_number = external_variable["line_number"]
+
+                    call_sites = self.ts_analyzer.get_callsites_by_callee_name(
+                        function, callee_function.function_name
+                    )
+
+                    for call_site_node in call_sites:
+                        file_content = self.ts_analyzer.code_in_files[
+                            function.file_path
+                        ]
+                        call_site_lower_line_number = (
+                            file_content[: call_site_node.start_byte].count("\n") + 1
                         )
 
-                        for call_site_node in call_sites:
-                            file_content = self.ts_analyzer.code_in_files[
-                                function.file_path
+                        # Ensure the call site line number matches
+                        # XXX (ZZ): This check is crucial to prevent slicing explosion, especially when a caller
+                        # has multiple call sites to the same callee.
+                        # XXX (ZZ): For correctness, this assumes the caller function begins on the first line
+                        # of the code snippet provided to the LLM.
+                        # TODO (ZZ): We need to add line number support for other languages.
+                        # if call_site_lower_line_number != line_number:
+                        if (
+                            line_number is not None
+                            and call_site_lower_line_number
+                            != line_number + function.start_line_number - 1
+                        ):
+                            continue
+
+                        if not self.cgscan_agent:
+                            callee_functions = [
+                                callee_function
+                                for callee_function in self.ts_analyzer.get_all_callee_functions(
+                                    function
+                                )
+                                if callee_function.function_name == callee_name
                             ]
-                            call_site_lower_line_number = (
-                                file_content[: call_site_node.start_byte].count("\n")
-                                + 1
+                        else:
+                            callee_functions = self.cgscan_agent.query_callee_functions(
+                                function, is_llm_refined=True
+                            )
+
+                        for callee_function in callee_functions:
+                            callee_paras = callee_function.paras(ValueLabel.PARA)
+                            callee_variadic_para = list(
+                                callee_function.paras(ValueLabel.VARI_PARA)
                             )
 
                             new_slice_context = copy.deepcopy(slice_context)
