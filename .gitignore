@@ -178,3 +178,7 @@ testcases/**
 
 # java class files in regression testing
 src/test/regression_testing/test_files/java/**/*.class
+
+# files used for regression testing script
+src/test/regression_testing/regression_results.md
+src/test/regression_testing/dif.txt
