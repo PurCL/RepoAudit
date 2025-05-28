@@ -1,0 +1,30 @@
+False Negatives:
+
+Bug SRC Info: test01.py-3
+Bug Sink Info: ['print(value.upper())']
+
+
+Bug SRC Info: test02.py-5
+Bug Sink Info: ['return data[0]']
+
+
+Bug SRC Info: test03.py-21
+Bug Sink Info: ['return self.value.attr']
+
+
+Bug SRC Info: test04.py-7
+Bug Sink Info: ['next_user = users[idx + 1]']
+
+
+Bug SRC Info: test05.py-5
+Bug Sink Info: ['phone_number_no_area_code = phone_number[:3]']
+
+
+Bug SRC Info: test06.py-5
+Bug Sink Info: ['username = email.split("@")[0]']
+
+
+Bug SRC Info: test07.py-5
+Bug Sink Info: ['first_num = sorted_list[0]']
+
+
