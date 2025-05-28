@@ -1,9 +1,9 @@
 {
-    "test01.py-3": [{"print(value.upper())": "test01.py-9"}],
-    "test02.py-5": [{"return data[0]": "test02.py-2"}],
-    "test03.py-21": [{"return self.value.attr": "test03.py-9"}],
-    "test04.py-7": [{"next_user = users[idx + 1]": "test04.py-10"}],
-    "test05.py-5": [{"phone_number_no_area_code = phone_number[:3]": "test05.py-10"}],
-    "test06.py-5": [{"username = email.split(\"@\")[0]": "test06.py-10"}],
-    "test07.py-5": [{"first_num = sorted_list[0]": "test07.py-10"}]
+    "test01.py-2": [{"return user_obj.get(\"name\")": "test01.py-7"}],
+    "test02.py-2": [{"return my_list[0]": "test02.py-7"}],
+    "test03.py-3": [{"return config.get(\"database_url\")": "test03.py-9"}],
+    "test04.py-2": [{"return instance[0].execute()": "test04.py-7"}],
+    "test05.py-2": [{"return h.process(\"data\")": "test05.py-7"}],
+    "test06.py-3": [{"return collection[\"key\"]": "test06.py-9"}],
+    "test07.py-2": [{"return r.close()": "test07.py-7"}]
 }

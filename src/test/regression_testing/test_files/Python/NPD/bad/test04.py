@@ -1,10 +1,13 @@
-users = ['Alice', 'Bob', 'Charlie']
+def test4_create_object():
+    obj = [None, None]
+    return obj
 
-def test4_find_user_index(name):
-    try:
-        return users.index(name)
-    except ValueError:
-        return None
+def test4_call_method():
+    instance = test4_create_object()
+    return instance[0].execute()
 
-idx = test4_find_user_index('Dave')
-next_user = users[idx + 1]
+def test4_run_task():
+    result = test4_call_method()
+    return result
+
+test4_run_task()

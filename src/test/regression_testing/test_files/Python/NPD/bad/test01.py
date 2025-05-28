@@ -1,12 +1,13 @@
-def test1_foo(value: bool):
-    if value == True:
-        return None
-    else:
-        return "This is a string"
+def test1_get_user_data():
+    user = None
+    return user
+
+def test1_process_user():
+    user_obj = test1_get_user_data()
+    return user_obj.get("name")
 
 def test1_main():
-    value = test1_foo(True)
-    print(value.upper())
+    result = test1_process_user()
+    print(f"User name: {result}")
 
-if __name__ == "__main__":
-    test1_main()
+test1_main()

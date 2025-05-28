@@ -1,22 +1,15 @@
-import attrs
+def test3_fetch_config(flag):
+    if flag == True:
+        return None
+    else:
+        return {"database_url": "url.com"}
 
-class Test3MyObject:
+def test3_get_setting():
+    config = test3_fetch_config(True)
+    return config.get("database_url")
 
-    def __init__(self, value):
-        self.value = value
+def test3_setup_database():
+    db_url = test3_get_setting()
+    print(f"Connecting to: {db_url}")
 
-    def get_value(self):
-        return self.value.attr
-
-def test3_inner_3(obj: Test3MyObject):
-    return obj.get_value()
-
-def test3_inner_2(obj: Test3MyObject):
-    return test3_inner_3(obj)
-
-def test3_inner_1(obj: Test3MyObject):
-    return test3_inner_2(obj)
-
-if __name__ == "__main__":
-    obj = Test3MyObject(None)
-    print(test3_inner_1(obj))
+test3_setup_database()

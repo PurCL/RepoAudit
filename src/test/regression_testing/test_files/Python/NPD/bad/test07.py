@@ -1,14 +1,14 @@
-def test7_get_list():
-    return [3, 1, 4, 5]
+def test7_get_resource():
+    resource = None
+    return resource
 
-def test7_sort_list(lis: list):
-    return lis.sort()
+def test7_use_resource():
+    r = test7_get_resource()
+    return r.close()
 
-def test7_main():
-    li = test7_get_list()
-    sorted_list = test7_sort_list(li)
-    first_num = sorted_list[0]
-    print(first_num)
+def test7_cleanup_resources():
+    test7_use_resource()
+    print("Cleanup complete")
 
-test7_main()
+test7_cleanup_resources()
 

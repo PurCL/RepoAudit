@@ -1,14 +1,14 @@
-def test5_get_data():
-    return {"Name": "Alice", "Age": 30}
+def test5_get_handler():
+    handler = None
+    return handler
 
-def test5_get_phone(data: dict):
-    return data.get("Phone Number")
+def test5_process_data():
+    h = test5_get_handler()
+    return h.process("data")
 
-def test5_main():
-    data = test5_get_data()
-    phone_number = test5_get_phone(data)
-    phone_number_no_area_code = phone_number[:3] # cut off first 3 chars
-    print(phone_number_no_area_code)
+def test5_execute():
+    result = test5_process_data()
+    print(result)
 
 if __name__ == "__main__":
-    test5_main()
+    test5_execute()
