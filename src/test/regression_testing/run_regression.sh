@@ -52,9 +52,9 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-echo "Language $LANGUAGE"
-echo "Bug type $BUG_TYPE"
-echo "Model $MODEL"
+#echo "Language $LANGUAGE"
+#echo "Bug type $BUG_TYPE"
+#echo "Model $MODEL"
 
 # Default run parameters for running analyzer
 
@@ -83,15 +83,24 @@ for language in "${LANGUAGES[@]}"; do
                 cd ../.. # this is so we can run run_repoaudit.sh
                 output_file=""
                 if [ -d $project_path ]; then # run the analyzer and get the output file
-                    bash_output=$(bash ./run_repoaudit.sh dfbscan --language $language --project-path $project_path --bug-type $bug --model-name $MODEL --call-depth $CALL_DEPTH --is-reachable) 
+                    echo "Running dfbscan on $LANGUAGE $BUG_TYPE..."
+                    bash_output=$(bash ./run_repoaudit.sh dfbscan --language $language --project-path $project_path --bug-type $bug --model-name $MODEL --call-depth $CALL_DEPTH --is-reachable 2>/dev/null)
                     output_file=$(echo $bash_output | grep -o '[^[:space:]]*detect_info\.json') 
+                    echo "Comparing file $output_file"
                 else
                     echo "WARNING: The test suite for $language $bug is not implemented"
                     continue
                 fi
 
+                
+                
+
                 # run it into the difference checker
                 cd "test/regression_testing"
+
+
+                # write a header for this type to the difference file
+                echo "Language: $LANGUAGE; Bug Type: $BUG_TYPE" >> dif.txt
                 expected_path=$(realpath "./test_files/$language/$bug/expected.json")
                 if [ -f $expected_path ]; then
                     python compare_outputs.py --expected $expected_path --output $output_file --differences dif.txt --bug-type $bug
@@ -109,4 +118,4 @@ done
 
 
 # Compile all into MD
-
+bash format_differences.sh dif.txt regression_results.md

@@ -28,7 +28,7 @@ if os.path.exists(output_file):
         output_data = json.load(file)
 
 false_positives = []
-false_negatives = []    
+false_negatives = []
 
 # iterate through the output
 
@@ -54,7 +54,8 @@ for key in output_data.keys():
 
     found = False
     for sink_line in expected_data[bug_name]:
-        if sink_line in data["relevant_functions"][2][-1]: # last line in relevant functions
+        sink = list(sink_line.keys())[0]
+        if sink in data["relevant_functions"][2][-1]: # last line in relevant functions
             found = True
             expected_data[bug_name].remove(sink_line) # so we don't need to find it again
             break
@@ -85,12 +86,20 @@ else:
     if len(false_negatives) > 0:
         lines.append("False Negatives:\n")
     for bug in false_negatives:
-        lines.append("Bug SRC Info: " + str(list(bug.keys())[0]))
-        lines.append("Bug Sink Info: " + str(bug[str(list(bug.keys())[0])]))
+        key = list(bug.keys())[0]
+        lines.append("Bug SRC Info: " + str(key))
+        for sink in bug[key]:
+            sink_key = str(list(sink.keys())[0])
+            info_list = sink[sink_key].split("-")
+            file_name = "".join(info_list[n] + "-" for n in range(len(info_list) - 1))
+            file_name = file_name[:-1]
+            lines.append("Bug Sink File: " + file_name)
+            lines.append("Bug Sink Line Number: " + info_list[-1])
+            lines.append("Bug Sink Code: " + sink_key)
         lines.append("\n")
 
 with open(differences, "a+") as file:
-    file.writelines([s + '\n' for s in lines]) #CHECK
+    file.writelines([s + '\n' for s in lines]) 
 
 
     
