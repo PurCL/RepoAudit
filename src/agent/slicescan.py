@@ -201,7 +201,7 @@ class SliceScanAgent(Agent):
                     line_number = external_variable["line_number"]
 
                     call_sites = self.ts_analyzer.get_callsites_by_callee_name(
-                        function, callee_function.function_name
+                        function, callee_name
                     )
 
                     for call_site_node in call_sites:
@@ -236,7 +236,7 @@ class SliceScanAgent(Agent):
                             ]
                         else:
                             callee_functions = self.cgscan_agent.query_callee_functions(
-                                function, is_llm_refined=True
+                                function, call_site_node, is_llm_refined=True
                             )
 
                         for callee_function in callee_functions:
@@ -585,7 +585,7 @@ class SliceScanAgent(Agent):
                             ]
                         else:
                             callee_functions = self.cgscan_agent.query_callee_functions(
-                                function, is_llm_refined=True
+                                function, call_site_node, is_llm_refined=True
                             )
 
                             # XXX (Chengpeng): May not be precise enough
@@ -824,7 +824,7 @@ class SliceScanAgent(Agent):
                             ]
                         else:
                             callee_functions = self.cgscan_agent.query_callee_functions(
-                                function, is_llm_refined=True
+                                function, call_site_node, is_llm_refined=True
                             )
 
                         for callee_function in callee_functions:

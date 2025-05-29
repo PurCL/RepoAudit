@@ -130,9 +130,12 @@ class CGScanAgent(Agent):
         if not is_llm_refined:
             return callee_candidates
         else:
-            return self._process_call_site_in_caller_function(
+            callee_ids = self._process_call_site_in_caller_function(
                 caller_function, call_site_start_line, callee_candidates
             )
+            return [
+                self.ts_analyzer.function_env[callee_id] for callee_id in callee_ids
+            ]
 
     def query_caller_functions(
         self, callee_function: Function, is_llm_refined: bool = False
@@ -269,7 +272,11 @@ class CGScanAgent(Agent):
                 f"Error in _process_call_site_in_caller_function: {str(e)}"
             )
             raise
-        return caller_callee_edge_analyzer_output.callee_ids
+        return (
+            caller_callee_edge_analyzer_output.callee_ids
+            if caller_callee_edge_analyzer_output
+            else []
+        )
 
     def _process_callee_function(
         self,
@@ -297,7 +304,11 @@ class CGScanAgent(Agent):
         except Exception as e:
             self.logger.print_log(f"Error in _process_callee_function: {str(e)}")
             raise
-        return callee_caller_analyzer_output.caller_ids_to_call_site_node_ids
+        return (
+            callee_caller_analyzer_output.caller_ids_to_call_site_node_ids
+            if callee_caller_analyzer_output
+            else {}
+        )
 
     def get_agent_state(self) -> CallGraphScanState:
         return self.state
