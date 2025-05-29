@@ -1,0 +1,7 @@
+{
+    "Test01.cc-4": [{"*ptr = 42;": "Test01.cc-8"}],
+    "Test02.cc-7": [{"*ptr = 42;": "Test02.cc-12"}],
+    "Test03.cc-9": [{"*(c->data) = 42;": "Test03.cc-14"}],
+    "Test04.cc-4": [{"*ptr = 42;": "Test04.cc-12"}],
+    "Test05.cc-7": [{"*ptr = 42;": "Test05.cc-18"}]
+}
