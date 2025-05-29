@@ -1,19 +1,21 @@
 import argparse
 import glob
 import sys
-from agent.dfbscan import DFBScanAgent
+
 from agent.metascan import MetaScanAgent
+from agent.cgscan import CGScanAgent
+from agent.dfbscan import DFBScanAgent
 from agent.bugscan import BugScanAgent
 from agent.samplescan import SampleScanAgent
 from agent.debugscan import DebugScanAgent
 
-from errors import RAValueError, RepoAuditError
 from tstool.analyzer.TS_analyzer import *
 from tstool.analyzer.Cpp_TS_analyzer import *
 from tstool.analyzer.Go_TS_analyzer import *
 from tstool.analyzer.Java_TS_analyzer import *
 from tstool.analyzer.Python_TS_analyzer import *
 
+from errors import RAValueError, RepoAuditError
 from typing import List
 
 
@@ -88,6 +90,7 @@ class RepoAudit:
         self.is_reachable = args.is_reachable
         self.is_backward = args.is_backward
         self.is_inlined = args.is_inlined
+        self.cg_refine = args.cg_refine
         self.is_iterative = args.is_iterative
 
         self.include_test_files = args.include_test_files
@@ -125,11 +128,19 @@ class RepoAudit:
                 self.code_in_files, self.language, self.max_symbolic_workers
             )
 
-        # MetaScanAgent is used to wrap the result of ts_analyzer and dump it to a json file
+        # Initialize the universal agents
         self.metascan_agent = MetaScanAgent(
             self.project_path, self.language, self.ts_analyzer
         )
         self.metascan_agent.start_scan()
+        self.cgscan_agent = CGScanAgent(
+            self.project_path,
+            self.language,
+            self.metascan_agent,
+            self.model_name,
+            self.temperature,
+            self.max_neural_workers,
+        )
         return
 
     def start_repo_auditing(self) -> None:
@@ -147,6 +158,7 @@ class RepoAudit:
                     self.call_depth,
                     self.is_inlined,
                     self.max_neural_workers,
+                    cgscan_agent=self.cgscan_agent if self.cg_refine else None,
                     include_test_files=self.include_test_files,
                 )
                 self.bugscan_agent.start_scan()
@@ -320,6 +332,12 @@ def configure_args():
         "--is-inlined",
         action="store_true",
         help="Flag to enable inlining in the bugscan agent",
+    )
+
+    parser.add_argument(
+        "--cg-refine",
+        action="store_true",
+        help="Flag to refine the call graph with LLM",
     )
 
     parser.add_argument(

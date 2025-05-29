@@ -40,10 +40,10 @@ class Function:
         self.parse_tree_root_node = (
             function_node  # root node of the parse tree of the current function
         )
-        self.function_call_site_nodes: List[Node] = (
-            []
+        self.function_call_site_nodes: Dict[int, Node] = (
+            {}
         )  # call site info of user-defined functions
-        self.api_call_site_nodes: List[Node] = []  # call site info of library APIs
+        self.api_call_site_nodes: Dict[int, Node] = {}  # call site info of library APIs
 
         ## Results of AST node type analysis
         # XXX (ZZ): Parameters may vary in complexity (e.g., regular, variadic, or object-based).

@@ -51,6 +51,7 @@ class BugScanAgent(Agent):
         is_inlined=False,
         max_neural_workers=1,
         agent_id: int = 0,
+        cgscan_agent: Optional[CGScanAgent] = None,
         include_test_files: bool = False,
     ) -> None:
         self.project_path = project_path
@@ -63,7 +64,7 @@ class BugScanAgent(Agent):
 
         self.call_depth = call_depth
         self.is_inlined = is_inlined
-
+        self.cgscan_agent = cgscan_agent
         self.max_neural_workers = max_neural_workers
         self.MAX_QUERY_NUM = 5
 
@@ -90,7 +91,7 @@ class BugScanAgent(Agent):
             self.logger,
         )
         self.slice_inliner = SliceInliner(
-            "gpt-4.1-nano",
+            self.model_name,
             self.temperature,
             self.language,
             self.MAX_QUERY_NUM,
@@ -108,7 +109,7 @@ class BugScanAgent(Agent):
         self.bug_type = self.audit_request_output.bug_type
         self.slice_detector = SliceBugDetector(
             self.bug_type,
-            "gpt-4.1-mini",
+            self.model_name,
             self.temperature,
             self.language,
             self.MAX_QUERY_NUM,
@@ -367,6 +368,7 @@ class BugScanAgent(Agent):
                     self.temperature,
                     self.call_depth,
                     self.max_neural_workers,
+                    cgscan_agent=self.cgscan_agent,
                 )
                 self.slice_scan_agents.append(slice_scan_agent)
 
@@ -551,6 +553,7 @@ class BugScanAgent(Agent):
             self.call_depth,
             self.max_neural_workers,
             seed_index,
+            cgscan_agent=self.cgscan_agent,
         )
         self.slice_scan_agents.append(slice_scan_agent)
 
@@ -627,7 +630,6 @@ class BugScanAgent(Agent):
                     self.res_dir_path + "/detect_info.json", "w"
                 ) as bug_info_file:
                     json.dump(bug_report_dict, bug_info_file, indent=4)
-
         return
 
     def __process_slice_inliner_input(

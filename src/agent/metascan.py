@@ -75,7 +75,8 @@ class MetaScanAgent(Agent):
             ]
 
             function_meta_data["call_sites"] = []
-            for call_site in function.function_call_site_nodes:
+            for call_site_id in function.function_call_site_nodes:
+                call_site = function.function_call_site_nodes[call_site_id]
                 function_call_cnt += 1
                 call_site_info: Dict[str, Any] = {}
                 file_content = self.ts_analyzer.fileContentDic[function.file_path]
@@ -100,6 +101,7 @@ class MetaScanAgent(Agent):
                 call_site_info["call_site_start_line"] = (
                     file_content[: call_site.start_byte].count("\n") + 1
                 )
+                call_site_info["call_site_id"] = call_site_id
                 function_meta_data["call_sites"].append(call_site_info)
 
             # function call

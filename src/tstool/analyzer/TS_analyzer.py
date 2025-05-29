@@ -382,8 +382,6 @@ class TSAnalyzer(ABC):
         all_call_sites = find_nodes_by_type(
             current_function.parse_tree_root_node, call_node_type
         )
-        function_call_sites = []
-        api_call_sites = []
 
         for call_site_node in all_call_sites:
             callee_ids = self.get_callee_function_ids_at_callsite(
@@ -401,7 +399,9 @@ class TSAnalyzer(ABC):
                         if callee_id not in self.function_callee_caller_map:
                             self.function_callee_caller_map[callee_id] = set([])
                         self.function_callee_caller_map[callee_id].add(caller_id)
-                function_call_sites.append(call_site_node)
+                current_function.function_call_site_nodes[
+                    len(current_function.function_call_site_nodes)
+                ] = call_site_node
             else:
                 api_id: Optional[int] = None
                 arguments = self.get_arguments_at_callsite(
@@ -435,10 +435,9 @@ class TSAnalyzer(ABC):
                     if api_id not in self.api_callee_function_caller_map:
                         self.api_callee_function_caller_map[api_id] = set([])
                     self.api_callee_function_caller_map[api_id].add(caller_id)
-                api_call_sites.append(call_site_node)
-
-        current_function.function_call_site_nodes = function_call_sites
-        current_function.api_call_site_nodes = api_call_sites
+                current_function.api_call_site_nodes[
+                    len(current_function.api_call_site_nodes)
+                ] = call_site_node
         return
 
     # Helper functions for callers

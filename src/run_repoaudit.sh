@@ -16,7 +16,8 @@ print_usage() {
     echo "  --bug-type <type>          Required for dfbscan"
     echo "  --is-reachable             Required for dfbscan"
     echo "  --is-iterative             Required for bugscan"
-    echo "  --is-inlined               Optional for bugscan"
+    echo "  --is-inlined               Optional for bugscan (default: false)"
+    echo "  --cg-refine                Optional for bugscan (default: false)"
     echo
     echo "Optional Options (with defaults):"
     echo "  --model-name <model>          Model to use (default: gpt-4.1-nano)"
@@ -101,6 +102,10 @@ while [[ $# -gt 0 ]]; do
             IS_INLINED="--is-inlined"
             shift
             ;;
+        --cg-refine)
+            CG_REFINE="--cg-refine"
+            shift
+            ;;
         --include-test-files)
             INCLUDE_TEST_FILES="--include-test-files"
             shift
@@ -164,6 +169,7 @@ case "$SCAN_TYPE" in
             --max-symbolic-workers "$MAX_SYMBOLIC_WORKERS" \
             $IS_ITERATIVE \
             $IS_INLINED \
+            $CG_REFINE \
             $INCLUDE_TEST_FILES
         ;;
     dfbscan)

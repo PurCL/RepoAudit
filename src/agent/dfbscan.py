@@ -433,7 +433,10 @@ class DFBScanAgent(Agent):
                     ]
 
                     call_statements = []
-                    for call_site_node in start_function.function_call_site_nodes:
+                    for call_site_node_id in start_function.function_call_site_nodes:
+                        call_site_node = start_function.function_call_site_nodes[
+                            call_site_node_id
+                        ]
                         file_content = self.ts_analyzer.code_in_files[
                             start_function.file_path
                         ]
@@ -613,7 +616,10 @@ class DFBScanAgent(Agent):
             ]
 
             call_statements = []
-            for call_site_node in start_function.function_call_site_nodes:
+            for call_site_node_id in start_function.function_call_site_nodes:
+                call_site_node = start_function.function_call_site_nodes[
+                    call_site_node_id
+                ]
                 file_content = self.ts_analyzer.code_in_files[start_function.file_path]
                 call_site_line_number = (
                     file_content[: call_site_node.start_byte].count("\n") + 1
