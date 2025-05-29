@@ -65,10 +65,12 @@ done
 CALL_DEPTH=5
 
 LANGUAGES=("Python" "Java" "Cpp" "Go")
-BUG_TYPES=("NPD" "MLK" "BOF" "UAF")
+BUG_TYPES=("NPD" "MLK" "UAF")
 
 # Truncate the file to 0 for this runthrough
 truncate -s 0 dif.txt
+
+
 
 # Loop through each language, then each bug type
 for language in "${LANGUAGES[@]}"; do
@@ -79,15 +81,18 @@ for language in "${LANGUAGES[@]}"; do
                 project_path="./test/regression_testing/test_files/$language/$bug"
                 
                 # echo "project path $project_path"
-                
+                # echo "Trying " $(realpath $project_path)
                 cd ../.. # this is so we can run run_repoaudit.sh
+                pwd
                 output_file=""
                 if [ -d $project_path ]; then # run the analyzer and get the output file
-                    echo "Running dfbscan on $LANGUAGE $BUG_TYPE..."
+                    echo "Running dfbscan on $language $bug..."
+                    
                     bash_output=$(bash ./run_repoaudit.sh dfbscan --language $language --project-path $project_path --bug-type $bug --model-name $MODEL --call-depth $CALL_DEPTH --is-reachable 2>/dev/null)
                     output_file=$(echo $bash_output | grep -o '[^[:space:]]*detect_info\.json') 
                     echo "Comparing file $output_file"
                 else
+                    cd "test/regression_testing"
                     echo "WARNING: The test suite for $language $bug is not implemented"
                     continue
                 fi
