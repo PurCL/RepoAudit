@@ -105,7 +105,7 @@ for language in "${LANGUAGES[@]}"; do
 
 
                 # write a header for this type to the difference file
-                echo "Language: $LANGUAGE; Bug Type: $BUG_TYPE" >> dif.txt
+                echo "Language: $language; Bug Type: $bug" >> dif.txt
                 expected_path=$(realpath "./test_files/$language/$bug/expected.json")
                 if [ -f $expected_path ]; then
                     python compare_outputs.py --expected $expected_path --output $output_file --differences dif.txt --bug-type $bug
