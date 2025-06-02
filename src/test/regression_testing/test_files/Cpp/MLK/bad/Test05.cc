@@ -38,6 +38,7 @@ void test5_conditionalDelete(Resource* res) {
 
 void test5_processResource(int id) {
     Resource *res;
+    test5_initResource(id, res);
     test5_conditionalDelete(res);
 }
 

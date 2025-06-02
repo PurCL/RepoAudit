@@ -38,6 +38,7 @@ void mlk_case_05_conditionalDelete(Resource* res) {
 
 void mlk_case_05_processResource(int id) {
     Resource *res;
+    mlk_case_05_initResource(id, res);
     mlk_case_05_conditionalDelete(res);
 }
 
