@@ -30,6 +30,9 @@ if os.path.exists(output_file):
 false_positives = []
 false_negatives = []
 
+true_p_num = 0
+total_p = len(list(expected_data.keys()))
+
 # iterate through the output
 
 for key in output_data.keys():
@@ -58,6 +61,7 @@ for key in output_data.keys():
         if sink in data["relevant_functions"][2][-1]: # last line in relevant functions
             found = True
             expected_data[bug_name].remove(sink_line) # so we don't need to find it again
+            true_p_num += 1 # we found one!
             break
         
     if not found:
@@ -71,8 +75,27 @@ for bug in expected_data.keys():
 
 
 lines=[]
+false_p_num = len(false_positives)
+false_n_num = len(false_negatives)
+try:
+    precision = true_p_num / (true_p_num + false_p_num)
+except:
+    if (true_p_num == 0):
+        print("No true positives found. Inspect bug report.")
+    precision = 0
 
-if len(false_negatives) == 0 and len(false_positives) == 0:
+recall = true_p_num / (total_p)
+f1 = precision * recall
+
+lines.append(f"True Positives: {true_p_num}")
+lines.append(f"False Positives: {false_p_num}")
+lines.append(f"Total Expected Positives: {total_p}")
+
+lines.append(f"Precision: {precision}")
+lines.append(f"Recall: {recall}")
+lines.append(f"F1 Score: {f1}")
+
+if false_p_num == 0 and false_n_num == 0:
     lines.append("Every bug was properly found here!")
 else:
     if len(false_positives) > 0:

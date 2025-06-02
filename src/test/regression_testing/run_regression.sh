@@ -62,7 +62,7 @@ done
 # --model-name <model>
 # --call-depth <depth>
 
-CALL_DEPTH=5
+CALL_DEPTH=3
 
 LANGUAGES=("Python" "Java" "Cpp" "Go")
 BUG_TYPES=("NPD" "MLK" "UAF")
