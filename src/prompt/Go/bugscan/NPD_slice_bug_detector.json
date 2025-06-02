@@ -1,10 +1,10 @@
 {
   "model_role_name": "Go NPD Detector",
   "system_role": "You are an expert Go developer specializing in detecting `nil` pointer dereference bugs.",
-  "task": "Given a specific pointer access in Go code, analyze the surrounding context and determine whether there exists ANY EXECUTION PATH that will potential cause a `nil` panic. Only report a bug if such a path exists.",
+  "task": "Given a specific pointer access in Go code, analyze the surrounding context and determine whether there exists ANY EXECUTION PATH that will potential cause a `nil` panic due to a given specific nil value. Only report a bug if such a path exists.",
   "analysis_rules": [
     "You can follow this structured three-step analysis process to determine if a `nil` panic is going to occur:",
-    "1. Identify the Initial Nil Value",
+    "1. Identify the Initial Nil Value at a sepecific program line.",
     "   Determine whether the pointer is initially set to `nil`. This includes uninitialized local variables or explicit assignments like `ptr := nil`.",
     "   DO NOT treat function parameters as `nil` by default unless they are explicitly set to `nil` within the function.",
     "2. Trace Propagation Paths",
@@ -34,10 +34,10 @@
     "13.   data *int",
     "14. }",
     "```",
-    "- Will this function cause a Nil Deference Panic?",
+    "- Will the potential nil value of the variable `ptr` at line 2 cause a Nil Deference Panic?",
     "System:",
     "Explanation:",
-    "Step 1: Identify the nil value",
+    "Step 1: Identify the nil value at the line 2.",
     "        The pointer `ptr` is a candidate for being `nil` because it is declared but not initialized.",
     "Step 2: Extract propagation paths",
     "        If the variable `condition` is equal to `0`, `ptr` is initialized with a new `Data` struct.",
@@ -49,7 +49,7 @@
     "Answer: No",
     "Explanation: In the execution path where `condition != 0`, the pointer `ptr` remains uninitialized and retains its default `nil` value. Despite this, the code proceeds to dereference `ptr` on line 6 (`ptr.data = ...`) and line 7 (`if ptr.data == nil`). This leads to a guaranteed `nil` panic on that path. Since a `nil` panic is CERTAIN in at least one execution path, this constitutes a definite bug."
   ],
-  "question_template": "- Will this function cause a Nil Deference Panic?",
+  "question_template": "- Will the code snippet cause a Nil Deference Panic due to the potential nil value of <SEED_DESCRIPTION>?",
   "answer_format": [
     "1. Explanation: Provide your reasoning.",
     "2. Answer: 'Yes' or 'No'.",
@@ -60,7 +60,7 @@
     "Explanation: {Description of the bug propagation path}"
   ],
   "meta_prompts_with_inlining": [
-    "Now I will give you a function containing a potentially `nil` value:\n```\n<FUNCTION>\n``` \n\n",
+    "Now I will give you a function:\n```\n<FUNCTION>\n``` \n\n The potential nil value is <SEED_DESCRIPTION>.",
     "Please answer the following question:\n<QUESTION>\n\n",
     "Your answer should follow the following format: \n<ANSWER>\n",
     "Guidelines:\n",
@@ -72,7 +72,7 @@
     "- Only report a nil panic bug if you can explicitly derive the bug propagation path from the provided function content. If you cannot determine the presence of a bug, answer 'No'."
   ],
   "meta_prompts_without_inlining": [
-    "Now I will give you a function containing a potentially `nil` value:\n```\n<FUNCTION>\n``` \n\n",
+    "Now I will give you a code snippet:\n```\n<CODE_SNIPPET>\n``` \n\n The potential nil value is <SEED_DESCRIPTION>.",
     "Here is the call tree of the above functions:\n```\n<FUNCTION_CALL_TREE>\n``` \n\n",
     "Please answer the following question:\n<QUESTION>\n\n",
     "Your answer should follow the following format: \n<ANSWER>\n",

@@ -99,8 +99,8 @@ class SliceBugDetector(LLMTool):
             "<ANSWER>", "\n".join(prompt_template_dict["answer_format"])
         )
         prompt = prompt.replace("<QUESTION>", prompt_template_dict["question_template"])
-        prompt = prompt.replace("<FUNCTION>", input.code_str)
-        prompt = prompt.replace("<SEED_NAME>", input.buggy_construct_str)
+        prompt = prompt.replace("<CODE_SNIPPET>", input.code_str)
+        prompt = prompt.replace("<SEED_DESCRIPTION>", input.buggy_construct_str)
         prompt = prompt.replace("<FUNCTION_CALL_TREE>", input.call_tree)
         return prompt
 

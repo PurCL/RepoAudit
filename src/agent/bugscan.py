@@ -394,7 +394,7 @@ class BugScanAgent(Agent):
 
                         # (Key Step III): Detect the bugs upon the inlined slices
                         intra_detector_input = SliceBugDetectorInput(
-                            seed_value.name,
+                            seed_value.description(seed_function),
                             slice_inliner_output.inlined_snippet,
                             slice_inliner_input.tree_str,
                             True,
@@ -435,7 +435,10 @@ class BugScanAgent(Agent):
                         code_str += slice + "\n"
 
                     inter_detector_input = SliceBugDetectorInput(
-                        seed_value.name, code_str, call_tree_str, False
+                        seed_value.description(seed_function),
+                        code_str,
+                        call_tree_str,
+                        False,
                     )
                     inter_detector_output = self.slice_detector.invoke(
                         inter_detector_input, SliceBugDetectorOutput
@@ -572,6 +575,7 @@ class BugScanAgent(Agent):
                 futures = [
                     executor.submit(
                         self.__process_slice_inliner_input,
+                        seed_function,
                         slice_inliner_input,
                         seed_value,
                     )
@@ -594,7 +598,7 @@ class BugScanAgent(Agent):
                 code_str += slice + "\n"
 
             inter_detector_input = SliceBugDetectorInput(
-                seed_value.name, code_str, call_tree_str, False
+                seed_value.description(seed_function), code_str, call_tree_str, False
             )
             inter_detector_output = self.slice_detector.invoke(
                 inter_detector_input, SliceBugDetectorOutput
@@ -633,7 +637,10 @@ class BugScanAgent(Agent):
         return
 
     def __process_slice_inliner_input(
-        self, slice_inliner_input: SliceInlinerInput, seed_value: Value
+        self,
+        seed_function: Function,
+        slice_inliner_input: SliceInlinerInput,
+        seed_value: Value,
     ) -> None:
         # Inline the slices.
         slice_inliner_output = self.slice_inliner.invoke(
@@ -646,7 +653,7 @@ class BugScanAgent(Agent):
 
         # Detect bugs upon the inlined slices.
         intra_detector_input = SliceBugDetectorInput(
-            seed_value.name,
+            seed_value.description(seed_function),
             slice_inliner_output.inlined_snippet,
             slice_inliner_input.tree_str,
             True,

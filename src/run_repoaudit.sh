@@ -49,9 +49,9 @@ fi
 # Default values
 SCAN_TYPE=$1
 shift
-MODEL="gpt-4.1-nano"
+MODEL="claude-3.7"
 TEMPERATURE="0.0"
-CALL_DEPTH="3"
+CALL_DEPTH="2"
 MAX_NEURAL_WORKERS="30"
 MAX_SYMBOLIC_WORKERS="10"
 
