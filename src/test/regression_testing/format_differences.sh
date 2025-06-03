@@ -170,7 +170,7 @@ final_string+="## Summary\n"
 summary_recall="$(echo "scale=5; $num_true_positives / $num_correct_total" | bc)"
 num_false_positives=$(($num_false_positives + $num_true_positives))
 summary_precision="$(echo "scale=5; $num_true_positives / $num_false_positives" | bc)"
-summary_f1="$(echo "scale=5; $summary_precision * $summary_recall" | bc)"
+summary_f1="$(echo "scale=5; 2 * $summary_precision * $summary_recall / ($summary_recall + $summary_precision)" | bc)"
 final_string+="| Statistic | Value |\n"
 final_string+="|-----------|-------|\n"
 final_string+="| Precision | $summary_precision |\n"

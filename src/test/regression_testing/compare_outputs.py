@@ -85,7 +85,7 @@ except:
     precision = 0
 
 recall = true_p_num / (total_p)
-f1 = precision * recall
+f1 = 2 * precision * recall / (precision + recall)
 
 lines.append(f"True Positives: {true_p_num}")
 lines.append(f"False Positives: {false_p_num}")
