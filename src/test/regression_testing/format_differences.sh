@@ -165,7 +165,8 @@ while IFS= read -r line; do
 done < "$INPUT_FILE"
 
 # compile the summary
-final_string="# Regression Test Summary $(date)\n"
+current_date="$(date)"
+final_string="# Regression Test Summary $current_date\n"
 final_string+="## Summary\n"
 summary_recall="$(echo "scale=5; $num_true_positives / $num_correct_total" | bc)"
 num_false_positives=$(($num_false_positives + $num_true_positives))
@@ -179,6 +180,10 @@ final_string+="| F1 Score | $summary_f1 |\n\n"
 
 final_string+="$(cat "$OUTPUT_FILE")"
 echo -e "$final_string" > "$OUTPUT_FILE"
+
+log_file="regression.log"
+echo -e "$USER @ $current_date" >> "$log_file"
+echo -e "  precision: $summary_precision; recall: $summary_recall; F1 score: $summary_f1;\n" >> "$log_file"
 
 
 
