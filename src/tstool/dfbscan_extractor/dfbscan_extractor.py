@@ -35,7 +35,7 @@ class DFBScanExtractor(ABC):
         for function_id in self.ts_analyzer.function_env:
             pbar.update(1)
             function: Function = self.ts_analyzer.function_env[function_id]
-            if "test" in function.file_path or "example" in function.file_path:
+            if ("test" in function.file_path or "example" in function.file_path) and ("regression_testing" not in function.file_path):
                 continue
             file_content = self.ts_analyzer.code_in_files[function.file_path]
             function_root_node = function.parse_tree_root_node
