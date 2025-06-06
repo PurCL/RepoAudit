@@ -431,7 +431,7 @@ class BugScanAgent(Agent):
                     for slice_inliner_input in slice_inliner_inputs:
                         call_tree_str += slice_inliner_input.tree_str + "\n"
                     code_str = ""
-                    for _, function_id, values, slice in slice_scan_state.intra_slices:
+                    for _, function_id, values, (slice, function_str) in slice_scan_state.intra_slices:
                         code_str += slice + "\n"
 
                     inter_detector_input = SliceBugDetectorInput(
@@ -594,7 +594,7 @@ class BugScanAgent(Agent):
             for slice_inliner_input in slice_inliner_inputs:
                 call_tree_str += slice_inliner_input.tree_str + "\n"
             code_str = ""
-            for _, function_id, values, slice in slice_scan_state.intra_slices:
+            for _, function_id, values, (slice, function_str) in slice_scan_state.intra_slices:
                 code_str += slice + "\n"
 
             inter_detector_input = SliceBugDetectorInput(

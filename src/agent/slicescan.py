@@ -996,7 +996,8 @@ class SliceScanAgent(Agent):
                 slice_context,
                 self.ts_analyzer.function_env[function_id],
                 seed_list,
-                slice_output.slice,
+                slice_output.slice, 
+                slice_output.function_str,
             )
 
             # Add more functions to the worklist according to the external variables in the intra-slicing output
@@ -1061,7 +1062,8 @@ class SliceScanAgent(Agent):
             slice_context,
             self.ts_analyzer.function_env[function_id],
             list(seed_set),
-            output_data.slice,
+            output_data.slice, 
+            output_data.function_str,
         )
 
         delta_worklist = self.__update_worklist(input_data, output_data, slice_context)

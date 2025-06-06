@@ -95,8 +95,9 @@ class IntraSlicerInput(LLMToolInput):
 
 
 class IntraSlicerOutput(LLMToolOutput):
-    def __init__(self, slice: str, ext_values: List[Dict]) -> None:
+    def __init__(self, slice: str, ext_values: List[Dict], function_str: str) -> None:
         self.slice = slice
+        self.function_str = function_str
         """
         An external value is in the following form:
         {
@@ -277,6 +278,6 @@ class IntraSlicer(LLMTool):
                     ext_value["field_name"] = None
 
                 output_ext_values.append(ext_value)
-        output = IntraSlicerOutput(output_slice, output_ext_values)
+        output = IntraSlicerOutput(output_slice, output_ext_values, input.function.lined_code)
         self.logger.print_log("Output of intra_slicer:\n", str(output))
         return output
