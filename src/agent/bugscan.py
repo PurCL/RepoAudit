@@ -84,7 +84,7 @@ class BugScanAgent(Agent):
 
         # LLM tools used by BugScanAgent
         self.audit_request_formulator = AuditRequestFormulator(
-            "gpt-4.1-nano",
+            self.model_name,
             self.temperature,
             self.language,
             self.MAX_QUERY_NUM,

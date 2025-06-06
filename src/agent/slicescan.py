@@ -43,6 +43,7 @@ class SliceScanAgent(Agent):
     ) -> None:
         self.seed_values = seed_values
         self.is_backward = is_backward
+
         # TODO (ZZ): For now, we only support one seed value. Please change the code to support multiple seed values in the future.
         assert (
             len(self.seed_values) == 1
