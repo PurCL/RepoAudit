@@ -16,7 +16,7 @@ import json
 from botocore.config import Config
 from botocore.exceptions import BotoCoreError, ClientError
 import boto3
-from errors import RAValueError
+from errors import RALLMAPIError, RAValueError
 from ui.logger import Logger
 
 
@@ -35,6 +35,7 @@ class LLM:
         logger: Logger,
         temperature: float = 0.0,
         system_role="You are a experienced programmer and good at understanding programs written in mainstream programming languages.",
+        max_output_length: int = 4096,
     ) -> None:
         self.online_model_name = online_model_name
         self.encoding = tiktoken.encoding_for_model(
@@ -42,6 +43,7 @@ class LLM:
         )  # We only use gpt-3.5 to measure token cost
         self.temperature = temperature
         self.systemRole = system_role
+        self.max_output_length = max_output_length
         self.logger = logger
         return
 
@@ -54,8 +56,8 @@ class LLM:
             output = self.infer_with_gemini(message)
         elif "gpt" in self.online_model_name:
             output = self.infer_with_openai_model(message)
-        elif "o3-mini" in self.online_model_name:
-            output = self.infer_with_o3_mini_model(message)
+        elif "o3-mini" in self.online_model_name or "o4-mini" in self.online_model_name:
+            output = self.infer_with_On_mini_model(message)
         elif "claude" in self.online_model_name:
             output = self.infer_with_claude(message)
         elif "deepseek" in self.online_model_name:
@@ -125,6 +127,11 @@ class LLM:
 
     def infer_with_openai_model(self, message):
         """Infer using the OpenAI model"""
+        if os.environ.get("OPENAI_API_KEY") is None:
+            raise RALLMAPIError(
+                "Please set the OPENAI_API_KEY environment variable to use OpenAI models."
+            )
+
         api_key = os.environ.get("OPENAI_API_KEY").split(":")[0]
         model_input = [
             {"role": "system", "content": self.systemRole},
@@ -153,8 +160,8 @@ class LLM:
 
         return ""
 
-    def infer_with_o3_mini_model(self, message):
-        """Infer using the o3-mini model"""
+    def infer_with_On_mini_model(self, message):
+        """Infer using the on-mini model"""
         api_key = os.environ.get("OPENAI_API_KEY").split(":")[0]
         model_input = [
             {"role": "system", "content": self.systemRole},
@@ -216,13 +223,65 @@ class LLM:
 
         return ""
 
+    # def infer_with_claude(self, message):
+    #     """Infer using the Claude model via AWS Bedrock"""
+    #     if "3.5" in self.online_model_name:
+    #         model_id = "anthropic.claude-3-5-sonnet-20241022-v2:0"
+    #     if "3.7" in self.online_model_name:
+    #         model_id = "us.anthropic.claude-3-7-sonnet-20250219-v1:0"
+
+    #     model_input = [
+    #         {
+    #             "role": "assistant",
+    #             "content": self.systemRole,
+    #         },
+    #         {"role": "user", "content": message},
+    #     ]
+
+    #     body = json.dumps(
+    #         {
+    #             "messages": model_input,
+    #             "max_tokens": 4000,
+    #             "anthropic_version": "bedrock-2023-05-31",
+    #             "temperature": self.temperature,
+    #             "top_k": 50,
+    #         }
+    #     )
+
+    #     def call_api():
+    #         client = boto3.client(
+    #             "bedrock-runtime",
+    #             region_name="us-west-2",
+    #             config=Config(read_timeout=100),
+    #         )
+
+    #         response = (
+    #             client.invoke_model(
+    #                 modelId=model_id, contentType="application/json", body=body
+    #             )["body"]
+    #             .read()
+    #             .decode("utf-8")
+    #         )
+
+    #         response = json.loads(response)
+    #         return response["content"][0]["text"]
+
+    #     tryCnt = 0
+    #     while tryCnt < 5:
+    #         tryCnt += 1
+    #         try:
+    #             output = self.run_with_timeout(call_api, timeout=100)
+    #             if output:
+    #                 return output
+    #         except Exception as e:
+    #             self.logger.print_log(f"API error: {str(e)}")
+    #         time.sleep(2)
+
+    #     return ""
+
     def infer_with_claude(self, message):
         """Infer using the Claude model via AWS Bedrock"""
-        if "3.5" in self.online_model_name:
-            model_id = "anthropic.claude-3-5-sonnet-20241022-v2:0"
-        if "3.7" in self.online_model_name:
-            model_id = "us.anthropic.claude-3-7-sonnet-20250219-v1:0"
-
+        timeout = 500
         model_input = [
             {
                 "role": "assistant",
@@ -231,21 +290,36 @@ class LLM:
             {"role": "user", "content": message},
         ]
 
-        body = json.dumps(
-            {
-                "messages": model_input,
-                "max_tokens": 4000,
-                "anthropic_version": "bedrock-2023-05-31",
-                "temperature": self.temperature,
-                "top_k": 50,
-            }
-        )
+        if "3.5" in self.online_model_name:
+            model_id = "anthropic.claude-3-5-sonnet-20241022-v2:0"
+            body = json.dumps(
+                {
+                    "messages": model_input,
+                    "max_tokens": self.max_output_length,
+                    "anthropic_version": "bedrock-2023-05-31",
+                    "temperature": self.temperature,
+                    "top_k": 50,
+                }
+            )
+        if "3.7" in self.online_model_name:
+            model_id = "us.anthropic.claude-3-7-sonnet-20250219-v1:0"
+            body = json.dumps(
+                {
+                    "messages": model_input,
+                    "max_tokens": self.max_output_length,
+                    "thinking": {
+                        "type": "enabled",
+                        "budget_tokens": 3072,
+                    },
+                    "anthropic_version": "bedrock-2023-05-31",
+                }
+            )
 
         def call_api():
             client = boto3.client(
                 "bedrock-runtime",
                 region_name="us-west-2",
-                config=Config(read_timeout=100),
+                config=Config(read_timeout=timeout),
             )
 
             response = (
@@ -257,15 +331,25 @@ class LLM:
             )
 
             response = json.loads(response)
-            return response["content"][0]["text"]
+
+            if "3.5" in self.online_model_name:
+                result = response["content"][0]["text"]
+            if "3.7" in self.online_model_name:
+                result = response["content"][1]["text"]
+            return result
 
         tryCnt = 0
         while tryCnt < 5:
             tryCnt += 1
             try:
-                output = self.run_with_timeout(call_api, timeout=100)
+                output = self.run_with_timeout(call_api, timeout=timeout)
                 if output:
                     return output
+            except concurrent.futures.TimeoutError:
+                self.logger.print_log(
+                    f"Timeout occurred, increasing timeout for next attempt"
+                )
+                timeout = min(timeout * 1.5, 900)
             except Exception as e:
                 self.logger.print_log(f"API error: {str(e)}")
             time.sleep(2)

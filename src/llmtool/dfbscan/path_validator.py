@@ -59,7 +59,12 @@ class PathValidator(LLMTool):
         self.prompt_file = f"{BASE_PATH}/prompt/{language}/dfbscan/path_validator.json"
         return
 
-    def _get_prompt(self, input: PathValidatorInput) -> str:
+    def _get_prompt(self, input: LLMToolInput) -> str:
+        if not isinstance(input, PathValidatorInput):
+            raise TypeError(
+                f"Input type {type(input)} is not supported for {type(self).__name__}."
+            )
+
         with open(self.prompt_file, "r") as f:
             prompt_template_dict = json.load(f)
         prompt = prompt_template_dict["task"]
@@ -96,8 +101,13 @@ class PathValidator(LLMTool):
         return prompt
 
     def _parse_response(
-        self, response: str, input: PathValidatorInput
-    ) -> PathValidatorOutput:
+        self, response: str, input: Optional[LLMToolInput] = None
+    ) -> Optional[LLMToolOutput]:
+        if not isinstance(input, PathValidatorInput):
+            raise TypeError(
+                f"Input type {type(input)} is not supported for {type(self).__name__}."
+            )
+
         answer_match = re.search(r"Answer:\s*(\w+)", response)
         if answer_match:
             answer = answer_match.group(1).strip()

@@ -1,0 +1,24 @@
+{
+    "model_role_name": "Go Caller-Callee Edge Analyzer",
+    "system_role": "You are a good Go programmer and good at analyzing Go programs.",
+    "task": "Given a caller function, a call site at a specific program line, and a list of candidate callee functions, please identify the possible callee functions from our provided list of candidate callee functions.",
+    "answer_format": [
+        "You should list the ID of the callee functions you choose in the answer.",
+        "Here is the format of the answer:",
+        "Explanation: {Your Explanation}",
+        "Callee functions: [ID_1, ID_2]",
+        "Here is an example answer:",
+        "Explanation: {...}",
+        "Callee functions: [1, 3]"
+    ],
+    "meta_prompts": [
+        "Here is the caller function: \n```\n<CALLER_FUNCTION>\n``` \n\n",
+        "Consider the function call at line <LINE_NUMBER> in the caller function.\n",
+        "Here is the list of candidate callee functions: \n\n<CANDIDATE_CALLEE_FUNCTIONS_WITH_IDS>\n\n",
+        "Please identify the possible callee functions from the list of candidate callee functions.",
+        "Here are several important hints for you: \n",
+        "(1) You should choose the most likely callee function from the list of candidate callee functions. In most of cases, you should choose only one callee function. If you do not know which one is the most likely one, you can choose multiple ones. Make sure that the number of the callee functions you choose is as small as possible. BUT you MUST choose AT LEAST one callee function.\n",
+        "(2) The parameter names of a candidate callee function and the argument names at the call site in the caller function can show important clues for you. If they show more similar high-level semantic intent, the callee function is more likely to be the correct one. \n",
+        "Your answer should follow the following format: \n<ANSWER>\n"
+    ]
+}

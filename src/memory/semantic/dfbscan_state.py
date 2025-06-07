@@ -21,7 +21,7 @@ class DFBScanState(State):
         self.potential_buggy_paths: Dict[Value, Dict[str, List[Value]]] = (
             {}
         )  # src value -> {path_str -> path}
-        self.bug_reports: dict[int, List[BugReport]] = {}
+        self.bug_reports: dict[int, BugReport] = {}
         self.total_bug_count = 0
         return
 

@@ -11,6 +11,7 @@ from tqdm import tqdm
 class Go_NPD_Extractor(BugScanExtractor):
     def find_seeds(self, function: Function) -> List[Tuple[Value, bool]]:
         root_node = function.parse_tree_root_node
+        function_start_line = function.start_line_number
         source_code = self.ts_analyzer.code_in_files[function.file_path]
         file_name = function.file_path
 
@@ -32,7 +33,7 @@ class Go_NPD_Extractor(BugScanExtractor):
                                         Value(
                                             name,
                                             line_number,
-                                            ValueLabel.NON_BUF_ACCESS_EXPR,
+                                            ValueLabel.DECLARATION,
                                             file_name,
                                         ),
                                         False,
@@ -40,14 +41,32 @@ class Go_NPD_Extractor(BugScanExtractor):
                                 )
 
         ## Case II: Nil value from literal nil nodes
-        literal_nil_nodes = find_nodes_by_type(root_node, "nil")
-        for node in literal_nil_nodes:
-            line_number = source_code[: node.start_byte].count("\n") + 1
-            name = source_code[node.start_byte : node.end_byte]
-            seeds.append(
-                (
-                    Value(name, line_number, ValueLabel.NON_BUF_ACCESS_EXPR, file_name),
-                    False,
-                )
-            )
+        nodes = find_nodes_by_type(root_node, "var_declaration")
+        nodes.extend(find_nodes_by_type(root_node, "assignment_statement"))
+        nodes.extend(find_nodes_by_type(root_node, "short_var_declaration"))
+        nodes.extend(find_nodes_by_type(root_node, "return_statement"))
+        nodes.extend(find_nodes_by_type(root_node, "const_declaration"))
+        nodes.extend(find_nodes_by_type(root_node, "argument_list"))
+
+        for node in nodes:
+            children = find_nodes_by_type(node, "nil")
+            if len(children) == 0:
+                continue
+
+            for child in children:
+                if child.type == "nil":
+                    line_number = source_code[: child.start_byte].count("\n") + 1
+                    name = source_code[child.start_byte : child.end_byte]
+                    seeds.append(
+                        (
+                            Value(
+                                name,
+                                line_number,
+                                ValueLabel.CONSTANT,
+                                file_name,
+                            ),
+                            False,
+                        )
+                    )
+
         return seeds

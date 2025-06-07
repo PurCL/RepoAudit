@@ -17,13 +17,13 @@ class SliceInlinerInput(LLMToolInput):
         self,
         root_function_id: int,
         relevant_functions: Dict[int, Function],
-        slice_items: List[Tuple[int, List[Value], str]],
+        slice_items: List[Tuple[int, List[Value], Tuple[str, str]]],
         function_caller_to_callee_map: Dict[int, Set[int]],
     ) -> None:
         """
         :param root_function_id: the root function id
         :param relevant_functions: the relevant functions appearing in the slices
-        :param slice_items: the slice cases containing (1) function id, (2) seed values, and (3) slice
+        :param slice_items: the slice cases containing (1) function id, (2) seed values, and (3) slice and original function code
         :param function_caller_to_callee_map: the mapping from caller functions to callee functions
         """
         self.root_function_id = root_function_id
@@ -64,7 +64,9 @@ class SliceInlinerInput(LLMToolInput):
             # Only process children if we haven't visited this function before
             if func_id not in visited:
                 visited.add(func_id)
-                children = self.function_caller_to_callee_map.get(func_id, [])
+                children: Set[int] = self.function_caller_to_callee_map.get(
+                    func_id, set()
+                )
                 for i, child_id in enumerate(children):
                     child_is_last = i == len(children) - 1
                     new_prefix = prefix + ("    " if is_last else "│   ")
@@ -76,9 +78,11 @@ class SliceInlinerInput(LLMToolInput):
     def __hash__(self) -> int:
         relevant_function_ids = sorted(self.relevant_functions.keys())
         slices_strs = []
-        for function_id, seed_values, slice in self.slice_items:
+        for function_id, seed_values, (slice, function_str) in self.slice_items:
             seed_values_strs = sorted([str(value) for value in seed_values])
-            slices_strs.append(f"{function_id}, {str(seed_values_strs)}, {slice}")
+            slices_strs.append(
+                f"{function_id}, {str(seed_values_strs)}, {slice}, {function_str}"
+            )
         slices_str = str(slices_strs)
         function_caller_to_callee_map_strs = []
         for caller_id, callee_ids in self.function_caller_to_callee_map.items():
@@ -125,11 +129,16 @@ class SliceInliner(LLMTool):
         self.prompt_file = f"{BASE_PATH}/prompt/{language}/bugscan/slice_inliner.json"
         return
 
-    def _get_prompt(self, input: SliceInlinerInput) -> str:
+    def _get_prompt(self, input: LLMToolInput) -> str:
         """
         :param input: the input of slice inliner
         :return: the prompt string
         """
+        if not isinstance(input, SliceInlinerInput):
+            raise TypeError(
+                f"Input type {type(input)} is not supported for {type(self).__name__}."
+            )
+
         with open(self.prompt_file, "r") as f:
             prompt_template_dict = json.load(f)
 
@@ -142,7 +151,7 @@ class SliceInliner(LLMTool):
 
         # append all the slices
         slices = []
-        for function_id, seed_values, slice in input.slice_items:
+        for function_id, seed_values, (slice, function_str) in input.slice_items:
             if function_id not in input.relevant_functions:
                 continue
             slices.append(slice)
@@ -161,12 +170,17 @@ class SliceInliner(LLMTool):
         return prompt
 
     def _parse_response(
-        self, response: str, input: SliceInlinerInput
-    ) -> SliceInlinerOutput:
+        self, response: str, input: Optional[LLMToolInput] = None
+    ) -> Optional[LLMToolOutput]:
         """
         :param response: the string response from the model
         :return: the output of slice inliner
         """
+        if not isinstance(input, SliceInlinerInput):
+            raise TypeError(
+                f"Input type {type(input)} is not supported for {type(self).__name__}."
+            )
+
         pattern = re.compile(r"```(?:\w+)?\s*([\s\S]*?)\s*```")
         match = pattern.search(response)
         if match:

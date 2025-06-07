@@ -1,7 +1,7 @@
 from os import path
 import json
 import time
-from typing import List, Set, Optional, Dict
+from typing import Any, List, Set, Optional, Dict
 from llmtool.LLM_utils import *
 from llmtool.LLM_tool import *
 from memory.syntactic.function import *
@@ -67,7 +67,12 @@ class IntraDataFlowAnalyzer(LLMTool):
         )
         return
 
-    def _get_prompt(self, input: IntraDataFlowAnalyzerInput) -> str:
+    def _get_prompt(self, input: LLMToolInput) -> str:
+        if not isinstance(input, IntraDataFlowAnalyzerInput):
+            raise TypeError(
+                f"Input type {type(input)} is not supported for {type(self).__name__}."
+            )
+
         with open(self.prompt_file, "r") as f:
             prompt_template_dict = json.load(f)
         prompt = prompt_template_dict["task"]
@@ -119,8 +124,8 @@ class IntraDataFlowAnalyzer(LLMTool):
         return prompt
 
     def _parse_response(
-        self, response: str, input: IntraDataFlowAnalyzerInput
-    ) -> IntraDataFlowAnalyzerOutput:
+        self, response: str, input: Optional[LLMToolInput] = None
+    ) -> Optional[LLMToolOutput]:
         """
         Parse the LLM response to extract all execution paths and their propagation details.
 
@@ -131,10 +136,15 @@ class IntraDataFlowAnalyzer(LLMTool):
         Returns:
             IntraDataFlowAnalyzerOutput: The output containing reachable values for each path.
         """
+        if not isinstance(input, IntraDataFlowAnalyzerInput):
+            raise TypeError(
+                f"Input type {type(input)} is not supported for {type(self).__name__}."
+            )
+
         if "Answer:" not in response:
             return None
 
-        paths = []
+        paths: List[Dict[str, Any]] = []
         response = response.split("Answer:")[1]
 
         # Regex to match a path header line, e.g., "- Path 1: Lines 2 -> 3;"

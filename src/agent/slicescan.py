@@ -5,6 +5,7 @@ import copy
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from agent.agent import *
+from agent.cgscan import *
 
 from tstool.analyzer.TS_analyzer import *
 from tstool.analyzer.Cpp_TS_analyzer import *
@@ -37,9 +38,16 @@ class SliceScanAgent(Agent):
         call_depth: int = 1,
         max_neural_workers: int = 1,
         agent_id: int = 0,
+        include_test_files: bool = False,
+        cgscan_agent: Optional[CGScanAgent] = None,
     ) -> None:
         self.seed_values = seed_values
         self.is_backward = is_backward
+
+        # TODO (ZZ): For now, we only support one seed value. Please change the code to support multiple seed values in the future.
+        assert (
+            len(self.seed_values) == 1
+        ), "For now, SliceScanAgent only supports one seed value"
 
         self.project_path = project_path
         self.project_name = project_path.split("/")[-1]
@@ -53,6 +61,9 @@ class SliceScanAgent(Agent):
         self.call_depth = call_depth
         self.max_neural_workers = max_neural_workers
         self.MAX_QUERY_NUM = 5
+
+        self.include_test_files = include_test_files
+        self.cgscan_agent = cgscan_agent
 
         self.lock = threading.Lock()
 
@@ -69,6 +80,9 @@ class SliceScanAgent(Agent):
         self.seed_function = self.ts_analyzer.get_function_from_localvalue(
             self.seed_values[0]
         )
+        # TODO (ZZ): This is a temporary fix to satisfy the mypy type checker. Change the code to
+        # better handle the case when the seed function is not found.
+        assert self.seed_function is not None, "The seed value should be a local value"
 
         # LLM tool used by SliceScanAgent
         self.intra_slicer = IntraSlicer(
@@ -107,9 +121,15 @@ class SliceScanAgent(Agent):
                 ext_val_type = external_variable["type"]
 
                 if ext_val_type == "Return Value":
-                    caller_functions = self.ts_analyzer.get_all_caller_functions(
-                        function
-                    )
+                    if not self.cgscan_agent:
+                        caller_functions = self.ts_analyzer.get_all_caller_functions(
+                            function
+                        )
+                    else:
+                        caller_functions = self.cgscan_agent.query_caller_functions(
+                            function, is_llm_refined=True
+                        )
+
                     for caller_function in caller_functions:
                         # Forward slicing: Return back to caller function from the current function.
 
@@ -153,14 +173,21 @@ class SliceScanAgent(Agent):
                                 function.function_id,
                                 Parenthesis.RIGHT_PAR,
                             )
-                            new_slice_context.add_and_check_context(
+                            is_CFL_reachable = new_slice_context.add_and_check_context(
                                 append_context_label
                             )
+                            assert (
+                                is_CFL_reachable
+                            ), "CFL has to be reachable at this point"
+
                             output_value = (
                                 self.ts_analyzer.get_output_value_at_callsite(
                                     caller_function, call_site_node
                                 )
                             )
+                            if external_variable["index"] is not None:
+                                output_value.index = external_variable["index"]
+
                             delta_worklist.append(
                                 (
                                     new_slice_context,
@@ -172,24 +199,51 @@ class SliceScanAgent(Agent):
                 elif ext_val_type == "Argument":
                     callee_name = external_variable["callee_name"]
                     index = external_variable["index"]
-                    callee_functions = [
-                        function
-                        for function in self.ts_analyzer.get_all_callee_functions(
-                            function
+                    line_number = external_variable["line_number"]
+
+                    call_sites = self.ts_analyzer.get_callsites_by_callee_name(
+                        function, callee_name
+                    )
+
+                    for call_site_node in call_sites:
+                        file_content = self.ts_analyzer.code_in_files[
+                            function.file_path
+                        ]
+                        call_site_lower_line_number = (
+                            file_content[: call_site_node.start_byte].count("\n") + 1
                         )
-                        if function.function_name == callee_name
-                    ]
-                    for callee_function in callee_functions:
-                        call_sites = self.ts_analyzer.get_callsites_by_callee_name(
-                            function, callee_function.function_name
-                        )
-                        for call_site_node in call_sites:
-                            file_content = self.ts_analyzer.code_in_files[
-                                function.file_path
+
+                        # Ensure the call site line number matches
+                        # XXX (ZZ): This check is crucial to prevent slicing explosion, especially when a caller
+                        # has multiple call sites to the same callee.
+                        # XXX (ZZ): For correctness, this assumes the caller function begins on the first line
+                        # of the code snippet provided to the LLM.
+                        # TODO (ZZ): We need to add line number support for other languages.
+                        # if call_site_lower_line_number != line_number:
+                        if (
+                            line_number is not None
+                            and call_site_lower_line_number
+                            != line_number + function.start_line_number - 1
+                        ):
+                            continue
+
+                        if not self.cgscan_agent:
+                            callee_functions = [
+                                callee_function
+                                for callee_function in self.ts_analyzer.get_all_callee_functions(
+                                    function
+                                )
+                                if callee_function.function_name == callee_name
                             ]
-                            call_site_lower_line_number = (
-                                file_content[: call_site_node.start_byte].count("\n")
-                                + 1
+                        else:
+                            callee_functions = self.cgscan_agent.query_callee_functions(
+                                function, call_site_node, is_llm_refined=True
+                            )
+
+                        for callee_function in callee_functions:
+                            callee_paras = callee_function.paras(ValueLabel.PARA)
+                            callee_variadic_para = list(
+                                callee_function.paras(ValueLabel.VARI_PARA)
                             )
 
                             new_slice_context = copy.deepcopy(slice_context)
@@ -205,24 +259,126 @@ class SliceScanAgent(Agent):
                             if not is_CFL_reachable:
                                 continue
 
-                            for para in callee_function.paras:
-                                if para.index == index:
-                                    delta_worklist.append(
-                                        (
-                                            new_slice_context,
-                                            callee_function.function_id,
-                                            para,
-                                        )
+                            if (
+                                index >= len(callee_paras)
+                                and len(callee_variadic_para) > 0
+                            ):
+                                # The argument falls into a variadic argument
+                                variadic_para = copy.deepcopy(callee_variadic_para[0])
+
+                                # XXX (ZZ): We want to inform the LLM of the exact position where an argument has been passed
+                                # within a variadic parameter. For example, if the variadic parameter is `*args`, we want to
+                                # determine the index of the specific argument within `args`.
+                                variadic_para.index = index - variadic_para.index
+                                delta_worklist.append(
+                                    (
+                                        new_slice_context,
+                                        callee_function.function_id,
+                                        variadic_para,
                                     )
+                                )
+                            else:
+                                for para in callee_paras:
+                                    if para.index == index:
+                                        delta_worklist.append(
+                                            (
+                                                new_slice_context,
+                                                callee_function.function_id,
+                                                para,
+                                            )
+                                        )
+
+                elif ext_val_type == "Argument (Receiver)":
+                    callee_name = external_variable["callee_name"]
+                    line_number = external_variable["line_number"]
+                    field_name = external_variable["field_name"]
+
+                    callee_functions = [
+                        callee_function
+                        for callee_function in self.ts_analyzer.get_all_callee_functions(
+                            function
+                        )
+                        if callee_function.function_name == callee_name
+                    ]
+
+                    for callee_function in callee_functions:
+                        receiver_paras = callee_function.paras(ValueLabel.OBJ_PARA)
+                        if len(receiver_paras) == 0:
+                            continue
+
+                        assert (
+                            len(receiver_paras) == 1
+                        ), "There should be only one receiver parameter in a function"
+                        receiver_para = copy.deepcopy(receiver_paras.pop())
+                        if field_name is not None:
+                            receiver_para.comment = (
+                                f"the field `{field_name}` of " + "{description}"
+                            )
+
+                        call_sites = self.ts_analyzer.get_callsites_by_callee_name(
+                            function, callee_function.function_name
+                        )
+
+                        for call_site_node in call_sites:
+                            file_content = self.ts_analyzer.code_in_files[
+                                function.file_path
+                            ]
+                            call_site_lower_line_number = (
+                                file_content[: call_site_node.start_byte].count("\n")
+                                + 1
+                            )
+
+                            # Ensure the call site line number matches
+                            # XXX (ZZ): This check is crucial to prevent slicing explosion, especially when a caller
+                            # has multiple call sites to the same callee.
+                            # XXX (ZZ): For correctness, this assumes the caller function begins on the first line
+                            # of the code snippet provided to the LLM.
+                            # TODO (ZZ): We need to add line number support for other languages.
+                            # if call_site_lower_line_number != line_number:
+                            if (
+                                line_number is not None
+                                and call_site_lower_line_number
+                                != line_number + function.start_line_number - 1
+                            ):
+                                continue
+
+                            new_slice_context = copy.deepcopy(slice_context)
+                            context_label = ContextLabel(
+                                self.ts_analyzer.functionToFile[function.function_id],
+                                call_site_lower_line_number,
+                                callee_function.function_id,
+                                Parenthesis.LEFT_PAR,
+                            )
+                            is_CFL_reachable = new_slice_context.add_and_check_context(
+                                context_label
+                            )
+                            if not is_CFL_reachable:
+                                continue
+
+                            delta_worklist.append(
+                                (
+                                    new_slice_context,
+                                    callee_function.function_id,
+                                    receiver_para,
+                                )
+                            )
 
                 elif ext_val_type == "Parameter":
                     # Consider side-effect.
                     # Example: the parameter *p is used in the function: p->f = null;
                     # We need to consider the side-effect of p.
-                    caller_functions = self.ts_analyzer.get_all_caller_functions(
-                        function
-                    )
+                    if not self.cgscan_agent:
+                        caller_functions = self.ts_analyzer.get_all_caller_functions(
+                            function
+                        )
+                    else:
+                        caller_functions = self.cgscan_agent.query_caller_functions(
+                            function, is_llm_refined=True
+                        )
+
                     index = external_variable["index"]
+
+                    function_variadic_para = list(function.paras(ValueLabel.VARI_PARA))
 
                     for caller_function in caller_functions:
                         new_slice_context = copy.deepcopy(slice_context)
@@ -266,22 +422,123 @@ class SliceScanAgent(Agent):
                                 function.function_id,
                                 Parenthesis.RIGHT_PAR,
                             )
-                            new_slice_context.add_and_check_context(
+                            is_CFL_reachable = new_slice_context.add_and_check_context(
                                 append_context_label
                             )
+                            assert (
+                                is_CFL_reachable
+                            ), "CFL has to be reachable at this point"
 
                             args = self.ts_analyzer.get_arguments_at_callsite(
                                 caller_function, call_site_node
                             )
-                            for arg in args:
-                                if arg.index == index:
-                                    delta_worklist.append(
-                                        (
-                                            new_slice_context,
-                                            caller_function.function_id,
-                                            arg,
+
+                            # Support variadic parameters
+                            if len(function_variadic_para) > 0:
+                                if index == function_variadic_para[0].index:
+                                    # XXX (ZZ): Currently, the variadic parameter is treated as a single unit;
+                                    # individual arguments within it are not analyzed separately.
+                                    # In the future, we may consider more fine-grained handling (this could be
+                                    # done by changing the slicing prompt).
+                                    for arg in args:
+                                        if arg.index >= index:
+                                            delta_worklist.append(
+                                                (
+                                                    new_slice_context,
+                                                    caller_function.function_id,
+                                                    arg,
+                                                )
+                                            )
+                            else:
+                                for arg in args:
+                                    if arg.index == index:
+                                        delta_worklist.append(
+                                            (
+                                                new_slice_context,
+                                                caller_function.function_id,
+                                                arg,
+                                            )
                                         )
-                                    )
+
+                elif ext_val_type == "Parameter (Receiver)":
+                    # Consider side-effect.
+                    # Example: the parameter *p is used in the function: p->f = null;
+                    # We need to consider the side-effect of p.
+                    field_name = external_variable["field_name"]
+
+                    caller_functions = self.ts_analyzer.get_all_caller_functions(
+                        function
+                    )
+
+                    for caller_function in caller_functions:
+                        new_slice_context = copy.deepcopy(slice_context)
+                        top_unmatched_context_label = (
+                            new_slice_context.get_top_unmatched_context_label()
+                        )
+
+                        call_site_nodes = self.ts_analyzer.get_callsites_by_callee_name(
+                            caller_function, function.function_name
+                        )
+                        for call_site_node in call_site_nodes:
+                            caller_function_file_name = self.ts_analyzer.functionToFile[
+                                caller_function.function_id
+                            ]
+                            file_content = self.ts_analyzer.code_in_files[
+                                caller_function_file_name
+                            ]
+                            call_site_lower_line_number = (
+                                file_content[: call_site_node.start_byte].count("\n")
+                                + 1
+                            )
+
+                            if top_unmatched_context_label is not None:
+                                if (
+                                    top_unmatched_context_label.parenthesis
+                                    == Parenthesis.LEFT_PAR
+                                ):
+                                    if (
+                                        call_site_lower_line_number
+                                        != top_unmatched_context_label.line_number
+                                        or caller_function_file_name
+                                        != top_unmatched_context_label.file_name
+                                        or top_unmatched_context_label.function_id
+                                        != function.function_id
+                                    ):
+                                        continue
+
+                            append_context_label = ContextLabel(
+                                caller_function_file_name,
+                                call_site_lower_line_number,
+                                function.function_id,
+                                Parenthesis.RIGHT_PAR,
+                            )
+                            is_CFL_reachable = new_slice_context.add_and_check_context(
+                                append_context_label
+                            )
+                            assert (
+                                is_CFL_reachable
+                            ), "CFL has to be reachable at this point"
+
+                            obj_arg = copy.deepcopy(
+                                self.ts_analyzer.get_receiver_arguments_at_callsite(
+                                    caller_function, call_site_node
+                                )
+                            )
+                            if obj_arg is None:
+                                continue
+
+                            if field_name is not None:
+                                obj_arg.comment = (
+                                    f"the field `{field_name}` of " + "{description}"
+                                )
+
+                            delta_worklist.append(
+                                (
+                                    new_slice_context,
+                                    caller_function.function_id,
+                                    obj_arg,
+                                )
+                            )
 
                 elif ext_val_type == "Global Variable":
                     # TODO: add global variable support
@@ -293,26 +550,61 @@ class SliceScanAgent(Agent):
                 ext_val_type = external_variable["type"]
                 if ext_val_type == "Output Value":
                     callee_name = external_variable["callee_name"]
-                    callee_functions = [
-                        function
-                        for function in self.ts_analyzer.get_all_callee_functions(
-                            function
+
+                    call_sites = self.ts_analyzer.get_callsites_by_callee_name(
+                        function, callee_function.function_name
+                    )
+
+                    for call_site_node in call_sites:
+                        file_content = self.ts_analyzer.code_in_files[
+                            function.file_path
+                        ]
+                        call_site_lower_line_number = (
+                            file_content[: call_site_node.start_byte].count("\n") + 1
                         )
-                        if function.function_name == callee_name
-                    ]
-                    for callee_function in callee_functions:
-                        call_sites = self.ts_analyzer.get_callsites_by_callee_name(
-                            function, callee_function.function_name
-                        )
-                        for call_site_node in call_sites:
-                            file_content = self.ts_analyzer.code_in_files[
-                                function.file_path
+
+                        # XXX (Chengpeng): May not be precise enough
+                        # when two files have the same function calls at the same line number
+                        # although such cases might be quite rare
+                        # As a call site node can not offer the file name info, we could not resolve this issue currently.
+                        if (
+                            external_variable["line_number"] is not None
+                            and call_site_lower_line_number
+                            != external_variable["line_number"]
+                            + function.start_line_number
+                            - 1
+                        ):
+                            continue
+
+                        if not self.cgscan_agent:
+                            callee_functions = [
+                                callee_function
+                                for callee_function in self.ts_analyzer.get_all_callee_functions(
+                                    function
+                                )
+                                if callee_function.function_name == callee_name
                             ]
-                            call_site_lower_line_number = (
-                                file_content[: call_site_node.start_byte].count("\n")
-                                + 1
+                        else:
+                            callee_functions = self.cgscan_agent.query_callee_functions(
+                                function, call_site_node, is_llm_refined=True
                             )
 
+                            # XXX (Chengpeng): May not be precise enough
+                            # when two files have the same function calls at the same line number
+                            # although such cases might be quite rare
+                            # As a call site node can not offer the file name info, we could not resolve this issue currently.
+                            # XXX (ZZ): But in `function` we have file name info?
+                            # XXX (ZZ): In what cases, we will have cross-file matching? It seems this file check is not necessary.
+                            if (
+                                external_variable["line_number"] is not None
+                                and call_site_lower_line_number
+                                != external_variable["line_number"]
+                                + function.start_line_number
+                                - 1
+                            ):
+                                continue
+
+                        for callee_function in callee_functions:
                             new_slice_context = copy.deepcopy(slice_context)
                             context_label = ContextLabel(
                                 self.ts_analyzer.functionToFile[function.function_id],
@@ -327,6 +619,10 @@ class SliceScanAgent(Agent):
                                 )
                             )
                             for ret_value in ret_values:
+                                ret_value = copy.deepcopy(ret_value)
+                                if external_variable["index"] is not None:
+                                    ret_value.index = external_variable["index"]
+
                                 delta_worklist.append(
                                     (
                                         new_slice_context,
@@ -337,9 +633,15 @@ class SliceScanAgent(Agent):
 
                 elif ext_val_type == "Parameter":
                     index = external_variable["index"]
-                    caller_functions = self.ts_analyzer.get_all_caller_functions(
-                        function
-                    )
+                    if not self.cgscan_agent:
+                        caller_functions = self.ts_analyzer.get_all_caller_functions(
+                            function
+                        )
+                    else:
+                        caller_functions = self.cgscan_agent.query_caller_functions(
+                            function, is_llm_refined=True
+                        )
+
                     for caller_function in caller_functions:
                         # Backward slicing: Trace back to the caller function from the current function
                         call_site_nodes = self.ts_analyzer.get_callsites_by_callee_name(
@@ -389,6 +691,10 @@ class SliceScanAgent(Agent):
                             args = self.ts_analyzer.get_arguments_at_callsite(
                                 caller_function, call_site_node
                             )
+
+                            # No need to handle variadic parameters/arguments here
+                            # Match arguments by index in a demand-driven style
+                            # If the index is out of range, the argument is not offered in the call site. Just skip it.
                             for arg in args:
                                 if arg.index == index:
                                     delta_worklist.append(
@@ -399,11 +705,192 @@ class SliceScanAgent(Agent):
                                         )
                                     )
 
+                elif ext_val_type == "Parameter (Receiver)":
+                    field_name = external_variable["field_name"]
+
+                    caller_functions = self.ts_analyzer.get_all_caller_functions(
+                        function
+                    )
+                    for caller_function in caller_functions:
+                        # Backward slicing: Trace back to the caller function from the current function
+                        call_site_nodes = self.ts_analyzer.get_callsites_by_callee_name(
+                            caller_function, function.function_name
+                        )
+                        for call_site_node in call_site_nodes:
+                            caller_function_file_name = self.ts_analyzer.functionToFile[
+                                caller_function.function_id
+                            ]
+                            file_content = self.ts_analyzer.code_in_files[
+                                caller_function_file_name
+                            ]
+                            call_site_lower_line_number = (
+                                file_content[: call_site_node.start_byte].count("\n")
+                                + 1
+                            )
+
+                            new_slice_context = copy.deepcopy(slice_context)
+                            top_unmatched_context_label = (
+                                new_slice_context.get_top_unmatched_context_label()
+                            )
+                            if top_unmatched_context_label is not None:
+                                if (
+                                    top_unmatched_context_label.parenthesis
+                                    == Parenthesis.RIGHT_PAR
+                                ):
+                                    if (
+                                        call_site_lower_line_number
+                                        != top_unmatched_context_label.line_number
+                                        or caller_function_file_name
+                                        != top_unmatched_context_label.file_name
+                                        or top_unmatched_context_label.function_id
+                                        != function.function_id
+                                    ):
+                                        continue
+
+                            append_context_label = ContextLabel(
+                                caller_function_file_name,
+                                call_site_lower_line_number,
+                                function.function_id,
+                                Parenthesis.LEFT_PAR,
+                            )
+                            is_CFL_reachable = new_slice_context.add_and_check_context(
+                                append_context_label
+                            )
+                            assert (
+                                is_CFL_reachable
+                            ), "CFL has to be reachable at this point"
+
+                            obj_arg = copy.deepcopy(
+                                self.ts_analyzer.get_receiver_arguments_at_callsite(
+                                    caller_function, call_site_node
+                                )
+                            )
+                            if obj_arg is None:
+                                continue
+
+                            if field_name is not None:
+                                obj_arg.comment = (
+                                    f"the field `{field_name}` of " + "{description}"
+                                )
+
+                            delta_worklist.append(
+                                (
+                                    new_slice_context,
+                                    caller_function.function_id,
+                                    obj_arg,
+                                )
+                            )
+
                 elif ext_val_type == "Argument":
                     # Consider side-effect.
                     # Example: the argument *p used at a call site foo(p) is further utilized, i.e., x = p->f;
                     # We need to consider the side-effect of the callee foo.
                     callee_name = external_variable["callee_name"]
+                    index = external_variable["index"]
+                    line_number = external_variable["line_number"]
+
+                    call_sites = self.ts_analyzer.get_callsites_by_callee_name(
+                        function, callee_function.function_name
+                    )
+
+                    for call_site_node in call_sites:
+                        file_content = self.ts_analyzer.code_in_files[
+                            function.file_path
+                        ]
+                        call_site_lower_line_number = (
+                            file_content[: call_site_node.start_byte].count("\n") + 1
+                        )
+
+                        # Ensure the call site line number matches
+                        # XXX (ZZ): This check is crucial to prevent slicing explosion, especially when a caller
+                        # has multiple call sites to the same callee.
+                        # XXX (ZZ): For correctness, this assumes the caller function begins on the first line
+                        # of the code snippet provided to the LLM.
+                        # TODO (ZZ): We need to add line number support for other languages.
+                        # if call_site_lower_line_number != line_number:
+                        if (
+                            line_number is not None
+                            and call_site_lower_line_number
+                            != line_number + function.start_line_number - 1
+                        ):
+                            continue
+
+                        if not self.cgscan_agent:
+                            callee_functions = [
+                                callee_function
+                                for callee_function in self.ts_analyzer.get_all_callee_functions(
+                                    function
+                                )
+                                if callee_function.function_name == callee_name
+                            ]
+                        else:
+                            callee_functions = self.cgscan_agent.query_callee_functions(
+                                function, call_site_node, is_llm_refined=True
+                            )
+
+                        for callee_function in callee_functions:
+                            callee_paras = callee_function.paras(ValueLabel.PARA)
+                            callee_variadic_para = list(
+                                callee_function.paras(ValueLabel.VARI_PARA)
+                            )
+
+                            new_slice_context = copy.deepcopy(slice_context)
+                            context_label = ContextLabel(
+                                self.ts_analyzer.functionToFile[function.function_id],
+                                call_site_lower_line_number,
+                                callee_function.function_id,
+                                Parenthesis.RIGHT_PAR,
+                            )
+                            is_CFL_reachable = new_slice_context.add_and_check_context(
+                                context_label
+                            )
+                            if not is_CFL_reachable:
+                                continue
+
+                            # Ensure the call site line number matches
+                            if (
+                                external_variable["line_number"] is not None
+                                and call_site_lower_line_number
+                                != external_variable["line_number"]
+                                + function.start_line_number
+                                - 1
+                            ):
+                                continue
+
+                            if (
+                                index >= len(callee_paras)
+                                and len(callee_variadic_para) > 0
+                            ):
+                                # The argument falls into a variadic parameter
+                                variadic_para = copy.deepcopy(callee_variadic_para[0])
+
+                                # XXX (Chengpeng): We want to inform the LLM of the exact position where an argument has been passed
+                                # within a variadic parameter. For example, if the variadic parameter is `*args`, we want to
+                                # determine the index of the specific argument within `args`.
+                                variadic_para.index = index - variadic_para.index
+                                delta_worklist.append(
+                                    (
+                                        new_slice_context,
+                                        callee_function.function_id,
+                                        variadic_para,
+                                    )
+                                )
+                            else:
+                                for para in callee_paras:
+                                    if para.index == index:
+                                        delta_worklist.append(
+                                            (
+                                                new_slice_context,
+                                                callee_function.function_id,
+                                                para,
+                                            )
+                                        )
+
+                elif ext_val_type == "Argument (Receiver)":
+                    # Consider side-effect.
+                    callee_name = external_variable["callee_name"]
+                    field_name = external_variable["field_name"]
+
                     callee_functions = [
                         function
                         for function in self.ts_analyzer.get_all_callee_functions(
@@ -411,12 +898,26 @@ class SliceScanAgent(Agent):
                         )
                         if function.function_name == callee_name
                     ]
-                    index = external_variable["index"]
+
                     for callee_function in callee_functions:
                         # Backward slicing: Trace back to the callee function from the current function
                         call_sites = self.ts_analyzer.get_callsites_by_callee_name(
                             function, callee_function.function_name
                         )
+
+                        receiver_paras = callee_function.paras(ValueLabel.OBJ_PARA)
+                        if len(receiver_paras) == 0:
+                            continue
+                        assert (
+                            len(receiver_paras) == 1
+                        ), "There should be only one receiver parameter in a function"
+                        receiver_para = copy.deepcopy(receiver_paras.pop())
+
+                        if field_name is not None:
+                            receiver_para.comment = (
+                                f"the field `{field_name}` of " + "{description}"
+                            )
+
                         for call_site_node in call_sites:
                             file_content = self.ts_analyzer.code_in_files[
                                 function.file_path
@@ -439,19 +940,30 @@ class SliceScanAgent(Agent):
                             if not is_CFL_reachable:
                                 continue
 
-                            for para in callee_function.paras:
-                                if para.index == index:
-                                    delta_worklist.append(
-                                        (
-                                            new_slice_context,
-                                            callee_function.function_id,
-                                            para,
-                                        )
-                                    )
+                            # Ensure the call site line number matches
+                            if (
+                                external_variable["line_number"] is not None
+                                and call_site_lower_line_number
+                                != external_variable["line_number"]
+                                + function.start_line_number
+                                - 1
+                            ):
+                                continue
+
+                            delta_worklist.append(
+                                (
+                                    new_slice_context,
+                                    callee_function.function_id,
+                                    receiver_para,
+                                )
+                            )
         return delta_worklist
 
-    # TOBE deprecated
+    # TODO: TO BE DEPRECATED
     def start_scan_sequential(self) -> None:
+        if self.seed_function is None:
+            return
+
         self.logger.print_console("Start slice scanning...")
         worklist: List[Tuple[CallContext, int, Set[Value]]] = (
             []
@@ -460,7 +972,7 @@ class SliceScanAgent(Agent):
         # Initially, the call stack is empty.
         initial_context = CallContext(self.is_backward)
         worklist.append(
-            (initial_context, self.seed_function.function_id, self.seed_values)
+            (initial_context, self.seed_function.function_id, set(self.seed_values))
         )
 
         while True:
@@ -471,23 +983,27 @@ class SliceScanAgent(Agent):
             if len(slice_context.context) > self.state.call_depth:
                 continue
 
-            input: IntraSlicerInput = IntraSlicerInput(
-                self.ts_analyzer.function_env[function_id], seed_set, self.is_backward
+            seed_list = list(seed_set)
+            slice_input: IntraSlicerInput = IntraSlicerInput(
+                self.ts_analyzer.function_env[function_id], seed_list, self.is_backward
             )
-            output: IntraSlicerOutput = self.intra_slicer.invoke(input)
+            slice_output = self.intra_slicer.invoke(slice_input, IntraSlicerOutput)
 
-            if output is None:
+            if slice_output is None:
                 continue
 
             self.state.update_intra_slices_in_state(
                 slice_context,
                 self.ts_analyzer.function_env[function_id],
-                seed_set,
-                output.slice,
+                seed_list,
+                slice_output.slice,
+                slice_output.function_str,
             )
 
             # Add more functions to the worklist according to the external variables in the intra-slicing output
-            delta_worklist = self.__update_worklist(input, output, slice_context)
+            delta_worklist = self.__update_worklist(
+                slice_input, slice_output, slice_context
+            )
             for (
                 delta_slice_context,
                 delta_function_id,
@@ -524,7 +1040,7 @@ class SliceScanAgent(Agent):
 
     def __process_item(
         self, item: Tuple[CallContext, int, Set[Value]]
-    ) -> List[Tuple[CallContext, int, Set[Value]]]:
+    ) -> List[Tuple[CallContext, int, Value]]:
         """
         Process one worklist item and return the delta worklist.
         """
@@ -535,30 +1051,35 @@ class SliceScanAgent(Agent):
             return []
 
         input_data = IntraSlicerInput(
-            self.ts_analyzer.function_env[function_id], seed_set, self.is_backward
+            self.ts_analyzer.function_env[function_id], list(seed_set), self.is_backward
         )
-        output = self.intra_slicer.invoke(input_data)
+        output_data = self.intra_slicer.invoke(input_data, IntraSlicerOutput)
 
-        if output is None:
+        if output_data is None:
             return []
 
         self.state.update_intra_slices_in_state(
             slice_context,
             self.ts_analyzer.function_env[function_id],
-            seed_set,
-            output.slice,
+            list(seed_set),
+            output_data.slice,
+            output_data.function_str,
         )
 
-        delta_worklist = self.__update_worklist(input_data, output, slice_context)
+        delta_worklist = self.__update_worklist(input_data, output_data, slice_context)
         return delta_worklist
 
     def start_scan(self) -> None:
+        if self.seed_function is None:
+            self.logger.print_console("No seed function found.")
+            return
+
         self.logger.print_console("Start slice scanning in parallel...")
         # worklist: list of tuples (CallContext, function_id, set of seed values)
         worklist: List[Tuple[CallContext, int, Set[Value]]] = []
         initial_context = CallContext(self.is_backward)
         worklist.append(
-            (initial_context, self.seed_function.function_id, self.seed_values)
+            (initial_context, self.seed_function.function_id, set(self.seed_values))
         )
 
         with ThreadPoolExecutor(max_workers=self.max_neural_workers) as executor:
@@ -596,6 +1117,8 @@ class SliceScanAgent(Agent):
                                     if (
                                         delta_seed_value.label == ValueLabel.RET
                                         and wl_seed_value.label == ValueLabel.RET
+                                        and delta_seed_value.index
+                                        == wl_seed_value.index
                                     ) or (
                                         delta_seed_value.line_number
                                         == wl_seed_value.line_number

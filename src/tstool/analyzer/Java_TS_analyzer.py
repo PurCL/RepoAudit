@@ -1,6 +1,6 @@
 import sys
 from os import path
-from typing import List, Tuple, Dict, Set
+from typing import List, Optional, Tuple, Dict, Set
 import tree_sitter
 
 sys.path.append(path.dirname(path.dirname(path.dirname(path.abspath(__file__)))))
@@ -105,7 +105,7 @@ class Java_TSAnalyzer(TSAnalyzer):
         :param call_site_node: the node of the call site
         :return: the arguments
         """
-        arguments = set([])
+        arguments: Set[Value] = set()
         file_name = current_function.file_path
         source_code = self.code_in_files[file_name]
         for sub_node in call_site_node.children:
@@ -125,17 +125,16 @@ class Java_TSAnalyzer(TSAnalyzer):
                         )
         return arguments
 
-    def get_parameters_in_single_function(
-        self, current_function: Function
-    ) -> Set[Value]:
+    def analyze_parameters_in_single_function(self, current_function: Function) -> None:
         """
         Find the parameters of a function.
         :param current_function: The function to be analyzed.
         :return: A set of parameters as values
         """
-        if current_function.paras is not None:
-            return current_function.paras
-        current_function.paras = set([])
+        if current_function._paras is not None:
+            return
+        current_function._paras = set()
+
         file_content = self.code_in_files[current_function.file_path]
         parameters = find_nodes_by_type(
             current_function.parse_tree_root_node, "formal_parameter"
@@ -145,7 +144,7 @@ class Java_TSAnalyzer(TSAnalyzer):
             for sub_node in find_nodes_by_type(parameter_node, "identifier"):
                 parameter_name = file_content[sub_node.start_byte : sub_node.end_byte]
                 line_number = file_content[: sub_node.start_byte].count("\n") + 1
-                current_function.paras.add(
+                current_function.add_para(
                     Value(
                         parameter_name,
                         line_number,
@@ -155,7 +154,7 @@ class Java_TSAnalyzer(TSAnalyzer):
                     )
                 )
                 index += 1
-        return current_function.paras
+        return
 
     def get_return_values_in_single_function(
         self, current_function: Function
@@ -190,7 +189,7 @@ class Java_TSAnalyzer(TSAnalyzer):
 
     def get_if_statements(
         self, function: Function, source_code: str
-    ) -> Dict[Tuple, Tuple]:
+    ) -> Dict[Scope, IfStatement]:
         """
         Find if-statements in the Java method.
         Returns a dictionary mapping a (start_line, end_line) tuple to the if-statement info.
@@ -263,7 +262,7 @@ class Java_TSAnalyzer(TSAnalyzer):
 
     def get_loop_statements(
         self, function: Function, source_code: str
-    ) -> Dict[Tuple, Tuple]:
+    ) -> Dict[Scope, LoopStatement]:
         """
         Find loop statements in the Java method.
         Returns a dictionary mapping (start_line, end_line) to loop statement information.

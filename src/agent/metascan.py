@@ -1,5 +1,6 @@
 import json
 import os
+from typing import Any, Literal
 
 from agent.agent import *
 from tstool.analyzer.TS_analyzer import *
@@ -11,6 +12,8 @@ from llmtool.LLM_utils import *
 from memory.semantic.metascan_state import *
 from pathlib import Path
 
+BASE_PATH = Path(__file__).resolve().parents[2]
+
 
 class MetaScanAgent(Agent):
     """
@@ -18,10 +21,17 @@ class MetaScanAgent(Agent):
     Used for testing llmtools :)
     """
 
-    def __init__(self, project_path, language, ts_analyzer) -> None:
+    def __init__(
+        self,
+        project_path: str,
+        language: Literal["Cpp", "Go", "Java", "Python"],
+        ts_analyzer: TSAnalyzer,
+    ) -> None:
         self.project_path = project_path
         self.project_name = project_path.split("/")[-1]
         self.language = language
+        self.time_str = time.strftime("%Y-%m-%d-%H-%M-%S", time.localtime())
+
         self.ts_analyzer = ts_analyzer
         self.state = MetaScanState()
         return
@@ -30,35 +40,58 @@ class MetaScanAgent(Agent):
         """
         Start the detection process.
         """
-        log_dir_path = str(
-            Path(__file__).resolve().parent.parent.parent
-            / f"result/metascan/{self.language}/{self.project_name}/{time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())}"
-        )
+        log_dir_path = f"{BASE_PATH}/log/metascan/{self.language}/{self.project_name}/{self.time_str}"
+        res_dir_path = f"{BASE_PATH}/result/metascan/{self.language}/{self.project_name}/{self.time_str}"
+
         if not os.path.exists(log_dir_path):
             os.makedirs(log_dir_path)
-        self.logger = Logger(self.log_dir_path + "/" + "metascan.log")
+        if not os.path.exists(res_dir_path):
+            os.makedirs(res_dir_path)
+
+        self.logger = Logger(log_dir_path + "/" + "metascan.log")
+
+        function_call_cnt = 0
+        unique_callee_cnt = 0
 
         for function_id in self.ts_analyzer.function_env:
-            function_meta_data = {}
+            function_meta_data: Dict[str, Any] = {}
             function = self.ts_analyzer.function_env[function_id]
             function_meta_data["function_id"] = function.function_id
             function_meta_data["function_name"] = function.function_name
+            function_meta_data["file_path"] = function.file_path
             function_meta_data["function_start_line"] = function.start_line_number
             function_meta_data["function_end_line"] = function.end_line_number
 
-            function_meta_data["parameters"] = [str(para) for para in function.paras]
+            # XXX (ZZ): Not sure whether we need to return all parameters, or only regular ones
+            function_meta_data["parameters"] = [
+                str(para) for para in function.paras(None)
+            ]
 
-            function_meta_data["retvals"] = [str(retval) for retval in function.retvals]
+            function_meta_data["retvals"] = [
+                str(retval)
+                for retval in (
+                    function.retvals if function.retvals is not None else set()
+                )
+            ]
 
             function_meta_data["call_sites"] = []
-            for call_site in function.function_call_site_nodes:
-                call_site_info = {}
+            for call_site_id in function.function_call_site_nodes:
+                call_site = function.function_call_site_nodes[call_site_id]
+                function_call_cnt += 1
+                call_site_info: Dict[str, Any] = {}
                 file_content = self.ts_analyzer.fileContentDic[function.file_path]
-                call_site_info["callee_id"] = (
-                    self.ts_analyzer.get_callee_function_ids_at_callsite(
-                        function, call_site
-                    )
+
+                callee_ids = self.ts_analyzer.get_callee_function_ids_at_callsite(
+                    function, call_site
                 )
+                callee_name_id_pairs = [
+                    (callee_id, self.ts_analyzer.function_env[callee_id].function_name)
+                    for callee_id in callee_ids
+                ]
+                call_site_info["callee_id_name_pairs"] = callee_name_id_pairs
+                if len(callee_name_id_pairs) == 1:
+                    unique_callee_cnt += 1
+
                 call_site_info["args"] = [
                     str(arg)
                     for arg in self.ts_analyzer.get_arguments_at_callsite(
@@ -68,6 +101,7 @@ class MetaScanAgent(Agent):
                 call_site_info["call_site_start_line"] = (
                     file_content[: call_site.start_byte].count("\n") + 1
                 )
+                call_site_info["call_site_id"] = call_site_id
                 function_meta_data["call_sites"].append(call_site_info)
 
             # function call
@@ -88,12 +122,17 @@ class MetaScanAgent(Agent):
                         str(self.ts_analyzer.api_env[callee_id])
                     )
 
-            function_meta_data["caller_ids"] = []
+            function_meta_data["caller_id_name_pairs"] = []
             if function_id in self.ts_analyzer.function_callee_caller_map:
                 for caller_id in self.ts_analyzer.function_callee_caller_map[
                     function_id
                 ]:
-                    function_meta_data["caller_ids"].append(caller_id)
+                    function_meta_data["caller_id_name_pairs"].append(
+                        (
+                            caller_id,
+                            self.ts_analyzer.function_env[caller_id].function_name,
+                        )
+                    )
 
             # control flow
             function_meta_data["if_statements"] = []
@@ -110,7 +149,7 @@ class MetaScanAgent(Agent):
                 ) = self.ts_analyzer.function_env[function_id].if_statements[
                     (if_statement_start_line, if_statement_end_line)
                 ]
-                if_statement = {}
+                if_statement: Dict[str, Any] = {}
                 if_statement["condition_str"] = condition_str
                 if_statement["condition_start_line"] = condition_start_line
                 if_statement["condition_end_line"] = condition_end_line
@@ -134,7 +173,7 @@ class MetaScanAgent(Agent):
                 ) = self.ts_analyzer.function_env[function_id].loop_statements[
                     (loop_statement_start_line, loop_statement_end_line)
                 ]
-                loop_statement = {}
+                loop_statement: Dict[str, Any] = {}
                 loop_statement["loop_statement_start_line"] = loop_statement_start_line
                 loop_statement["loop_statement_end_line"] = loop_statement_end_line
                 loop_statement["header_str"] = header_str
@@ -146,7 +185,7 @@ class MetaScanAgent(Agent):
 
             self.state.update_function_meta_data(function_id, function_meta_data)
 
-        with open(log_dir_path + "/meta_scan_result.json", "w") as f:
+        with open(res_dir_path + "/meta_scan_result.json", "w") as f:
             json.dump(self.state.function_meta_data_dict, f, indent=4, sort_keys=True)
 
         f2f_call_edge_num = 0
@@ -156,14 +195,14 @@ class MetaScanAgent(Agent):
         for callee, callers in self.ts_analyzer.function_caller_api_callee_map.items():
             f2a_call_edge_num += len(callers)
 
-        self.logger.print_console(
+        self.logger.print_log(
             "Function Number: ", len(self.state.function_meta_data_dict)
         )
-        self.logger.print_console("API Number: ", len(self.ts_analyzer.api_env))
-        self.logger.print_console(
-            "Function-Function Call Edge Number: ", f2f_call_edge_num
-        )
-        self.logger.print_console("Function-API Call Edge Number: ", f2a_call_edge_num)
+        self.logger.print_log("API Number: ", len(self.ts_analyzer.api_env))
+        self.logger.print_log("Function-Function Call Edge Number: ", f2f_call_edge_num)
+        self.logger.print_log("Function-API Call Edge Number: ", f2a_call_edge_num)
+        self.logger.print_log("Function-Function Call Edge Number: ", function_call_cnt)
+        self.logger.print_log("Unique Callee Number: ", unique_callee_cnt)
         return
 
     def get_agent_state(self):

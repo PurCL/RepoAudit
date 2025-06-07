@@ -7,8 +7,12 @@ replicate
 openai
 google-generativeai
 tqdm
+types-tqdm
 networkx
+types-networkx
 streamlit
 botocore
 boto3
+boto3-stubs[essential]
 black
+mypy

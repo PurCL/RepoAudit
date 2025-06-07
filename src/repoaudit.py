@@ -1,20 +1,21 @@
 import argparse
 import glob
 import sys
-from agent.metascan import *
-from agent.bugscan import *
-from agent.slicescan import *
-from agent.dfbscan import *
-from agent.samplescan import *
-from agent.debugscan import *
 
-from errors import RAValueError, RepoAuditError
+from agent.metascan import MetaScanAgent
+from agent.cgscan import CGScanAgent
+from agent.dfbscan import DFBScanAgent
+from agent.bugscan import BugScanAgent
+from agent.samplescan import SampleScanAgent
+from agent.debugscan import DebugScanAgent
+
 from tstool.analyzer.TS_analyzer import *
 from tstool.analyzer.Cpp_TS_analyzer import *
 from tstool.analyzer.Go_TS_analyzer import *
 from tstool.analyzer.Java_TS_analyzer import *
 from tstool.analyzer.Python_TS_analyzer import *
 
+from errors import RAValueError, RepoAuditError
 from typing import List
 
 
@@ -72,7 +73,7 @@ class RepoAudit:
 
         self.project_path = args.project_path
         self.language = args.language
-        self.code_in_files = {}
+        self.code_in_files: Dict[str, str] = {}
 
         self.model_name = args.model_name
         self.temperature = args.temperature
@@ -88,7 +89,11 @@ class RepoAudit:
         self.bug_type = args.bug_type
         self.is_reachable = args.is_reachable
         self.is_backward = args.is_backward
+        self.is_inlined = args.is_inlined
+        self.cg_refine = args.cg_refine
         self.is_iterative = args.is_iterative
+
+        self.include_test_files = args.include_test_files
 
         suffixs = []
         if self.language == "Cpp":
@@ -105,6 +110,7 @@ class RepoAudit:
         # Load all files with the specified suffix in the project path
         self.travese_files(self.project_path, suffixs)
 
+        self.ts_analyzer: TSAnalyzer
         if self.language == "Cpp":
             self.ts_analyzer = Cpp_TSAnalyzer(
                 self.code_in_files, self.language, self.max_symbolic_workers
@@ -121,54 +127,46 @@ class RepoAudit:
             self.ts_analyzer = Python_TSAnalyzer(
                 self.code_in_files, self.language, self.max_symbolic_workers
             )
+
+        # Initialize the universal agents
+        self.metascan_agent = MetaScanAgent(
+            self.project_path, self.language, self.ts_analyzer
+        )
+        self.metascan_agent.start_scan()
+        self.cgscan_agent = CGScanAgent(
+            self.project_path,
+            self.language,
+            self.metascan_agent,
+            self.model_name,
+            self.temperature,
+            self.max_neural_workers,
+        )
         return
 
     def start_repo_auditing(self) -> None:
         """
         Start the batch scan process.
         """
-        if self.args.scan_type == "metascan":
-            metascan_pipeline = MetaScanAgent(
-                self.project_path,
-                self.language,
-                self.ts_analyzer,
-                self.model_name,
-                self.temperature,
-            )
-            metascan_pipeline.start_scan()
-
         if self.args.scan_type == "bugscan":
             while True:
-                bugscan_agent = BugScanAgent(
+                self.bugscan_agent = BugScanAgent(
                     self.project_path,
                     self.language,
                     self.ts_analyzer,
                     self.model_name,
                     self.temperature,
                     self.call_depth,
+                    self.is_inlined,
                     self.max_neural_workers,
+                    cgscan_agent=self.cgscan_agent if self.cg_refine else None,
+                    include_test_files=self.include_test_files,
                 )
-                bugscan_agent.start_scan()
+                self.bugscan_agent.start_scan()
                 if not self.is_iterative:
                     break
 
-        if self.args.scan_type == "slicescan":
-            slicescan_agent = SliceScanAgent(
-                [],
-                self.is_backward,
-                self.project_path,
-                self.language,
-                self.ts_analyzer,
-                self.model_name,
-                self.temperature,
-                self.call_depth,
-                self.max_neural_workers,
-            )
-            slicescan_agent.start_scan()
-            print(slicescan_agent.get_agent_result())
-
         if self.args.scan_type == "dfbscan":
-            dfbscan_agent = DFBScanAgent(
+            self.dfbscan_agent = DFBScanAgent(
                 self.bug_type,
                 self.is_reachable,
                 self.project_path,
@@ -178,11 +176,12 @@ class RepoAudit:
                 self.temperature,
                 self.call_depth,
                 self.max_neural_workers,
+                include_test_files=self.include_test_files,
             )
-            dfbscan_agent.start_scan()
+            self.dfbscan_agent.start_scan()
 
         if self.args.scan_type == "samplescan":
-            samplescan_agent = SampleScanAgent(
+            self.samplescan_agent = SampleScanAgent(
                 self.project_path,
                 self.language,
                 self.ts_analyzer,
@@ -193,11 +192,12 @@ class RepoAudit:
                 self.temperature,
                 self.call_depth,
                 self.max_neural_workers,
+                include_test_files=self.include_test_files,
             )
-            samplescan_agent.start_scan()
+            self.samplescan_agent.start_scan()
 
         if self.args.scan_type == "debugscan":
-            debugscan_agent = DebugScanAgent(
+            self.debugscan_agent = DebugScanAgent(
                 self.project_path,
                 self.language,
                 self.ts_analyzer,
@@ -206,7 +206,7 @@ class RepoAudit:
                 self.call_depth,
                 self.max_neural_workers,
             )
-            debugscan_agent.start_scan()
+            self.debugscan_agent.start_scan()
         return
 
     def travese_files(self, project_path: str, suffixs: List) -> None:
@@ -215,8 +215,13 @@ class RepoAudit:
         """
         for suffix in suffixs:
             for file in glob.glob(f"{project_path}/**/*.{suffix}", recursive=True):
+                if not self.include_test_files:
+                    if "test" in file.lower() or "example" in file.lower():
+                        continue
                 try:
                     with open(file, "r") as source_file:
+                        # if file != "../benchmark/Go/zap/sink.go":
+                        #     continue
                         source_file_content = source_file.read()
                         self.code_in_files[file] = source_file_content
                 except:
@@ -230,13 +235,6 @@ class RepoAudit:
         if self.args.scan_type == "bugscan":
             if not self.args.model_name:
                 err_messages.append("Error: --model-name is required for bugscan.")
-        elif self.args.scan_type == "slicescan":
-            if not self.args.is_backward:
-                err_messages.append("Error: --is-backward is required for slicescan.")
-            if not self.args.model_name:
-                err_messages.append(
-                    "Error: --inference-model-name is required for slicescan."
-                )
         elif self.args.scan_type == "dfbscan":
             if not self.args.model_name:
                 err_messages.append("Error: --model-name is required for dfbscan.")
@@ -273,8 +271,6 @@ def configure_args():
         "--scan-type",
         required=True,
         choices=[
-            "metascan",
-            "slicescan",
             "bugscan",
             "dfbscan",
             "samplescan",
@@ -333,9 +329,28 @@ def configure_args():
 
     # Parameters for bugscan
     parser.add_argument(
+        "--is-inlined",
+        action="store_true",
+        help="Flag to enable inlining in the bugscan agent",
+    )
+
+    parser.add_argument(
+        "--cg-refine",
+        action="store_true",
+        help="Flag to refine the call graph with LLM",
+    )
+
+    parser.add_argument(
         "--is-iterative",
         action="store_true",
         help="Flag for iterative analysis with multiple rounds",
+    )
+
+    # Parameters for skipping analysis of test files in the project
+    parser.add_argument(
+        "--include-test-files",
+        action="store_true",
+        help="Flag to include the project's test files into the analysis process",
     )
 
     args = parser.parse_args()

@@ -144,8 +144,8 @@ class SampleScanAgent(Agent):
         call_depth,
         max_neural_workers=1,
         agent_id: int = 0,
+        include_test_files: bool = False,
     ) -> None:
-
         self.project_path = project_path
         self.project_name = project_path.split("/")[-1]
 
@@ -174,11 +174,15 @@ class SampleScanAgent(Agent):
         self.max_neural_workers = max_neural_workers
         self.MAX_QUERY_NUM = 5
 
+        self.include_test_files = include_test_files
+
         self.lock = threading.Lock()
 
         with self.lock:
-            self.log_dir_path = f"{BASE_PATH}/log/samplescan/{self.model_name}/{self.language}/{self.project_name}/{time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())}-{agent_id}"
-            self.res_dir_path = f"{BASE_PATH}/result/samplescan/{self.model_name}/{self.bug_type}/{self.language}/{self.project_name}/{time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())}-{agent_id}"
+            # TODO (ZZ): the original code use `self.model_name`, but it is not defined.
+            # I am not sure whether we should use `self.slicing_model` or `self.inlining_model`
+            self.log_dir_path = f"{BASE_PATH}/log/samplescan/{self.slicing_model}/{self.language}/{self.project_name}/{time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())}-{agent_id}"
+            self.res_dir_path = f"{BASE_PATH}/result/samplescan/{self.slicing_model}/{self.bug_type}/{self.language}/{self.project_name}/{time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())}-{agent_id}"
             if not os.path.exists(self.log_dir_path):
                 os.makedirs(self.log_dir_path)
             self.logger = Logger(self.log_dir_path + "/" + "samplescan.log")
@@ -214,10 +218,12 @@ class SampleScanAgent(Agent):
         # LLM Agent instances created by SampleScanAgent
         self.slice_scan_agents: List[SliceScanAgent] = []
 
-        self.initial_seeds: List[Tuple[Value, bool]] = (
-            self.__obtain_extractor().extract_all()
+        self.initial_seeds: List[
+            Tuple[Value, bool]
+        ] = self.__obtain_extractor().extract_all(
+            include_test_files=self.include_test_files
         )
-        self.sampled_seeds = []
+        self.sampled_seeds: List[Tuple[Value, bool]] = []
         self.state = SampleScanState(self.sampled_seeds)
         return
 
@@ -242,8 +248,10 @@ class SampleScanAgent(Agent):
         elif self.language == "Python":
             if self.bug_type == "NPD":
                 return Python_NPD_Extractor(self.ts_analyzer)
-        # TODO: otherwise, sythesize the extractor
-        return None
+
+        raise RAValueError(
+            f"Bug type {self.bug_type} not supported for language {self.language}"
+        )
 
     def __retrieve_slice_inliner_inputs(
         self, slicescan_state: SliceScanState
@@ -271,7 +279,7 @@ class SampleScanAgent(Agent):
 
         for root_function_id in root_function_ids:
             relevant_function_ids = [root_function_id]
-            function_caller_callee_map = {}
+            function_caller_callee_map: Dict[int, Set[int]] = {}
             while True:
                 new_added_function_ids = []
                 for function_id in relevant_function_ids:
@@ -306,8 +314,13 @@ class SampleScanAgent(Agent):
                     )
 
             slice_items = []
-            for _, function_id, values, slice in slicescan_state.intra_slices:
-                slice_items.append((function_id, values, slice))
+            for (
+                _,
+                function_id,
+                values,
+                (slice, function_str),
+            ) in slicescan_state.intra_slices:
+                slice_items.append((function_id, values, (slice, function_str)))
 
             relevant_functions = {
                 function_id: self.ts_analyzer.function_env[function_id]
@@ -328,7 +341,7 @@ class SampleScanAgent(Agent):
         self.logger.print_console("Start bug scanning...")
 
         # (Key Step I): Intra-procedural seed selection
-        initial_seeds_in_functions = {}
+        initial_seeds_in_functions: Dict[int, List[Tuple[Value, bool]]] = {}
         for seed_value, is_backward in self.initial_seeds:
             seed_function = self.ts_analyzer.get_function_from_localvalue(seed_value)
             if seed_function.function_id not in initial_seeds_in_functions:
@@ -345,13 +358,13 @@ class SampleScanAgent(Agent):
                 seed_value
                 for (seed_value, is_backward) in initial_seeds_in_functions[function_id]
             ]
-            input = SeedSelectorInput(seed_function, seed_list)
-            output = self.seed_selector.invoke(input)
+            input_data = SeedSelectorInput(seed_function, seed_list)
+            output_data = self.seed_selector.invoke(input_data, SeedSelectorOutput)
 
-            if output is None:
+            if output_data is None:
                 continue
 
-            for output_seed_value in output.seed_list:
+            for output_seed_value in output_data.seed_list:
                 self.sampled_seeds.append((output_seed_value, is_backward))
 
         self.state.update_sampled_seed_values(self.sampled_seeds)
@@ -413,8 +426,8 @@ class SampleScanAgent(Agent):
                 slice_inliner_inputs, desc="Processing Slices", unit="slice"
             ):
                 # (Key Step III): Inline the slices
-                slice_inliner_output: SliceInlinerOutput = self.slice_inliner.invoke(
-                    slice_inliner_input
+                slice_inliner_output = self.slice_inliner.invoke(
+                    slice_inliner_input, SliceInlinerOutput
                 )
 
                 if slice_inliner_output is None:
@@ -425,8 +438,8 @@ class SampleScanAgent(Agent):
                 intra_function_detector_input = FunctionBugDetectorInput(
                     slice_inliner_output.inlined_snippet
                 )
-                intra_function_detector_output: FunctionBugDetectorOutput = (
-                    self.intra_detector.invoke(intra_function_detector_input)
+                intra_function_detector_output = self.intra_detector.invoke(
+                    intra_function_detector_input, FunctionBugDetectorOutput
                 )
 
                 if intra_function_detector_output is None:
@@ -476,7 +489,7 @@ class SampleScanAgent(Agent):
         self.logger.print_console(
             "---------------------------------------------------\n"
         )
-        initial_seeds_in_functions = {}
+        initial_seeds_in_functions: Dict[int, List[Tuple[Value, bool]]] = {}
         for seed_value, is_backward in self.initial_seeds:
             seed_function = self.ts_analyzer.get_function_from_localvalue(seed_value)
             if seed_function.function_id not in initial_seeds_in_functions:
@@ -493,13 +506,13 @@ class SampleScanAgent(Agent):
                 seed_value
                 for (seed_value, is_backward) in initial_seeds_in_functions[function_id]
             ]
-            input = SeedSelectorInput(seed_function, seed_list)
-            output = self.seed_selector.invoke(input)
+            input_data = SeedSelectorInput(seed_function, seed_list)
+            output_data = self.seed_selector.invoke(input_data, SeedSelectorOutput)
 
-            if output is None:
+            if output_data is None:
                 continue
 
-            for output_seed_value in output.seed_list:
+            for output_seed_value in output_data.seed_list:
                 self.sampled_seeds.append((output_seed_value, is_backward))
 
         self.state.update_sampled_seed_values(self.sampled_seeds)
@@ -622,8 +635,8 @@ class SampleScanAgent(Agent):
             )
 
             # (Key Step III): Inline the slices
-            slice_inliner_output: SliceInlinerOutput = self.slice_inliner.invoke(
-                slice_inliner_input
+            slice_inliner_output = self.slice_inliner.invoke(
+                slice_inliner_input, SliceInlinerOutput
             )
 
             if slice_inliner_output is None:
@@ -645,8 +658,8 @@ class SampleScanAgent(Agent):
             intra_function_detector_input = FunctionBugDetectorInput(
                 slice_inliner_output.inlined_snippet
             )
-            intra_function_detector_output: FunctionBugDetectorOutput = (
-                self.intra_detector.invoke(intra_function_detector_input)
+            intra_function_detector_output = self.intra_detector.invoke(
+                intra_function_detector_input, FunctionBugDetectorOutput
             )
 
             if intra_function_detector_output is None:
