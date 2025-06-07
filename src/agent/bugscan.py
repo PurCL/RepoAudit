@@ -28,6 +28,7 @@ from tstool.bugscan_extractor.Python.Python_NPD_extractor import *
 from llmtool.LLM_utils import *
 from llmtool.bugscan.slice_inliner import *
 from llmtool.bugscan.slice_bug_detector import *
+from llmtool.bugscan.slice_bug_validator import *
 from llmtool.utility.audit_request_formulator import *
 
 from memory.semantic.bugscan_state import *
@@ -42,14 +43,14 @@ BASE_PATH = Path(__file__).resolve().parents[2]
 class BugScanAgent(Agent):
     def __init__(
         self,
-        project_path,
-        language,
-        ts_analyzer,
-        model_name,
-        temperature,
-        call_depth,
-        is_inlined=False,
-        max_neural_workers=1,
+        project_path: str,
+        language: str,
+        ts_analyzer: TSAnalyzer,
+        model_name: str,
+        temperature: float,
+        call_depth: int,
+        is_inlined: bool = False,
+        max_neural_workers: int = 1,
         agent_id: int = 0,
         cgscan_agent: Optional[CGScanAgent] = None,
         include_test_files: bool = False,
@@ -115,6 +116,14 @@ class BugScanAgent(Agent):
             self.MAX_QUERY_NUM,
             self.logger,
         )
+        self.slice_validator = SliceBugValidator(
+            self.bug_type,
+            self.model_name,
+            self.temperature,
+            self.language,
+            self.MAX_QUERY_NUM,
+            self.logger,
+        )
 
         with self.lock:
             self.res_dir_path = f"{BASE_PATH}/result/bugscan/{self.model_name}/{self.bug_type}/{self.language}/{self.project_name}/{self.time_str}-{agent_id}"
@@ -125,6 +134,7 @@ class BugScanAgent(Agent):
         self.seeds: List[Tuple[Value, bool]] = self.__obtain_extractor().extract_all(
             include_test_files=self.include_test_files
         )
+
         self.logger.print_log(
             f"Extracted {len(self.seeds)} seeds from the code base. The seeds are as follows:"
         )
@@ -211,7 +221,7 @@ class BugScanAgent(Agent):
                     self.logger.print_log(
                         f"Analyze the whole repository {self.project_path}."
                     )
-                    target_files = self.ts_analyzer.code_in_files
+                    target_files = list(self.ts_analyzer.code_in_files.keys())
                     is_valid_input = True
 
             if is_valid_input:
@@ -317,8 +327,13 @@ class BugScanAgent(Agent):
                     )
 
             slice_items = []
-            for _, function_id, values, slice in slicescan_state.intra_slices:
-                slice_items.append((function_id, values, slice))
+            for (
+                _,
+                function_id,
+                values,
+                (slice, function_str),
+            ) in slicescan_state.intra_slices:
+                slice_items.append((function_id, values, (slice, function_str)))
 
             relevant_functions = {
                 function_id: self.ts_analyzer.function_env[function_id]
@@ -333,165 +348,6 @@ class BugScanAgent(Agent):
             )
             inputs.append(input)
         return inputs
-
-    # TOBE deprecated
-    def start_scan_sequential(self) -> None:
-        self.logger.print_console("Start bug scanning...")
-
-        self.seeds_in_scope = []
-        for seed_value, is_backward in self.seeds:
-            if seed_value.file in self.target_files:
-                self.seeds_in_scope.append((seed_value, is_backward))
-
-        self.state.update_seed_values_in_scope(self.seeds_in_scope)
-
-        # Process each seed sequentially with a progress bar
-        with tqdm(
-            total=len(self.seeds_in_scope), desc="Processing Seeds", unit="seed"
-        ) as pbar:
-            for seed_value, is_backward in self.seeds_in_scope:
-                seed_function = self.ts_analyzer.get_function_from_localvalue(
-                    seed_value
-                )
-                if seed_function is None:
-                    pbar.update(1)
-                    continue
-
-                # (Key Step I): Start a slicescan agent for each seed
-                slice_scan_agent = SliceScanAgent(
-                    [seed_value],
-                    is_backward,
-                    self.project_path,
-                    self.language,
-                    self.ts_analyzer,
-                    self.model_name,
-                    self.temperature,
-                    self.call_depth,
-                    self.max_neural_workers,
-                    cgscan_agent=self.cgscan_agent,
-                )
-                self.slice_scan_agents.append(slice_scan_agent)
-
-                slice_scan_agent.start_scan()
-                slice_scan_state = slice_scan_agent.get_agent_state()
-
-                # Obtain all the inliner instances
-                slice_inliner_inputs: List[SliceInlinerInput] = (
-                    self.__retrieve_slice_inliner_inputs(slice_scan_state)
-                )
-
-                if self.is_inlined:
-                    # Inline each instance to obtain the abstraction of buggy code snippets
-                    for slice_inliner_input in slice_inliner_inputs:
-                        # (Key Step II): Inline the slices
-                        slice_inliner_output = self.slice_inliner.invoke(
-                            slice_inliner_input, SliceInlinerOutput
-                        )
-
-                        if slice_inliner_output is None:
-                            self.logger.print_log("Slice inliner output is None")
-                            continue
-
-                        # (Key Step III): Detect the bugs upon the inlined slices
-                        intra_detector_input = SliceBugDetectorInput(
-                            seed_value.description(seed_function),
-                            slice_inliner_output.inlined_snippet,
-                            slice_inliner_input.tree_str,
-                            True,
-                        )
-                        intra_detector_output = self.slice_detector.invoke(
-                            intra_detector_input, SliceBugDetectorOutput
-                        )
-
-                        if intra_detector_output is None:
-                            self.logger.print_log("Intra detector output is None")
-                            continue
-
-                        if intra_detector_output.is_buggy:
-                            # Construct the bug report and update the state
-                            explanation = (
-                                "Call tree: \n"
-                                + slice_inliner_input.tree_str
-                                + "\n"
-                                + "After the abstraction, we have the following code snippet:\n"
-                                + slice_inliner_output.inlined_snippet
-                                + "\n"
-                                + intra_detector_output.explanation_str
-                            )
-                            bug_report = BugReport(
-                                self.bug_type,
-                                seed_value,
-                                slice_inliner_input.relevant_functions,
-                                explanation,
-                            )
-                            self.state.update_bug_report(bug_report)
-                else:
-                    # Do not inline the slices. Detect multiple functions with the guidance of the call trees.
-                    call_tree_str = ""
-                    for slice_inliner_input in slice_inliner_inputs:
-                        call_tree_str += slice_inliner_input.tree_str + "\n"
-                    code_str = ""
-                    for _, function_id, values, (slice, function_str) in slice_scan_state.intra_slices:
-                        code_str += slice + "\n"
-
-                    inter_detector_input = SliceBugDetectorInput(
-                        seed_value.description(seed_function),
-                        code_str,
-                        call_tree_str,
-                        False,
-                    )
-                    inter_detector_output = self.slice_detector.invoke(
-                        inter_detector_input, SliceBugDetectorOutput
-                    )
-
-                    if inter_detector_output is None:
-                        self.logger.print_log("Inter detector output is None")
-                        continue
-
-                    if inter_detector_output.is_buggy:
-                        # Construct the bug report and update the state
-                        explanation = (
-                            "Call tree: \n"
-                            + call_tree_str
-                            + "\n"
-                            + "After the abstraction, we have the following code snippet:\n"
-                            + code_str
-                            + "\n"
-                            + inter_detector_output.explanation_str
-                        )
-                        bug_report = BugReport(
-                            self.bug_type,
-                            seed_value,
-                            slice_inliner_input.relevant_functions,
-                            explanation,
-                        )
-                        self.state.update_bug_report(bug_report)
-
-                # Dump bug reports
-                bug_report_dict = {
-                    bug_report_id: bug.to_dict()
-                    for bug_report_id, bug in self.state.bug_reports.items()
-                }
-                with open(
-                    self.res_dir_path + "/detect_info.json", "w"
-                ) as bug_info_file:
-                    json.dump(bug_report_dict, bug_info_file, indent=4)
-
-                # Update the progress bar
-                pbar.update(1)
-
-        # Final summary
-        total_bug_number = len(self.state.bug_reports)
-        self.logger.print_console(
-            f"{total_bug_number} bug(s) was/were detected in total."
-        )
-        self.logger.print_console(
-            f"The bug report(s) has/have been dumped to {self.res_dir_path}/detect_info.json"
-        )
-        self.logger.print_console("The log files are as follows:")
-        for log_file in self.get_log_files():
-            self.logger.print_console(log_file)
-        return
 
     def start_scan(self) -> None:
         self.logger.print_console("Start bug scanning...")
@@ -593,9 +449,17 @@ class BugScanAgent(Agent):
             call_tree_str = ""
             for slice_inliner_input in slice_inliner_inputs:
                 call_tree_str += slice_inliner_input.tree_str + "\n"
+
             code_str = ""
-            for _, function_id, values, (slice, function_str) in slice_scan_state.intra_slices:
+            functions_str = ""
+            for (
+                _,
+                function_id,
+                values,
+                (slice, function_str),
+            ) in slice_scan_state.intra_slices:
                 code_str += slice + "\n"
+                functions_str += function_str + "\n"
 
             inter_detector_input = SliceBugDetectorInput(
                 seed_value.description(seed_function), code_str, call_tree_str, False
@@ -609,31 +473,43 @@ class BugScanAgent(Agent):
                 return
 
             if inter_detector_output.is_buggy:
-                # Construct the bug report and update the state
-                explanation = (
-                    "Call tree: \n"
-                    + call_tree_str
-                    + "\n"
-                    + "After the abstraction, we have the following code snippet:\n"
-                    + code_str
-                    + "\n"
-                    + inter_detector_output.explanation_str
+                # Begin the validation process
+                validator_input = SliceBugValidatorInput(
+                    seed_value.description(seed_function),
+                    functions_str,
+                    call_tree_str,
+                    inter_detector_output.explanation_str,
                 )
-                bug_report = BugReport(
-                    self.bug_type,
-                    seed_value,
-                    slice_inliner_input.relevant_functions,
-                    explanation,
+                validator_output = self.slice_validator.invoke(
+                    validator_input, SliceBugValidatorOutput
                 )
-                self.state.update_bug_report(bug_report)
-                bug_report_dict = {
-                    bug_report_id: bug.to_dict()
-                    for bug_report_id, bug in self.state.bug_reports.items()
-                }
-                with open(
-                    self.res_dir_path + "/detect_info.json", "w"
-                ) as bug_info_file:
-                    json.dump(bug_report_dict, bug_info_file, indent=4)
+                if validator_output is not None:
+                    if validator_output.is_buggy:
+                        # Construct the bug report and update the state
+                        explanation = (
+                            "Call tree: \n"
+                            + call_tree_str
+                            + "\n"
+                            + "After the abstraction, we have the following code snippet:\n"
+                            + code_str
+                            + "\n"
+                            + str(validator_output)
+                        )
+                        bug_report = BugReport(
+                            self.bug_type,
+                            seed_value,
+                            slice_inliner_input.relevant_functions,
+                            explanation,
+                        )
+                        self.state.update_bug_report(bug_report)
+                        bug_report_dict = {
+                            bug_report_id: bug.to_dict()
+                            for bug_report_id, bug in self.state.bug_reports.items()
+                        }
+                        with open(
+                            self.res_dir_path + "/detect_info.json", "w"
+                        ) as bug_info_file:
+                            json.dump(bug_report_dict, bug_info_file, indent=4)
         return
 
     def __process_slice_inliner_input(
@@ -666,32 +542,51 @@ class BugScanAgent(Agent):
             self.logger.print_log("Intra detector output is None")
             return
 
-        if intra_detector_output.is_buggy:
-            # Construct the bug report and update the state
-            explanation = (
-                "Call tree: \n"
-                + slice_inliner_input.tree_str
-                + "\n"
-                + "After the abstraction, we have the following code snippet:\n"
-                + slice_inliner_output.inlined_snippet
-                + "\n"
-                + intra_detector_output.explanation_str
-            )
-            bug_report = BugReport(
-                self.bug_type,
-                seed_value,
-                slice_inliner_input.relevant_functions,
-                explanation,
+        functions_str = ""
+        for relevant_function_id in slice_inliner_input.relevant_functions:
+            functions_str += (
+                self.ts_analyzer.function_env[relevant_function_id].lined_code + "\n"
             )
 
-            # Use lock to safely update shared state and write to file
-            self.state.update_bug_report(bug_report)
-            bug_report_dict = {
-                bug_report_id: bug.to_dict()
-                for bug_report_id, bug in self.state.bug_reports.items()
-            }
-            with open(self.res_dir_path + "/detect_info.json", "w") as bug_info_file:
-                json.dump(bug_report_dict, bug_info_file, indent=4)
+        if intra_detector_output.is_buggy:
+            validator_input = SliceBugValidatorInput(
+                seed_value.description(seed_function),
+                functions_str,
+                slice_inliner_input.tree_str,
+                intra_detector_output.explanation_str,
+            )
+            validator_output = self.slice_validator.invoke(
+                validator_input, SliceBugValidatorOutput
+            )
+            if validator_output is not None:
+                if validator_output.is_buggy:
+                    # Construct the bug report and update the state
+                    explanation = (
+                        "Call tree: \n"
+                        + slice_inliner_input.tree_str
+                        + "\n"
+                        + "After the abstraction, we have the following code snippet:\n"
+                        + slice_inliner_output.inlined_snippet
+                        + "\n"
+                        + str(validator_output)
+                    )
+                    bug_report = BugReport(
+                        self.bug_type,
+                        seed_value,
+                        slice_inliner_input.relevant_functions,
+                        explanation,
+                    )
+
+                    # Use lock to safely update shared state and write to file
+                    self.state.update_bug_report(bug_report)
+                    bug_report_dict = {
+                        bug_report_id: bug.to_dict()
+                        for bug_report_id, bug in self.state.bug_reports.items()
+                    }
+                    with open(
+                        self.res_dir_path + "/detect_info.json", "w"
+                    ) as bug_info_file:
+                        json.dump(bug_report_dict, bug_info_file, indent=4)
         return
 
     def get_agent_state(self) -> BugScanState:

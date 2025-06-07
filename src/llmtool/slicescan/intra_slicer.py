@@ -278,6 +278,8 @@ class IntraSlicer(LLMTool):
                     ext_value["field_name"] = None
 
                 output_ext_values.append(ext_value)
-        output = IntraSlicerOutput(output_slice, output_ext_values, input.function.lined_code)
+        output = IntraSlicerOutput(
+            output_slice, output_ext_values, input.function.lined_code
+        )
         self.logger.print_log("Output of intra_slicer:\n", str(output))
         return output

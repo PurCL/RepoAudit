@@ -996,7 +996,7 @@ class SliceScanAgent(Agent):
                 slice_context,
                 self.ts_analyzer.function_env[function_id],
                 seed_list,
-                slice_output.slice, 
+                slice_output.slice,
                 slice_output.function_str,
             )
 
@@ -1062,7 +1062,7 @@ class SliceScanAgent(Agent):
             slice_context,
             self.ts_analyzer.function_env[function_id],
             list(seed_set),
-            output_data.slice, 
+            output_data.slice,
             output_data.function_str,
         )
 

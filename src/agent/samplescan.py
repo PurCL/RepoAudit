@@ -314,8 +314,13 @@ class SampleScanAgent(Agent):
                     )
 
             slice_items = []
-            for _, function_id, values, slice in slicescan_state.intra_slices:
-                slice_items.append((function_id, values, slice))
+            for (
+                _,
+                function_id,
+                values,
+                (slice, function_str),
+            ) in slicescan_state.intra_slices:
+                slice_items.append((function_id, values, (slice, function_str)))
 
             relevant_functions = {
                 function_id: self.ts_analyzer.function_env[function_id]

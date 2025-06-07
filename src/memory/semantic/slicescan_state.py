@@ -31,7 +31,9 @@ class SliceScanState(State):
         self.is_backward = is_backward
 
         # List of Tuple of SliceContext, function_id, seed values, slice and function code (as string)
-        self.intra_slices: List[Tuple[CallContext, int, List[Value], Tuple[str, str]]] = []
+        self.intra_slices: List[
+            Tuple[CallContext, int, List[Value], Tuple[str, str]]
+        ] = []
         self.global_slices: List = []
 
         # Map from the function id to the function
@@ -54,7 +56,9 @@ class SliceScanState(State):
         :param slice: the intra-procedural slice
         :param function_str: the function code
         """
-        self.intra_slices.append((call_context, function.function_id, values, (slice, function_str)))
+        self.intra_slices.append(
+            (call_context, function.function_id, values, (slice, function_str))
+        )
         self.relevant_functions[function.function_id] = function
         return
 
@@ -72,7 +76,9 @@ class SliceScanState(State):
         The slice can be interprocedural
         """
         global_slice_str = "\n\n".join(self.global_slices)
-        intra_slice_str = "\n\n".join([slice for (_, _, _, (slice, _)) in self.intra_slices])
+        intra_slice_str = "\n\n".join(
+            [slice for (_, _, _, (slice, _)) in self.intra_slices]
+        )
         return f"{global_slice_str}\n\n{intra_slice_str}"
 
     def get_relevant_functions(self) -> List[Function]:
