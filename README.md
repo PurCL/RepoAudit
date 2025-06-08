@@ -15,13 +15,7 @@ RepoAudit is a multi-agent framework for code auditing. We offer five agent inst
 
 - **DFBScanAgent** in `dfbscan.py`: Perform inter-procedural data-flow analysis as described in this [preprint](https://arxiv.org/abs/2501.18160). It detects data-flow bugs, including source-must-not-reach-sink bugs (e.g., Null Pointer Dereference) and source-must-reach-sink bugs (e.g., Memory Leak).
 
-- **SliceScanAgent** in `slicescan.py`: An inter-procedural forward/backward slicing agent.
-
-- **BugScanAgent** in `bugscan.py`: A general bug detector not restricted to data-flow bugs. Currently, it supports the detection of buffer overflow.
-
-- **SampleScanAgent** in `samplescan.py`: An enhanced version of BugScanAgent that focuses on the most potentially buggy program locations. We attempt to detect bugs in [DARPA and ARPA-H's AIxCC Nginx Challenge Project](https://github.com/aixcc-public/challenge-004-nginx-source) using this agent.
-
-- **DebugScanAgent** in `debugscan.py`: A basic version of DebugScanAgent that targets the debugging task with a stack trace as its input. It can provide the explanation of the bug and provide a repair plan according to the user's request. Currently, it is still under the development.
+- **CGScanAgent** in `cgscan.py`: An LLM-agent for call graph analysis, handling the tricky features, such as function pointers in C and reflections in Java (Under the construction). 
 
 ## Installation
 
@@ -100,6 +94,4 @@ If you want to know more details about the tool usage, project architecture, and
 
 ## License
 
-This project is licensed under the **GNU General Public License v2.0 (GPLv2)**.  You are free to use, modify, and distribute the software under the terms of this license, provided that derivative works are also distributed under the same license.
-
-For full details, see the [LICENSE](LICENSE) file or visit the official license page: [https://www.gnu.org/licenses/old-licenses/gpl-2.0.html](https://www.gnu.org/licenses/old-licenses/gpl-2.0.html)
+This project is licensed under [MIT license](LICENSE).
