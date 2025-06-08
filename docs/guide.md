@@ -96,7 +96,7 @@ You can execute the following commands to start the Web UI.
 
 ```
 > cd RepoAudit
-> streamlit run src/ui/web_ui.py
+> streamlit run src/web_ui.py
 
 Collecting usage statistics. To deactivate, set browser.gatherUsageStats to false.
 
