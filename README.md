@@ -94,6 +94,4 @@ If you want to know more details about the tool usage, project architecture, and
 
 ## License
 
-This project is licensed under the **GNU General Public License v2.0 (GPLv2)**.  You are free to use, modify, and distribute the software under the terms of this license, provided that derivative works are also distributed under the same license.
-
-For full details, see the [LICENSE](LICENSE) file or visit the official license page: [https://www.gnu.org/licenses/old-licenses/gpl-2.0.html](https://www.gnu.org/licenses/old-licenses/gpl-2.0.html)
+This project is licensed under [MIT license](LICENSE).
