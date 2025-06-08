@@ -5,9 +5,6 @@ import sys
 from agent.metascan import MetaScanAgent
 from agent.cgscan import CGScanAgent
 from agent.dfbscan import DFBScanAgent
-from agent.bugscan import BugScanAgent
-from agent.samplescan import SampleScanAgent
-from agent.debugscan import DebugScanAgent
 
 from tstool.analyzer.TS_analyzer import *
 from tstool.analyzer.Cpp_TS_analyzer import *
@@ -61,7 +58,7 @@ class RepoAudit:
         args: argparse.Namespace,
     ):
         """
-        Initialize BatchScan object with project details.
+        Initialize RepoAudit instance with project details.
         """
         # argument format check
         self.args = args
@@ -88,10 +85,7 @@ class RepoAudit:
 
         self.bug_type = args.bug_type
         self.is_reachable = args.is_reachable
-        self.is_backward = args.is_backward
-        self.is_inlined = args.is_inlined
         self.cg_refine = args.cg_refine
-        self.is_iterative = args.is_iterative
 
         self.include_test_files = args.include_test_files
 
@@ -133,38 +127,24 @@ class RepoAudit:
             self.project_path, self.language, self.ts_analyzer
         )
         self.metascan_agent.start_scan()
-        self.cgscan_agent = CGScanAgent(
-            self.project_path,
-            self.language,
-            self.metascan_agent,
-            self.model_name,
-            self.temperature,
-            self.max_neural_workers,
-        )
+        
+        if self.cg_refine:
+            self.cgscan_agent = CGScanAgent(
+                self.project_path,
+                self.language,
+                self.metascan_agent,
+                self.model_name,
+                self.temperature,
+                self.max_neural_workers,
+            )
+            self.cgscan_agent.start_scan()
+
         return
 
     def start_repo_auditing(self) -> None:
         """
         Start the batch scan process.
         """
-        if self.args.scan_type == "bugscan":
-            while True:
-                self.bugscan_agent = BugScanAgent(
-                    self.project_path,
-                    self.language,
-                    self.ts_analyzer,
-                    self.model_name,
-                    self.temperature,
-                    self.call_depth,
-                    self.is_inlined,
-                    self.max_neural_workers,
-                    cgscan_agent=self.cgscan_agent if self.cg_refine else None,
-                    include_test_files=self.include_test_files,
-                )
-                self.bugscan_agent.start_scan()
-                if not self.is_iterative:
-                    break
-
         if self.args.scan_type == "dfbscan":
             self.dfbscan_agent = DFBScanAgent(
                 self.bug_type,
@@ -179,34 +159,6 @@ class RepoAudit:
                 include_test_files=self.include_test_files,
             )
             self.dfbscan_agent.start_scan()
-
-        if self.args.scan_type == "samplescan":
-            self.samplescan_agent = SampleScanAgent(
-                self.project_path,
-                self.language,
-                self.ts_analyzer,
-                self.seed_selection_model,
-                self.slicing_model,
-                self.inlining_model,
-                self.function_detection_model,
-                self.temperature,
-                self.call_depth,
-                self.max_neural_workers,
-                include_test_files=self.include_test_files,
-            )
-            self.samplescan_agent.start_scan()
-
-        if self.args.scan_type == "debugscan":
-            self.debugscan_agent = DebugScanAgent(
-                self.project_path,
-                self.language,
-                self.ts_analyzer,
-                self.model_name,
-                self.temperature,
-                self.call_depth,
-                self.max_neural_workers,
-            )
-            self.debugscan_agent.start_scan()
         return
 
     def travese_files(self, project_path: str, suffixs: List) -> None:
@@ -222,40 +174,21 @@ class RepoAudit:
                     with open(file, "r") as source_file:
                         source_file_content = source_file.read()
                         self.code_in_files[file] = source_file_content
-                except:
-                    print(f"Error reading file {file}")
+                except (IOError, OSError, UnicodeDecodeError) as e:
+                    print(f"Error reading file {file}: {e}")
         return
 
     def validate_inputs(self) -> Tuple[bool, List[str]]:
         err_messages = []
 
         # For each scan type, check required parameters.
-        if self.args.scan_type == "bugscan":
-            if not self.args.model_name:
-                err_messages.append("Error: --model-name is required for bugscan.")
-        elif self.args.scan_type == "dfbscan":
+        if self.args.scan_type == "dfbscan":
             if not self.args.model_name:
                 err_messages.append("Error: --model-name is required for dfbscan.")
             if not self.args.bug_type:
                 err_messages.append("Error: --bug -type is required for dfbscan.")
             if self.args.bug_type not in default_dfbscan_checkers[self.args.language]:
                 err_messages.append("Error: Invalid bug type provided.")
-        elif self.args.scan_type == "samplescan":
-            if not self.args.seed_selection_model:
-                err_messages.append(
-                    "Error: --seed-selection-model is required for samplescan."
-                )
-            if not self.args.slicing_model:
-                err_messages.append(
-                    "Error: --slicing-model is required for samplescan."
-                )
-            if not self.args.function_detection_model:
-                err_messages.append(
-                    "Error: --function-detection-model is required for samplescan."
-                )
-        elif self.args.scan_type == "debugscan":
-            if not self.args.model_name:
-                err_messages.append("Error: --model-name is required for debugscan.")
         else:
             err_messages.append("Error: Unknown scan type provided.")
         return (len(err_messages) == 0, err_messages)
@@ -263,16 +196,13 @@ class RepoAudit:
 
 def configure_args():
     parser = argparse.ArgumentParser(
-        description="RepoAudit-Plus: Run one of metascan, bugscan, slicescan, dfbscan, or samplescan"
+        description="RepoAudit-Plus: Run dfbscan"
     )
     parser.add_argument(
         "--scan-type",
         required=True,
         choices=[
-            "bugscan",
             "dfbscan",
-            "samplescan",
-            "debugscan",
         ],
         help="The type of scan to perform.",
     )
@@ -286,7 +216,6 @@ def configure_args():
         help="Max symbolic workers for parsing-based analysis",
     )
 
-    # Common parameters for slicescan, bugscan, and dfbscan
     parser.add_argument("--model-name", help="The name of LLMs")
     parser.add_argument(
         "--temperature", type=float, default=0.5, help="Temperature for inference"
@@ -312,12 +241,7 @@ def configure_args():
         help="The name of LLMs for function-level bug detection",
     )
 
-    # Parameters for slicescan
-    parser.add_argument(
-        "--is-backward", action="store_true", help="Flag for backward slicing"
-    )
-
-    # Common parameters for bugscan and dfbscan
+    # Common for dfbscan
     parser.add_argument("--bug-type", help="Bug type (for bugscan and dfbscan)")
 
     # Parameters for dfbscan
@@ -325,23 +249,10 @@ def configure_args():
         "--is-reachable", action="store_true", help="Flag for bugscan reachability"
     )
 
-    # Parameters for bugscan
-    parser.add_argument(
-        "--is-inlined",
-        action="store_true",
-        help="Flag to enable inlining in the bugscan agent",
-    )
-
     parser.add_argument(
         "--cg-refine",
         action="store_true",
         help="Flag to refine the call graph with LLM",
-    )
-
-    parser.add_argument(
-        "--is-iterative",
-        action="store_true",
-        help="Flag for iterative analysis with multiple rounds",
     )
 
     # Parameters for skipping analysis of test files in the project

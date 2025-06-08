@@ -81,7 +81,7 @@ st.markdown(
 
 # Function to get results
 def get_results(
-    language="Cpp", scanner="bugscan", model="claude-3.7", bug_type="NPD"
+    language="Cpp", scanner="dfbscan", model="claude-3.7", bug_type="NPD"
 ) -> list:
     result_dir = Path(f"{BASE_PATH}/result/{scanner}/{model}/{bug_type}")
     if not result_dir.exists():

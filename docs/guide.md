@@ -23,13 +23,12 @@
    python build.py
    ```
 
-4. Configure the OpenAI API key. 
+4. Configure the OpenAI API key and Anthropic API key:
 
    ```sh
    export OPENAI_API_KEY=xxxxxx >> ~/.bashrc
+   export ANTHROPIC_API_KEY=xxxxxx >> ~/.bashrc
    ```
-
-   For Claude3.5, we use the model hosted by Amazon Bedrock. If you want to use Claude-3.5 and Claude-3.7, you may need to set up the environment first.
 
 
 ## Quick Start
@@ -41,7 +40,7 @@
    git submodule update --init --recursive
    ```
 
-2. We provide the script `src/run_repoaudit.sh` to run different types of scans. You can use the following command to look up how to run `run_repoaudit.sh`.
+2. We provide the script `src/run_repoaudit.sh` to run the scanning. You can use the following command to look up how to run `run_repoaudit.sh`.
 
     ```sh
     cd src
@@ -52,13 +51,7 @@
 
    ```sh
    # For data flow-based scanning (dfbscan)
-   bash run_repoaudit.sh dfbscan --language Java --project-path ../benchmark/Java/toy --bug-type NPD --is-reachable
-
-   # For general bug scanning (bugscan)
-   bash run_repoaudit.sh bugscan --language Java --project-path ../benchmark/Java/toy --is-iterative
-
-   # For debug scanning (debugscan)
-   bash run_repoaudit.sh debugscan --language Java --project-path ../benchmark/Java/toy
+   bash run_repoaudit.sh dfbscan --language Java --project-path ../benchmark/Java/toy --bug-type NPD --is-reachable --include-test-files
    ```
 
 3. After the scanning is complete, the results will be available in JSON format and log files.
@@ -70,24 +63,6 @@ For a large repository, a sequential analysis process may be quite time-consumin
 Also, we have set the parsing-based analysis in a parallel mode by default. The default maximal number of workers is 10.
 
 ## User Interface
-
-### CLI
-
-When scanning the code repository using DFBScanAgent, we can specify the analysis request in the command line.
-Specifically, RepoAudit can support three modes, namely file-level, directory level, and repository-level code auditing.
-In the command line interface, the users are required to specify the names of files or directories, or just specify the request of scanning the whole repository, along with the bug type. An example is as follows.
-
-```
-> bash run_repoaudit.sh bugscan
-Parsing files: 100%|██████████████████████████████████████████████████████████████████████████████████████████████████████████| 6/6 [00:00<00:00, 3561.03it/s]
-Analyzing functions: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████| 24/24 [00:00<00:00, 10248.76it/s]
-Analyzing call graphs: 100%|███████████████████████████████████████████████████████████████████████████████████████████████| 24/24 [00:00<00:00, 18738.51it/s]
-Extracting seeds: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████| 24/24 [00:00<00:00, 84733.41it/s]
-2025-04-24 17:51:17,152 - INFO - Please enter your analysis request:
-> I want to detect all the Null Pointer Derference bugs in the files `NPD/TestCase1.cpp` and `NPD/TestCase2.cpp`.
-```
-
-Here, the paths of the specified files or directories should be relative paths with respect to the root path of the the whole repository.
 
 ### Web UI
 

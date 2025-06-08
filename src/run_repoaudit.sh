@@ -4,9 +4,7 @@ print_usage() {
     echo "Usage: $0 <scan-type> [options]"
     echo
     echo "Scan Types:"
-    echo "  bugscan    - Perform general bug scanning"
-    echo "  dfbscan    - Perform data flow-based scanning"
-    echo "  debugscan  - Perform debug scanning"
+    echo "  dfbscan    - Perform data flow-based bug scanning"
     echo
     echo "Required Options (for all scan types):"
     echo "  --language <lang>           Language to analyze"
@@ -15,8 +13,6 @@ print_usage() {
     echo "Required Options (scan-type specific):"
     echo "  --bug-type <type>          Required for dfbscan"
     echo "  --is-reachable             Required for dfbscan"
-    echo "  --is-iterative             Required for bugscan"
-    echo "  --is-inlined               Optional for bugscan (default: false)"
     echo "  --cg-refine                Optional for bugscan (default: false)"
     echo
     echo "Optional Options (with defaults):"
@@ -28,10 +24,7 @@ print_usage() {
     echo "  --include-test-files          Analyze test files in the subject project as well"
     echo
     echo "Example commands:"
-    echo "bash $0 bugscan --language Cpp --project-path ../benchmark/Cpp/htop --is-iterative"
-    echo "bash $0 bugscan --language Java --project-path ../benchmark/Java/toy --is-iterative"
-    echo "bash $0 dfbscan --language Java --project-path ../benchmark/Java/toy --bug-type NPD --is-reachable"
-    echo "bash $0 debugscan --language Cpp --project-path ../benchmark/Cpp/htop"
+    echo "bash $0 dfbscan --language Java --project-path ../benchmark/Java/toy --bug-type NPD --is-reachable --include-test-files"
 }
 
 # Check for help flag first
@@ -51,7 +44,7 @@ SCAN_TYPE=$1
 shift
 MODEL="claude-3.5"
 TEMPERATURE="0.0"
-CALL_DEPTH="7"
+CALL_DEPTH="3"
 MAX_NEURAL_WORKERS="30"
 MAX_SYMBOLIC_WORKERS="20"
 
@@ -94,14 +87,6 @@ while [[ $# -gt 0 ]]; do
             IS_REACHABLE="--is-reachable"
             shift
             ;;
-        --is-iterative)
-            IS_ITERATIVE="--is-iterative"
-            shift
-            ;;
-        --is-inlined)
-            IS_INLINED="--is-inlined"
-            shift
-            ;;
         --cg-refine)
             CG_REFINE="--cg-refine"
             shift
@@ -131,22 +116,12 @@ fi
 
 # Validate scan-type specific requirements
 case "$SCAN_TYPE" in
-    bugscan)
-        if [ -z "$IS_ITERATIVE" ]; then
-            echo "Error: --is-iterative is required for bugscan"
-            print_usage
-            exit 1
-        fi
-        ;;
     dfbscan)
         if [ -z "$BUG_TYPE" ] ; then
             echo "Error: --bug-type is required for dfbscan"
             print_usage
             exit 1
         fi
-        ;;
-    debugscan)
-        # No additional requirements for debugscan
         ;;
     *)
         echo "Unknown scan type: $SCAN_TYPE"
@@ -157,17 +132,6 @@ esac
 
 # Run the appropriate scan based on scan type
 case "$SCAN_TYPE" in
-    bugscan)
-        python3 repoaudit.py \
-            --language "$LANGUAGE" \
-            --model-name "$MODEL" \
-            --project-path "$PROJECT_PATH" \
-            --temperature "$TEMPERATURE" \
-            --scan-type bugscan \
-            --call-depth "$CALL_DEPTH" \
-            --max-neural-workers "$MAX_NEURAL_WORKERS" \
-            $IS_ITERATIVE
-        ;;
     dfbscan)
         python3 repoaudit.py \
             --language "$LANGUAGE" \
@@ -180,15 +144,5 @@ case "$SCAN_TYPE" in
             --max-neural-workers "$MAX_NEURAL_WORKERS" \
             $IS_REACHABLE \
             $INCLUDE_TEST_FILES
-        ;;
-    debugscan)
-        python3 repoaudit.py \
-            --language "$LANGUAGE" \
-            --model-name "$MODEL" \
-            --project-path "$PROJECT_PATH" \
-            --temperature "$TEMPERATURE" \
-            --scan-type debugscan \
-            --call-depth "$CALL_DEPTH" \
-            --max-neural-workers "$MAX_NEURAL_WORKERS"
         ;;
 esac

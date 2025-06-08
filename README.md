@@ -64,7 +64,7 @@ RepoAudit is a multi-agent framework for code auditing. We offer five agent inst
    git submodule update --init --recursive
    ```
 
-2. We provide the script `src/run_repoaudit.sh` to run different types of scans. You can use the following command to look up how to run `run_repoaudit.sh`.
+2. We provide the script `src/run_repoaudit.sh` to run the scanning. You can use the following command to look up how to run `run_repoaudit.sh`.
 
     ```sh
     cd src
@@ -75,13 +75,7 @@ RepoAudit is a multi-agent framework for code auditing. We offer five agent inst
 
    ```sh
    # For data flow-based scanning (dfbscan)
-   bash run_repoaudit.sh dfbscan --language Java --project-path ../benchmark/Java/toy --bug-type NPD --is-reachable
-
-   # For general bug scanning (bugscan)
-   bash run_repoaudit.sh bugscan --language Java --project-path ../benchmark/Java/toy --is-iterative
-
-   # For debug scanning (debugscan)
-   bash run_repoaudit.sh debugscan --language Java --project-path ../benchmark/Java/toy
+   bash run_repoaudit.sh dfbscan --language Java --project-path ../benchmark/Java/toy --bug-type NPD --is-reachable --include-test-files
    ```
 
 3. After the scanning is complete, the results will be available in JSON format and log files.
