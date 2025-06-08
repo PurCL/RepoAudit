@@ -76,8 +76,8 @@ RepoAudit is a multi-agent framework for code auditing. We offer five agent inst
 
 ## Parallel Auditing Support
 
-For a large repository, a sequential analysis process may be quite time-consuming. To accelerate the analysis, you can choose parallel auditing. Specifically, you can set the option `--max-neural-workers` to a larger value. By default, this option is set to 6 for parallel auditing.
-Also, we have set the parsing-based analysis in a parallel mode by default. The default maximal number of workers is 10.
+For a large repository, a sequential analysis process may be quite time-consuming. To accelerate the analysis, you can choose parallel auditing. Specifically, you can set the option `--max-neural-workers` to a larger value. By default, this option is set to 30 for parallel auditing.
+Also, we have set the parsing-based analysis in a parallel mode by default, which is determined by the option `--max-symbolic-workers`. The default maximal number of workers is 30.
 
 ## Website, Paper, and Docs
 

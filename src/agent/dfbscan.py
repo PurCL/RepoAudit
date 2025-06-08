@@ -45,7 +45,7 @@ class DFBScanAgent(Agent):
         model_name: str,
         temperature: float,
         call_depth: int,
-        max_neural_workers: int = 1,
+        max_neural_workers: int = 30,
         agent_id: int = 0,
         include_test_files: bool = False,
     ) -> None:
