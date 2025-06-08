@@ -40,13 +40,12 @@ RepoAudit is a multi-agent framework for code auditing. We offer five agent inst
    python build.py
    ```
 
-4. Configure the OpenAI API key. 
+4. Configure the OpenAI API key and Anthropic API key:
 
    ```sh
    export OPENAI_API_KEY=xxxxxx >> ~/.bashrc
+   export ANTHROPIC_API_KEY=xxxxxx >> ~/.bashrc
    ```
-
-   For Claude3.5, we use the model hosted by Amazon Bedrock. If you want to use Claude-3.5 and Claude-3.7, you may need to set up the environment first.
 
 
 ## Quick Start
