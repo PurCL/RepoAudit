@@ -1,7 +1,0 @@
-{
-    "Test01.cc-12": [{"std::cout << \"Resource value: \" << res->value << \"\n\";": "Test01.cc-17"}],
-    "Test02.cc-14": [{"std::cout << \"First character: \" << buffer[0] << std::endl;": "Test02.cc-22"}],
-    "Test03.cc-25": [{"handler->callback();": "Test03.cc-32"}, {"printf(\"Handler data: %d\n\", handler->data);": "Test03.cc-33"}],
-    "Test04.cc-15": [{"printf(\"Using buffer: %s\n\", buffer);": "Test04.cc-22"}, {"sprintf(buffer, \"Modified content\");": "Test04.cc-23"}]
-
-}

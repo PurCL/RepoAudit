@@ -1,7 +1,0 @@
-{
-    "Test01.cc-8": [{"std::cout << \"Value: \" << *ptr << std::endl;": "Test01.cc-4"}],
-    "Test02.cc-5": [{"std::cout << \"Result: \" << result << std::endl;": "Test02.cc-19"}],
-    "Test03.cc-15": [{"std::cerr << \"Error: \" << e.what() << std::endl;": "Test03.cc-21"}],
-    "Test04.cc-19": [{"bool success = test4_processBuffer(buffer, data);": "Test04.cc-21"}],
-    "Test05.cc-24": [{"return 0;": "Test05.cc-50"}]
-}

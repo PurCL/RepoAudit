@@ -1,8 +1,0 @@
-{
-    "test01.go-14": [{"s.PrintName()": "test01.go-15"}],
-    "test02.go-6": [{"fmt.Println(slice[0])": "test02.go-7"}],
-    "test03.go-10": [{"fmt.Println(s.Value)": "test03.go-11"}],
-    "test04.go-6": [{"m[\"key\"] = 42": "test04.go-7"}],
-    "test05.go-6": [{"f()": "test05.go-7"}],
-    "test06.go-6": [{"fmt.Println(*p)": "test06.go-7"}]
-}
