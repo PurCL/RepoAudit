@@ -4,13 +4,13 @@ from pathlib import Path
 import json
 
 # Add the parent directory to the system path
-sys.path.append(str(Path(__file__).resolve().parents[2]))
+sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 # Language dictionary
 language_dict = {"Cpp": "cpp", "Java": "java", "Go": "go"}
 
 # Base path for results
-BASE_PATH = Path(__file__).resolve().parents[2]
+BASE_PATH = Path(__file__).resolve().parents[1]
 
 # Inject custom styles for enhanced aesthetics
 st.markdown(
@@ -81,7 +81,7 @@ st.markdown(
 
 # Function to get results
 def get_results(
-    language="Cpp", scanner="bugscan", model="claude-3.5", bug_type="NPD"
+    language="Cpp", scanner="bugscan", model="claude-3.7", bug_type="NPD"
 ) -> list:
     result_dir = Path(f"{BASE_PATH}/result/{scanner}/{model}/{bug_type}")
     if not result_dir.exists():
