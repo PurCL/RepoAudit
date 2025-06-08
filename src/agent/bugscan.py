@@ -29,13 +29,13 @@ from llmtool.LLM_utils import *
 from llmtool.bugscan.slice_inliner import *
 from llmtool.bugscan.slice_bug_detector import *
 from llmtool.bugscan.slice_bug_validator import *
-from llmtool.utility.audit_request_formulator import *
+from llmtool.audit_request_formulator import *
 
 from memory.semantic.bugscan_state import *
 from memory.syntactic.function import *
 from memory.syntactic.value import *
 
-from ui.logger import *
+from utility.logger import *
 
 BASE_PATH = Path(__file__).resolve().parents[2]
 

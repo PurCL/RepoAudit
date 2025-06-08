@@ -1,4 +1,5 @@
-users = ['Alice', 'Bob', 'Charlie']
+users = ["Alice", "Bob", "Charlie"]
+
 
 def test4_find_user_index(name):
     try:
@@ -6,5 +7,6 @@ def test4_find_user_index(name):
     except ValueError:
         return None
 
-idx = test4_find_user_index('Dave')
+
+idx = test4_find_user_index("Dave")
 next_user = users[idx + 1]

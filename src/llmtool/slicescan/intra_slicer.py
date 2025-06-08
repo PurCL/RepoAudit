@@ -2,7 +2,7 @@ from os import path
 import json
 import time
 from typing import List, Set, Optional, Dict
-from errors import RATypeError
+from utility.errors import RATypeError
 from llmtool.LLM_utils import *
 from llmtool.LLM_tool import *
 from memory.syntactic.function import *

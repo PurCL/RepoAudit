@@ -22,7 +22,7 @@ from memory.semantic.cgscan_state import *
 from memory.syntactic.function import *
 from memory.syntactic.value import *
 
-from ui.logger import *
+from utility.logger import *
 
 BASE_PATH = Path(__file__).resolve().parents[2]
 

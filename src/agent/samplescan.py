@@ -5,7 +5,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from tqdm import tqdm
 
-from errors import RAValueError
+from utility.errors import RAValueError
 from tstool.analyzer.TS_analyzer import *
 from tstool.analyzer.Cpp_TS_analyzer import *
 from tstool.analyzer.Go_TS_analyzer import *
@@ -34,7 +34,7 @@ from memory.semantic.samplescan_state import *
 from memory.syntactic.function import *
 from memory.syntactic.value import *
 
-from ui.logger import Logger
+from utility.logger import Logger
 
 BASE_PATH = Path(__file__).resolve().parents[2]
 

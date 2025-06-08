@@ -15,7 +15,7 @@ from tstool.analyzer.Go_TS_analyzer import *
 from tstool.analyzer.Java_TS_analyzer import *
 from tstool.analyzer.Python_TS_analyzer import *
 
-from errors import RAValueError, RepoAuditError
+from utility.errors import RAValueError, RepoAuditError
 from typing import List
 
 
@@ -220,8 +220,6 @@ class RepoAudit:
                         continue
                 try:
                     with open(file, "r") as source_file:
-                        # if file != "../benchmark/Go/zap/sink.go":
-                        #     continue
                         source_file_content = source_file.read()
                         self.code_in_files[file] = source_file_content
                 except:

@@ -2,7 +2,7 @@ import re
 from typing import Optional, Set
 from enum import Enum
 
-from errors import RAValueError
+from utility.errors import RAValueError
 
 from typing import TYPE_CHECKING
 

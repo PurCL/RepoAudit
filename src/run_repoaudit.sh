@@ -49,10 +49,11 @@ fi
 # Default values
 SCAN_TYPE=$1
 shift
-MODEL="claude-3.7"
+MODEL="claude-3.5"
 TEMPERATURE="0.0"
-CALL_DEPTH="3"
+CALL_DEPTH="7"
 MAX_NEURAL_WORKERS="30"
+MAX_SYMBOLIC_WORKERS="20"
 
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
@@ -158,35 +159,36 @@ esac
 case "$SCAN_TYPE" in
     bugscan)
         python3 repoaudit.py \
-          --language "$LANGUAGE" \
-          --model-name "$MODEL" \
-          --project-path "$PROJECT_PATH" \
-          --temperature "$TEMPERATURE" \
-          --scan-type bugscan \
-          --call-depth "$CALL_DEPTH" \
-          --max-neural-workers "$MAX_NEURAL_WORKERS" \
-          $IS_ITERATIVE
+            --language "$LANGUAGE" \
+            --model-name "$MODEL" \
+            --project-path "$PROJECT_PATH" \
+            --temperature "$TEMPERATURE" \
+            --scan-type bugscan \
+            --call-depth "$CALL_DEPTH" \
+            --max-neural-workers "$MAX_NEURAL_WORKERS" \
+            $IS_ITERATIVE
         ;;
     dfbscan)
         python3 repoaudit.py \
-          --language "$LANGUAGE" \
-          --model-name "$MODEL" \
-          --project-path "$PROJECT_PATH" \
-          --bug-type "$BUG_TYPE" \
-          --temperature "$TEMPERATURE" \
-          --scan-type dfbscan \
-          --call-depth "$CALL_DEPTH" \
-          --max-neural-workers "$MAX_NEURAL_WORKERS" \
-          $IS_REACHABLE
+            --language "$LANGUAGE" \
+            --model-name "$MODEL" \
+            --project-path "$PROJECT_PATH" \
+            --bug-type "$BUG_TYPE" \
+            --temperature "$TEMPERATURE" \
+            --scan-type dfbscan \
+            --call-depth "$CALL_DEPTH" \
+            --max-neural-workers "$MAX_NEURAL_WORKERS" \
+            $IS_REACHABLE \
+            $INCLUDE_TEST_FILES
         ;;
     debugscan)
         python3 repoaudit.py \
-          --language "$LANGUAGE" \
-          --model-name "$MODEL" \
-          --project-path "$PROJECT_PATH" \
-          --temperature "$TEMPERATURE" \
-          --scan-type debugscan \
-          --call-depth "$CALL_DEPTH" \
-          --max-neural-workers "$MAX_NEURAL_WORKERS"
+            --language "$LANGUAGE" \
+            --model-name "$MODEL" \
+            --project-path "$PROJECT_PATH" \
+            --temperature "$TEMPERATURE" \
+            --scan-type debugscan \
+            --call-depth "$CALL_DEPTH" \
+            --max-neural-workers "$MAX_NEURAL_WORKERS"
         ;;
 esac

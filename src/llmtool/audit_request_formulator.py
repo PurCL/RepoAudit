@@ -8,7 +8,7 @@ from memory.syntactic.function import *
 from memory.syntactic.value import *
 from memory.syntactic.api import *
 
-BASE_PATH = Path(__file__).resolve().parent.parent.parent
+BASE_PATH = Path(__file__).resolve().parent.parent
 
 
 class AuditRequestFormulatorInput(LLMToolInput):
@@ -78,7 +78,7 @@ class AuditRequestFormulator(LLMTool):
         logger: Logger,
     ) -> None:
         super().__init__(model_name, temperature, language, max_query_num, logger)
-        self.prompt_file = f"{BASE_PATH}/prompt/utility/audit_request_formulator.json"
+        self.prompt_file = f"{BASE_PATH}/prompt/audit_request_formulator.json"
         return
 
     def _get_prompt(self, audit_request_formulator_input: LLMToolInput) -> str:

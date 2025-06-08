@@ -1,7 +1,7 @@
 from llmtool.LLM_utils import *
 from abc import ABC, abstractmethod
 from typing import Dict, Optional, Type, TypeVar, cast
-from ui.logger import Logger
+from utility.logger import Logger
 
 
 class LLMToolInput(ABC):

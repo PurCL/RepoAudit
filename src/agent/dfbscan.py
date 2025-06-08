@@ -29,7 +29,7 @@ from memory.semantic.dfbscan_state import *
 from memory.syntactic.function import *
 from memory.syntactic.value import *
 
-from ui.logger import *
+from utility.logger import *
 
 BASE_PATH = Path(__file__).resolve().parents[2]
 
@@ -37,15 +37,15 @@ BASE_PATH = Path(__file__).resolve().parents[2]
 class DFBScanAgent(Agent):
     def __init__(
         self,
-        bug_type,
-        is_reachable,
-        project_path,
-        language,
-        ts_analyzer,
-        model_name,
-        temperature,
-        call_depth,
-        max_neural_workers=1,
+        bug_type: str,
+        is_reachable: bool,
+        project_path: str,
+        language: str,
+        ts_analyzer: TSAnalyzer,
+        model_name: str,
+        temperature: float,
+        call_depth: int,
+        max_neural_workers: int = 1,
         agent_id: int = 0,
         include_test_files: bool = False,
     ) -> None:
@@ -140,7 +140,6 @@ class DFBScanAgent(Agent):
         delta_worklist = []  # The list of (value, function, call_context) tuples
         function_id = input.function.function_id
         function = self.ts_analyzer.function_env[function_id]
-
         for value in output.reachable_values[path_index]:
             if value.label == ValueLabel.ARG:
                 callee_functions = self.ts_analyzer.get_all_callee_functions(function)
@@ -185,7 +184,7 @@ class DFBScanAgent(Agent):
                     if not is_CFL_reachable:
                         continue
 
-                    for para in callee_function.paras:
+                    for para in callee_function.paras(ValueLabel.PARA):
                         if para.index == value.index:
                             delta_worklist.append(
                                 (para, callee_function, new_call_context)
@@ -433,28 +432,29 @@ class DFBScanAgent(Agent):
                     ]
 
                     call_statements = []
-                    for call_site_node_id in start_function.function_call_site_nodes:
-                        call_site_node = start_function.function_call_site_nodes[
-                            call_site_node_id
-                        ]
-                        file_content = self.ts_analyzer.code_in_files[
-                            start_function.file_path
-                        ]
-                        call_site_line_number = (
-                            file_content[: call_site_node.start_byte].count("\n") + 1
-                        )
-                        call_site_name = file_content[
-                            call_site_node.start_byte : call_site_node.end_byte
-                        ]
-                        call_statements.append((call_site_name, call_site_line_number))
+                    # for call_site_node_id in start_function.function_call_site_nodes:
+                    #     call_site_node = start_function.function_call_site_nodes[
+                    #         call_site_node_id
+                    #     ]
+                    #     file_content = self.ts_analyzer.code_in_files[
+                    #         start_function.file_path
+                    #     ]
+                    #     call_site_line_number = (
+                    #         file_content[: call_site_node.start_byte].count("\n") + 1
+                    #     )
+                    #     call_site_name = file_content[
+                    #         call_site_node.start_byte : call_site_node.end_byte
+                    #     ]
+                    #     call_statements.append((call_site_name, call_site_line_number))
 
-                    ret_values = [
-                        (
-                            ret.name,
-                            ret.line_number - start_function.start_line_number + 1,
-                        )
-                        for ret in start_function.retvals
-                    ]
+                    # ret_values = [
+                    #     (
+                    #         ret.name,
+                    #         ret.line_number - start_function.start_line_number + 1,
+                    #     )
+                    #     for ret in start_function.retvals
+                    # ]
+                    ret_values = []
                     df_input = IntraDataFlowAnalyzerInput(
                         start_function,
                         start_value,
@@ -553,14 +553,6 @@ class DFBScanAgent(Agent):
     def start_scan(self) -> None:
         self.logger.print_console("Start data-flow bug scanning in parallel...")
         self.logger.print_console(f"Max number of workers: {self.max_neural_workers}")
-
-        # Total number of source values
-        # tmp = self.src_values
-        # self.src_values = []
-        # for src_value in tmp:
-        #     print(src_value)
-        #     if "LinuxProcessTable.c" in str(src_value) and "924" in str(src_value):
-        #         self.src_values.append(src_value)
 
         total_src_values = len(self.src_values)
 

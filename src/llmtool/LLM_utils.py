@@ -16,8 +16,8 @@ import json
 from botocore.config import Config
 from botocore.exceptions import BotoCoreError, ClientError
 import boto3
-from errors import RALLMAPIError, RAValueError
-from ui.logger import Logger
+from utility.errors import RALLMAPIError, RAValueError
+from utility.logger import Logger
 
 
 class LLM:

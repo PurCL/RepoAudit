@@ -1,8 +1,10 @@
 def test6_get_data():
     return {"Name": "Alice", "Age": 30}
 
+
 def test6_get_email(data: dict):
     return data.pop("email", None)
+
 
 def test6_main():
     data = test6_get_data()

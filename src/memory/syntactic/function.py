@@ -2,7 +2,7 @@ import copy
 from typing import Dict, List, Optional, Set, Tuple
 from tree_sitter import Node
 
-from errors import RAAnalysisError
+from utility.errors import RAAnalysisError
 from memory.syntactic.value import Value, ValueLabel
 
 Scope = Tuple[int, int]
@@ -50,10 +50,9 @@ class Function:
         # To standardize parameter access, we define self._paras as private and provide a getter
         # function to retrieve them.
         self._paras: Optional[Set[Value]] = (
-            None  # A set of parameters including regular, variadic, and object-based parameters
+            None  # A optional set of parameters including regular, variadic, and object-based parameters
         )
-
-        self.retvals: Optional[Set[Value]] = None  # A set of returned values
+        self.retvals: Optional[Set[Value]] = None  # A optional set of returned values
 
         ## Results of intraprocedural control flow analysis
         self.if_statements: Dict[Scope, IfStatement] = {}  # if statement info
@@ -64,8 +63,6 @@ class Function:
         Add a parameter to the function.
         :param para: the parameter to be added
         """
-        if self._paras is None:
-            self._paras = set()
         self._paras.add(para)
 
     # TODO (ZZ): add cache to avoid recomputing the parameters.

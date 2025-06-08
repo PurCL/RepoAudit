@@ -256,9 +256,6 @@ class IntraDataFlowAnalyzer(LLMTool):
                         detail["name"], line_number, ValueLabel.SINK, file_path
                     )
                     reachable_values_per_path.add(sink_value)
-                    self.logger.print_console(
-                        f"src_value: {str(input.summary_start)}, sink_value: {str(sink_value)} line_number: {line_number_in_function}\n Values: {input.sink_values} \n added"
-                    )
             reachable_values.append(reachable_values_per_path)
 
         output = IntraDataFlowAnalyzerOutput(reachable_values)
