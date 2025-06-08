@@ -1,0 +1,7 @@
+{
+    "Test01.java-4": [{"return obj.hashCode();": "Test01.java-8"}],
+    "Test02.java-7": [{"return data.length();": "Test02.java-4"}],
+    "Test03.java-4": [{"return arr[1].length();": "Test03.java-8"}],
+    "Test04.java-4": [{"return str.toUpperCase();": "Test04.java-5"}],
+    "Test05.java-9": [{"System.out.println(str.toUpperCase());": "Test05.java-21"}]
+}

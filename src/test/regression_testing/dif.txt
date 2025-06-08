@@ -1,0 +1,8 @@
+Language: Java; Bug Type: NPD
+True Positives: 5
+False Positives: 0
+Total Expected Positives: 5
+Precision: 1.0
+Recall: 1.0
+F1 Score: 1.0
+Every bug was properly found here!
