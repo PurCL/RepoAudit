@@ -37,7 +37,9 @@ class DFBScanExtractor(ABC):
             function: Function = self.ts_analyzer.function_env[function_id]
             if not include_test_files:
                 file_path_lower = function.file_path.lower()
-                if ("test" in file_path_lower or "example" in file_path_lower) and "regression_testing" not in file_path_lower:
+                if (
+                    "test" in file_path_lower or "example" in file_path_lower
+                ) and "regression_testing" not in file_path_lower:
                     continue
             self.sources.extend(self.extract_sources(function))
             self.sinks.extend(self.extract_sinks(function))

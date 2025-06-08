@@ -127,7 +127,7 @@ class RepoAudit:
             self.project_path, self.language, self.ts_analyzer
         )
         self.metascan_agent.start_scan()
-        
+
         if self.cg_refine:
             self.cgscan_agent = CGScanAgent(
                 self.project_path,
@@ -195,9 +195,7 @@ class RepoAudit:
 
 
 def configure_args():
-    parser = argparse.ArgumentParser(
-        description="RepoAudit-Plus: Run dfbscan"
-    )
+    parser = argparse.ArgumentParser(description="RepoAudit-Plus: Run dfbscan")
     parser.add_argument(
         "--scan-type",
         required=True,
