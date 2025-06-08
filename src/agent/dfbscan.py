@@ -197,8 +197,8 @@ class DFBScanAgent(Agent):
                 # Consider side-effect.
                 # Example: the parameter *p is used in the function: p->f = null;
                 # We need to consider the side-effect of p.
-                caller_function = self.ts_analyzer.get_all_caller_functions(function)
-                for caller_function in caller_function:
+                caller_functions = self.ts_analyzer.get_all_caller_functions(function)
+                for caller_function in caller_functions:
                     new_call_context = copy.deepcopy(call_context)
                     top_unmatched_context_label = (
                         new_call_context.get_top_unmatched_context_label()
@@ -432,29 +432,29 @@ class DFBScanAgent(Agent):
                     ]
 
                     call_statements = []
-                    # for call_site_node_id in start_function.function_call_site_nodes:
-                    #     call_site_node = start_function.function_call_site_nodes[
-                    #         call_site_node_id
-                    #     ]
-                    #     file_content = self.ts_analyzer.code_in_files[
-                    #         start_function.file_path
-                    #     ]
-                    #     call_site_line_number = (
-                    #         file_content[: call_site_node.start_byte].count("\n") + 1
-                    #     )
-                    #     call_site_name = file_content[
-                    #         call_site_node.start_byte : call_site_node.end_byte
-                    #     ]
-                    #     call_statements.append((call_site_name, call_site_line_number))
+                    for call_site_node_id in start_function.function_call_site_nodes:
+                        call_site_node = start_function.function_call_site_nodes[
+                            call_site_node_id
+                        ]
+                        file_content = self.ts_analyzer.code_in_files[
+                            start_function.file_path
+                        ]
+                        call_site_line_number = (
+                            file_content[: call_site_node.start_byte].count("\n") + 1
+                        )
+                        call_site_name = file_content[
+                            call_site_node.start_byte : call_site_node.end_byte
+                        ]
+                        call_statements.append((call_site_name, call_site_line_number))
 
-                    # ret_values = [
-                    #     (
-                    #         ret.name,
-                    #         ret.line_number - start_function.start_line_number + 1,
-                    #     )
-                    #     for ret in start_function.retvals
-                    # ]
-                    ret_values = []
+                    assert start_function.retvals is not None
+                    ret_values = [
+                        (
+                            ret.name,
+                            ret.line_number - start_function.start_line_number + 1,
+                        )
+                        for ret in start_function.retvals
+                    ]
                     df_input = IntraDataFlowAnalyzerInput(
                         start_function,
                         start_value,
@@ -496,8 +496,14 @@ class DFBScanAgent(Agent):
                         self.bug_type,
                         buggy_path,
                         {
-                            value: self.ts_analyzer.get_function_from_localvalue(value)
+                            value: function
                             for value in buggy_path
+                            if (
+                                function := self.ts_analyzer.get_function_from_localvalue(
+                                    value
+                                )
+                            )
+                            is not None
                         },
                     )
                     pv_output = self.path_validator.invoke(
@@ -621,10 +627,15 @@ class DFBScanAgent(Agent):
                 ]
                 call_statements.append((call_site_name, call_site_line_number))
 
-            ret_values = [
-                (ret.name, ret.line_number - start_function.start_line_number + 1)
-                for ret in start_function.retvals
-            ]
+            ret_values = (
+                [
+                    (ret.name, ret.line_number - start_function.start_line_number + 1)
+                    for ret in start_function.retvals
+                ]
+                if start_function.retvals is not None
+                else []
+            )
+
             idf_input = IntraDataFlowAnalyzerInput(
                 start_function, start_value, sink_values, call_statements, ret_values
             )
@@ -661,8 +672,12 @@ class DFBScanAgent(Agent):
                 self.bug_type,
                 buggy_path,
                 {
-                    value: self.ts_analyzer.get_function_from_localvalue(value)
+                    value: function
                     for value in buggy_path
+                    if (
+                        function := self.ts_analyzer.get_function_from_localvalue(value)
+                    )
+                    is not None
                 },
             )
             pv_output = self.path_validator.invoke(pv_input, PathValidatorOutput)

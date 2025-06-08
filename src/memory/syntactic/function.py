@@ -63,7 +63,13 @@ class Function:
         Add a parameter to the function.
         :param para: the parameter to be added
         """
-        self._paras.add(para)
+        if self._paras is None:
+            raise RAAnalysisError(
+                f"The parameters of function {self.function_name} has not been analyzed yet. "
+                "Please call the analyze function first."
+            )
+        else:
+            self._paras.add(para)
 
     # TODO (ZZ): add cache to avoid recomputing the parameters.
     # XXX (ZZ): ensure the returned values are new instances, not the original ones
