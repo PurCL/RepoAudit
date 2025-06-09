@@ -46,13 +46,12 @@ We are keeping implementing more agents and will open-source them very soon. Uti
    python build.py
    ```
 
-4. Configure the OpenAI API key. 
+4. Configure the OpenAI API key and Anthropic API key:
 
    ```sh
    export OPENAI_API_KEY=xxxxxx >> ~/.bashrc
+   export ANTHROPIC_API_KEY=xxxxxx >> ~/.bashrc
    ```
-
-   For Claude3.5, we use the model hosted by Amazon Bedrock. If you want to use Claude-3.5 and Claude-3.7, you may need to set up the environment first.
 
 
 ## Quick Start
@@ -80,7 +79,7 @@ For a large repository, a sequential analysis process may be quite time-consumin
 
 ## Website, Paper, and Docs
 
-We currently open-source the implementation of [dfbscan](https://github.com/PurCL/RepoAudit/tree/repoaudit-v0.1-dfbscan). We will release more technical reports/research papers and open-source other agents in RepoAudit very soon. For more information, please refer to our website: [RepoAudit: Auditing Code As Human](https://repoaudit-home.github.io/).
+We currently open-source the implementation of [dfbscan](https://github.com/PurCL/RepoAudit/tree/artifact). We will release more technical reports/research papers and open-source other agents in RepoAudit very soon. For more information, please refer to our website: [RepoAudit: Auditing Code As Human](https://repoaudit-home.github.io/).
 
 If you want to know more details about the tool usage, project architecture, and extensions of RepoAudit, please refer to the following documents:
 
