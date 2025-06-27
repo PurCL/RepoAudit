@@ -162,7 +162,7 @@ class DFBScanAgent(Agent):
                         arg_line_number_in_file = (
                             function.start_line_number + value.line_number - 1
                         )
-                        if not (
+                        if (
                             call_site_lower_line_number <= arg_line_number_in_file
                             and arg_line_number_in_file <= call_site_upper_line_number
                         ):
