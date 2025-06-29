@@ -99,9 +99,8 @@ class RepoAudit:
             for file in files:
                 if any(file.endswith(f'.{suffix}') for suffix in suffixs):
                     file_path = os.path.join(root, file)    
-                    if not self.include_test_files:
-                        if "test" in file_path.lower() or "example" in file_path.lower():
-                            continue
+                    if "test" in file_path.lower() or "example" in file_path.lower():
+                        continue
                     
                     try:
                         with open(file_path, "r", encoding='utf-8', errors='ignore') as source_file:
