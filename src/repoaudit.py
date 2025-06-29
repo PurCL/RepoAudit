@@ -45,7 +45,7 @@ class RepoAudit:
             raise ValueError("Invalid language setting")
         
         # Load all files with the specified suffix in the project path
-        self.travese_files(project_path, suffixs)
+        self.traverse_files(project_path, suffixs)
 
     def start_batch_scan(self) -> None:
         """
@@ -75,19 +75,41 @@ class RepoAudit:
                 self.max_workers
             )
             dfbscan_agent.start_scan()
-
-    def travese_files(self, project_path: str, suffixs: List) -> None:
+            
+                    
+    def traverse_files(self, project_path: str, suffixs: List) -> None:
         """
         Traverse all files in the project path.
-        """
-        for suffix in suffixs:
-            for file in glob.glob(f"{project_path}/**/*.{suffix}", recursive=True):
-                try:
-                    with open(file, "r") as c_file:
-                        c_file_content = c_file.read()
-                        self.all_files[file] = c_file_content
-                except:
-                    print(f"Error reading file {file}")
+        """        
+        for root, dirs, files in os.walk(project_path):
+            excluded_dirs = {
+                # Common
+                '.git', '.vscode', '.idea', 'build', 'dist', 'out', 'bin',
+                # Python
+                '__pycache__', '.pytest_cache', '.mypy_cache', '.coverage', 'venv', 'env',
+                # Java
+                'target', '.gradle', '.m2', '.settings', 'classes',
+                # C++
+                'CMakeFiles', '.deps', 'Debug', 'Release', 'obj',
+                # Go
+                'vendor', 'pkg'
+            }
+            dirs[:] = [d for d in dirs if not d.startswith('.') and d not in excluded_dirs]
+            
+            for file in files:
+                if any(file.endswith(f'.{suffix}') for suffix in suffixs):
+                    file_path = os.path.join(root, file)    
+                    if not self.include_test_files:
+                        if "test" in file_path.lower() or "example" in file_path.lower():
+                            continue
+                    
+                    try:
+                        with open(file_path, "r", encoding='utf-8', errors='ignore') as source_file:
+                            source_file_content = source_file.read()
+                            self.code_in_files[file_path] = source_file_content
+                    except Exception as e:
+                        print(f"Error reading file {file_path}: {e}")
+        return
 
 
 def run_dev_mode():
