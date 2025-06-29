@@ -1,7 +1,9 @@
 import argparse
 import glob
+import os
 from agent.metascan import *
 from agent.dfbscan import *
+from typing import List
 
 class RepoAudit:
     def __init__(
@@ -77,7 +79,7 @@ class RepoAudit:
             dfbscan_agent.start_scan()
             
                     
-    def traverse_files(self, project_path: str, suffixs: List) -> None:
+    def traverse_files(self, project_path: str, suffixs: List[str]) -> None:
         """
         Traverse all files in the project path.
         """        
@@ -105,7 +107,7 @@ class RepoAudit:
                     try:
                         with open(file_path, "r", encoding='utf-8', errors='ignore') as source_file:
                             source_file_content = source_file.read()
-                            self.code_in_files[file_path] = source_file_content
+                            self.all_files[file_path] = source_file_content
                     except Exception as e:
                         print(f"Error reading file {file_path}: {e}")
         return

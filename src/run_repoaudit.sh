@@ -2,14 +2,12 @@
 
 LANGUAGE=Cpp
 MODEL=claude-3.7
-BUG_TYPE=NPD
-PROJECT_NAME=htop
 
 python3 repoaudit.py \
   --language $LANGUAGE \
   --model-name $MODEL \
-  --project-path ../benchmark/$LANGUAGE/$PROJECT_NAME \
-  --bug-type $BUG_TYPE \
+  --project-path "$1" \
+  --bug-type "$2" \
   --temperature 0.0 \
   --scan-type dfbscan \
   --call-depth 3 \
