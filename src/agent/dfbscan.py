@@ -152,9 +152,7 @@ class DFBScanAgent(Agent):
                         call_site_upper_line_number = (
                             file_content[: call_site_node.end_byte].count("\n") + 1
                         )
-                        arg_line_number_in_file = (
-                            function.start_line_number + value.line_number - 1
-                        )
+                        arg_line_number_in_file = value.line_number
                         if (
                             call_site_lower_line_number <= arg_line_number_in_file
                             and arg_line_number_in_file <= call_site_upper_line_number
@@ -669,8 +667,8 @@ class DFBScanAgent(Agent):
                     for bug_report_id, bug in self.state.bug_reports.items()
                 }
 
-            with open(self.res_dir_path + "/detect_info.json", "w") as bug_info_file:
-                json.dump(bug_report_dict, bug_info_file, indent=4)
+                with open(self.res_dir_path + "/detect_info.json", "w") as bug_info_file:
+                    json.dump(bug_report_dict, bug_info_file, indent=4)
         return
 
     def get_agent_state(self) -> DFBScanState:
