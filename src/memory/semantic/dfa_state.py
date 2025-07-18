@@ -3,6 +3,7 @@ from memory.syntactic.value import *
 from typing import List
 from enum import Enum
 
+
 class Status(Enum):
     Bug = 1
     Safe = 2
@@ -10,25 +11,21 @@ class Status(Enum):
 
 
 class ExecutionPath:
-    def __init__(self, lines:str, state, status: str):
+    def __init__(self, lines: str, state, status: str):
         self.lines = lines
         self.state = state
-        self.children: List[(DFAState, str)] = []   # (state, dependency)
+        self.children: List[(DFAState, str)] = []  # (state, dependency)
         self.dependency = ""
-        self.sink:Value = None
+        self.sink: Value = None
         self.set_status(status)
 
     def set_status(self, status: str):
-        map = {
-            "bug": Status.Bug,
-            "safe": Status.Safe,
-            "unknown": Status.Unknown
-        }
+        map = {"bug": Status.Bug, "safe": Status.Safe, "unknown": Status.Unknown}
         self.status = map[status.lower()]
 
     def get_status(self) -> str:
         return self.status.name
-    
+
     def add_child(self, state, dependency: str, propagation_line: int):
         """
         Add a child state to the path (can be the caller or callee function of the current state)
@@ -46,11 +43,10 @@ class DFAState:
     def __init__(self, source: Value, function: Function):
         self.var = source
         self.function = function
-        self.subpath : List[ExecutionPath] = []
-    
+        self.subpath: List[ExecutionPath] = []
+
     def get_src_line(self) -> int:
         return self.var.line_number - self.function.start_line_number + 1
-    
+
     def get_key(self) -> str:
         return f"<{self.var.name}, {self.function.function_name}>"
-        

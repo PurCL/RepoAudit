@@ -4,8 +4,11 @@ from ..extractor import *
 import tree_sitter
 import argparse
 
+
 class Cpp_UAF_Extractor(Extractor):
-    def find_seeds(self, source_code: str, root_node: tree_sitter.Node, file_name: str) -> List[Tuple[Value, bool]]:
+    def find_seeds(
+        self, source_code: str, root_node: tree_sitter.Node, file_name: str
+    ) -> List[Tuple[Value, bool]]:
         """
         Extract the seeds that can cause the use-after-free bugs from the C/C++ programs.
         :param source_code: Content of the source file.
@@ -21,7 +24,7 @@ class Cpp_UAF_Extractor(Extractor):
         nodes.extend(find_nodes_by_type(root_node, "delete_expression"))
 
         free_functions = {"free"}
-        spec_apis = {}         # specific user-defined APIs 
+        spec_apis = {}  # specific user-defined APIs
         seeds = []
         for node in nodes:
             is_seed_node = False
@@ -34,10 +37,10 @@ class Cpp_UAF_Extractor(Extractor):
                         if name in free_functions:
                             is_seed_node = True
             if is_seed_node:
-                name = source_code[node.start_byte: node.end_byte]
+                name = source_code[node.start_byte : node.end_byte]
                 line_number = source_code[: node.start_byte].count("\n") + 1
                 seeds.append(Value(name, line_number, ValueLabel.SRC, file_name))
-        return seeds    
+        return seeds
 
 
 def start_extract():
@@ -64,8 +67,8 @@ def start_extract():
     project_path = args.project_path
     language_setting = args.language
     seed_path = args.seed_path
-    
-    bof_extractor = Cpp_UAF_Extractor(project_path, language_setting, seed_path) 
+
+    bof_extractor = Cpp_UAF_Extractor(project_path, language_setting, seed_path)
     bof_extractor.run()
 
 

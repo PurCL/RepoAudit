@@ -5,6 +5,7 @@ from agent.metascan import *
 from agent.dfbscan import *
 from typing import List
 
+
 class RepoAudit:
     def __init__(
         self,
@@ -15,7 +16,7 @@ class RepoAudit:
         scanners: list,
         bug_type: str,
         boundary: int,
-        max_workers: int
+        max_workers: int,
     ):
         """
         Initialize BatchScan object with project details.
@@ -45,7 +46,7 @@ class RepoAudit:
             suffixs = ["py"]
         else:
             raise ValueError("Invalid language setting")
-        
+
         # Load all files with the specified suffix in the project path
         self.traverse_files(project_path, suffixs)
 
@@ -53,7 +54,7 @@ class RepoAudit:
         """
         Start the batch scan process.
         """
-        project_name = self.language  + "_" + self.project_path.split("/")[-1]
+        project_name = self.language + "_" + self.project_path.split("/")[-1]
 
         if "metascan" in self.scanners:
             metascan_pipeline = MetaScanAgent(
@@ -61,7 +62,7 @@ class RepoAudit:
                 self.language,
                 self.all_files,
                 self.inference_model_name,
-                self.temperature
+                self.temperature,
             )
             metascan_pipeline.start_scan()
 
@@ -74,38 +75,61 @@ class RepoAudit:
                 self.temperature,
                 self.bug_type,
                 self.boundary,
-                self.max_workers
+                self.max_workers,
             )
             dfbscan_agent.start_scan()
-            
-                    
+
     def traverse_files(self, project_path: str, suffixs: List[str]) -> None:
         """
         Traverse all files in the project path.
-        """        
+        """
         for root, dirs, files in os.walk(project_path):
             excluded_dirs = {
                 # Common
-                '.git', '.vscode', '.idea', 'build', 'dist', 'out', 'bin',
+                ".git",
+                ".vscode",
+                ".idea",
+                "build",
+                "dist",
+                "out",
+                "bin",
                 # Python
-                '__pycache__', '.pytest_cache', '.mypy_cache', '.coverage', 'venv', 'env',
+                "__pycache__",
+                ".pytest_cache",
+                ".mypy_cache",
+                ".coverage",
+                "venv",
+                "env",
                 # Java
-                'target', '.gradle', '.m2', '.settings', 'classes',
+                "target",
+                ".gradle",
+                ".m2",
+                ".settings",
+                "classes",
                 # C++
-                'CMakeFiles', '.deps', 'Debug', 'Release', 'obj',
+                "CMakeFiles",
+                ".deps",
+                "Debug",
+                "Release",
+                "obj",
                 # Go
-                'vendor', 'pkg'
+                "vendor",
+                "pkg",
             }
-            dirs[:] = [d for d in dirs if not d.startswith('.') and d not in excluded_dirs]
-            
+            dirs[:] = [
+                d for d in dirs if not d.startswith(".") and d not in excluded_dirs
+            ]
+
             for file in files:
-                if any(file.endswith(f'.{suffix}') for suffix in suffixs):
-                    file_path = os.path.join(root, file)    
+                if any(file.endswith(f".{suffix}") for suffix in suffixs):
+                    file_path = os.path.join(root, file)
                     if "test" in file_path.lower() or "example" in file_path.lower():
                         continue
-                    
+
                     try:
-                        with open(file_path, "r", encoding='utf-8', errors='ignore') as source_file:
+                        with open(
+                            file_path, "r", encoding="utf-8", errors="ignore"
+                        ) as source_file:
                             source_file_content = source_file.read()
                             self.all_files[file_path] = source_file_content
                     except Exception as e:
@@ -130,13 +154,7 @@ def run_dev_mode():
     )
     parser.add_argument(
         "--language",
-        choices=[
-            "C",
-            "Cpp",
-            "Java",
-            "Go",
-            "Python"
-        ],
+        choices=["C", "Cpp", "Java", "Go", "Python"],
         help="Specify the language",
     )
     parser.add_argument(
@@ -150,7 +168,7 @@ def run_dev_mode():
             "claude-3.5",
             "claude-3.7",
             "deepseek-chat",
-            "deepseek-reasoner"
+            "deepseek-reasoner",
         ],
         help="Specify LLM model for Inference",
     )
@@ -161,7 +179,7 @@ def run_dev_mode():
     )
     parser.add_argument(
         "--scan-type",
-        nargs='+',
+        nargs="+",
         choices=["metascan", "dfbscan"],
         help="Specify which scanners to invoke",
     )
@@ -195,7 +213,7 @@ def run_dev_mode():
         scanners,
         bug_type,
         boundary,
-        max_workers
+        max_workers,
     )
     batch_scan.start_batch_scan()
 

@@ -4,6 +4,7 @@ from ..dfbscan_extractor import *
 import tree_sitter
 import argparse
 
+
 class Cpp_NPD_Extractor(DFBScanExtractor):
     def extract_sources(self, function: Function) -> List[Value]:
         root_node = function.parse_tree_root_node
@@ -21,7 +22,7 @@ class Cpp_NPD_Extractor(DFBScanExtractor):
         nodes.extend(find_nodes_by_type(root_node, "return_statement"))
         nodes.extend(find_nodes_by_type(root_node, "call_expression"))
 
-        spec_apis = {"malloc"}        # specific user-defined APIs that can return NULL
+        spec_apis = {"malloc"}  # specific user-defined APIs that can return NULL
         sources = []
         for node in nodes:
             is_seed_node = False
@@ -46,7 +47,7 @@ class Cpp_NPD_Extractor(DFBScanExtractor):
                     name = "".join(name_lines)
                 sources.append(Value(name, line_number, ValueLabel.SRC, file_path))
         return sources
-    
+
     def extract_sinks(self, function: Function) -> List[Value]:
         """
         Extract the sinks that can cause the null pointer derferences from C/C++ programs.

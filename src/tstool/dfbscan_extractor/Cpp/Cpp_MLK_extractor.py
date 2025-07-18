@@ -4,6 +4,7 @@ from ..dfbscan_extractor import *
 import tree_sitter
 import argparse
 
+
 class Cpp_MLK_Extractor(DFBScanExtractor):
     def extract_sources(self, function: Function) -> List[Value]:
         """
@@ -25,8 +26,17 @@ class Cpp_MLK_Extractor(DFBScanExtractor):
         """
         nodes = find_nodes_by_type(root_node, "call_expression")
         nodes.extend(find_nodes_by_type(root_node, "new_expression"))
-        mem_allocations = {"malloc", "calloc", "realloc", "strdup", "strndup", "asprintf", "vasprintf", "getline"}
-        spec_apis = {}          # specific user-defined APIs that allocate memory
+        mem_allocations = {
+            "malloc",
+            "calloc",
+            "realloc",
+            "strdup",
+            "strndup",
+            "asprintf",
+            "vasprintf",
+            "getline",
+        }
+        spec_apis = {}  # specific user-defined APIs that allocate memory
         sources = []
         for node in nodes:
             is_seed_node = False
@@ -66,7 +76,7 @@ class Cpp_MLK_Extractor(DFBScanExtractor):
         """
         nodes = find_nodes_by_type(root_node, "call_expression")
         mem_deallocations = {"free"}
-        spec_apis = {}          # specific user-defined APIs that deallocate memory
+        spec_apis = {}  # specific user-defined APIs that deallocate memory
         sinks = []
         for node in nodes:
             is_sink_node = False
@@ -82,4 +92,4 @@ class Cpp_MLK_Extractor(DFBScanExtractor):
                 line_number = source_code[: node.start_byte].count("\n") + 1
                 name = node.text.decode("utf8")
                 sinks.append(Value(name, line_number, ValueLabel.SINK, file_path))
-        return sinks     
+        return sinks

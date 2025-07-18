@@ -1,5 +1,6 @@
 import tree_sitter
 
+
 class Function:
     def __init__(
         self,
@@ -9,7 +10,7 @@ class Function:
         start_line_number: int,
         end_line_number: int,
         function_node: tree_sitter.Node,
-        file_name: str
+        file_name: str,
     ) -> None:
         """
         Record basic facts of the function
@@ -23,25 +24,29 @@ class Function:
         self.lined_code = self.attach_line_number()  # code with line number attached
 
         # Attention: the parse tree is in the context of the whole file
-        self.parse_tree_root_node = function_node  # root node of the parse tree of the current function
-        self.call_site_nodes = []   # call site info
+        self.parse_tree_root_node = (
+            function_node  # root node of the parse tree of the current function
+        )
+        self.call_site_nodes = []  # call site info
 
         ## Results of AST node type analysis
-        self.paras = set([])        # A set of (Expr, int) tuples, where int indicates the index of the parameter
-        self.retsmts = []           # A list of (Node, int) tuples, where int indicates the AST node of the return statement and its line number
+        self.paras = set(
+            []
+        )  # A set of (Expr, int) tuples, where int indicates the index of the parameter
+        self.retsmts = (
+            []
+        )  # A list of (Node, int) tuples, where int indicates the AST node of the return statement and its line number
 
         ## Results of intraprocedural control flow analysis
-        self.if_statements = {}     # if statement info
-        self.loop_statements = {}   # loop statement info
-
+        self.if_statements = {}  # if statement info
+        self.loop_statements = {}  # loop statement info
 
     def file_line2function_line(self, file_line: int) -> int:
         """
         Convert the line number in the file to the line number in the function
         """
         return file_line - self.start_line_number + 1
-    
-    
+
     def attach_line_number(self) -> str:
         """
         Attach line numbers to the function code

@@ -4,8 +4,11 @@ from ..extractor import *
 import tree_sitter
 import argparse
 
+
 class Cpp_MLK_Extractor(Extractor):
-    def find_seeds(self, source_code: str, root_node: tree_sitter.Node, file_name: str) -> List[Tuple[Value, bool]]:
+    def find_seeds(
+        self, source_code: str, root_node: tree_sitter.Node, file_name: str
+    ) -> List[Tuple[Value, bool]]:
         """
         Extract the seeds that can cause the memory leak bugs from C/C++ programs.
         :param source_code: Content of the source file.
@@ -24,8 +27,17 @@ class Cpp_MLK_Extractor(Extractor):
         4. new
         5. getline
         """
-        mem_allocations = {"malloc", "calloc", "realloc", "strdup", "strndup", "asprintf", "vasprintf", "getline"}
-        spec_apis = {}          # specific user-defined APIs that allocate memory
+        mem_allocations = {
+            "malloc",
+            "calloc",
+            "realloc",
+            "strdup",
+            "strndup",
+            "asprintf",
+            "vasprintf",
+            "getline",
+        }
+        spec_apis = {}  # specific user-defined APIs that allocate memory
         seeds = []
         for node in nodes:
             is_seed_node = False
@@ -40,10 +52,10 @@ class Cpp_MLK_Extractor(Extractor):
 
             if is_seed_node:
                 line_number = source_code[: node.start_byte].count("\n") + 1
-                name = source_code[node.start_byte: node.end_byte]
+                name = source_code[node.start_byte : node.end_byte]
                 seeds.append(Value(name, line_number, ValueLabel.SRC, file_name))
-        return seeds     
-    
+        return seeds
+
 
 def start_extract():
     parser = argparse.ArgumentParser()
@@ -69,8 +81,8 @@ def start_extract():
     project_path = args.project_path
     language_setting = args.language
     seed_path = args.seed_path
-    
-    ml_extractor = Cpp_MLK_Extractor(project_path, language_setting, seed_path) 
+
+    ml_extractor = Cpp_MLK_Extractor(project_path, language_setting, seed_path)
     ml_extractor.run()
 
 

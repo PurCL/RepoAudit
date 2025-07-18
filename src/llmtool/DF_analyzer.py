@@ -9,6 +9,7 @@ from memory.semantic.dfa_state import *
 from memory.syntactic.function import *
 from memory.syntactic.value import *
 from llmtool.LLM_tool import *
+
 BASE_PATH = Path(__file__).resolve().parents[1]
 
 
@@ -16,17 +17,14 @@ class DataflowAnalyzer(LLMTool):
     """
     Forward slicer class
     """
+
     def __init__(
-            self, 
-            model_name, 
-            temperature, 
-            language, 
-            ts_analyzer,
-            boundary,
-            bug_type
-            ) -> None:
+        self, model_name, temperature, language, ts_analyzer, boundary, bug_type
+    ) -> None:
         self.bug_type = bug_type
-        self.prompt_file = f"{BASE_PATH}/prompt/{language}/{bug_type}/analysis_prompt.json"
+        self.prompt_file = (
+            f"{BASE_PATH}/prompt/{language}/{bug_type}/analysis_prompt.json"
+        )
         super().__init__(model_name, temperature, language)
         self.cache: Dict[str, DFAState] = {}
         self.ts_analyzer = ts_analyzer
@@ -35,17 +33,16 @@ class DataflowAnalyzer(LLMTool):
         self.total_output_token_cost = 0
 
         self.seed_type_prompt = {
-            ValueLabel.SRC: "",                         # start point
-            ValueLabel.PARA: "parameter of",            # goto callee
-            ValueLabel.OUT: "return value of",          # goto caller
-            ValueLabel.ARG: "argument of",              # goto caller
+            ValueLabel.SRC: "",  # start point
+            ValueLabel.PARA: "parameter of",  # goto callee
+            ValueLabel.OUT: "return value of",  # goto caller
+            ValueLabel.ARG: "argument of",  # goto caller
         }
 
         self.path_pattern = r"(Lines|Line) (?P<lines>.+?)\. Status: (?P<status>\w+)"
         self.propagation_pattern = r"- Type: (?P<type>.+?)\. Function Name: (?P<function>.+?)\. Index: (?P<index>.+?)\. Line: (?P<line>.+?)\. Dependency: (?P<dependency>.+)"
         self.safe_pattern = r"- Dependency: (?P<dependency>.+)"
         self.bug_pattern = r"- Line: (?P<line>\d+)\. Operation: `(?P<operation>[^`]+)`\. Dependency: (?P<dependency>.+)"
-
 
     def analyze(self, state: DFAState, depth: int) -> Tuple[bool, list[dict]]:
         """
@@ -57,14 +54,14 @@ class DataflowAnalyzer(LLMTool):
         info_list = []
         flag = self.__analyze(state, depth, info_list)
         return flag, info_list
-        
+
     def __analyze(self, state: DFAState, depth: int, info_list: list) -> bool:
         """
         Analyze the state
         """
         if depth >= self.boundary:
             return False
-        
+
         key = str(state.var) + state.function.function_name
         if key in self.cache:
             print(f"Cache hit: {key}")
@@ -81,29 +78,42 @@ class DataflowAnalyzer(LLMTool):
             status = path_info["path_status"]
             current_path = ExecutionPath(path_info["path_lines"], state, status)
             state.subpath.append(current_path)
-            
+
             if status == "Safe":
                 current_path.dependency = path_info["safe_info"]["dependency"]
-            
+
             if status == "Bug":
                 if self.bug_type == "MLK":
                     current_path.dependency = path_info["bug_info"]["dependency"]
                 if self.bug_type == "NPD" or self.bug_type == "UAF":
                     try:
-                        bug_line = int(path_info["bug_info"]["line"]) + state.function.start_line_number - 1
+                        bug_line = (
+                            int(path_info["bug_info"]["line"])
+                            + state.function.start_line_number
+                            - 1
+                        )
                     except:
                         print(f"Bug line error: {path_info}")
                         continue
                     current_path.dependency = path_info["bug_info"]["dependency"]
-                    current_path.sink = Value(path_info["bug_info"]["operation"], bug_line, ValueLabel.SINK, state.function.file_name)
-                    
+                    current_path.sink = Value(
+                        path_info["bug_info"]["operation"],
+                        bug_line,
+                        ValueLabel.SINK,
+                        state.function.file_name,
+                    )
+
             if status == "Unknown":
                 for propagation_info in path_info["propagation_info"]:
                     dependency = propagation_info["dependency"]
                     if "->" in dependency:
                         continue
                     try:
-                        propagation_line = int(propagation_info["line"]) + state.function.start_line_number - 1
+                        propagation_line = (
+                            int(propagation_info["line"])
+                            + state.function.start_line_number
+                            - 1
+                        )
                     except:
                         print(f"Sink line error: {path_info}")
                         continue
@@ -113,45 +123,65 @@ class DataflowAnalyzer(LLMTool):
                         except:
                             print(f"Argument index error: {path_info}")
                             continue
-                        callee_functions = self.ts_analyzer.get_all_callee_functions(state.function, propagation_info["function_name"])
+                        callee_functions = self.ts_analyzer.get_all_callee_functions(
+                            state.function, propagation_info["function_name"]
+                        )
                         for callee_function in callee_functions:
-                            src = self.ts_analyzer.get_parameter_by_index(callee_function, index)
+                            src = self.ts_analyzer.get_parameter_by_index(
+                                callee_function, index
+                            )
                             if not src:
                                 continue
                             callee_state = DFAState(src, callee_function)
-                            if (self.__analyze(callee_state, depth+1, info_list)):
-                                current_path.add_child(callee_state, dependency, propagation_line)
-                    
+                            if self.__analyze(callee_state, depth + 1, info_list):
+                                current_path.add_child(
+                                    callee_state, dependency, propagation_line
+                                )
+
                     if propagation_info["type"] == "Return":
                         # # For callee functions, the source variable is parameter, we don't need to retrieve their callers.
                         # if state.var.label == ValueLabel.PARA:
-                        #     continue 
-                        caller_functions = self.ts_analyzer.get_all_caller_functions(state.function)
+                        #     continue
+                        caller_functions = self.ts_analyzer.get_all_caller_functions(
+                            state.function
+                        )
                         for caller_function in caller_functions:
-                            call_sites = self.ts_analyzer.get_return_value_from_callsite(caller_function, state.function.function_name)
+                            call_sites = (
+                                self.ts_analyzer.get_return_value_from_callsite(
+                                    caller_function, state.function.function_name
+                                )
+                            )
                             for return_value in call_sites:
                                 caller_state = DFAState(return_value, caller_function)
-                                if (self.__analyze(caller_state, depth+1, info_list)):
-                                    current_path.add_child(caller_state, dependency, propagation_line)
-                    
+                                if self.__analyze(caller_state, depth + 1, info_list):
+                                    current_path.add_child(
+                                        caller_state, dependency, propagation_line
+                                    )
+
                     if propagation_info["type"] == "Parameter":
                         # # For callee functions, the source variable is parameter, we don't need to retrieve their callers.
                         # if state.var.label == ValueLabel.PARA:
-                        #     continue 
+                        #     continue
                         try:
                             index = int(propagation_info["index"])
                         except:
                             print(f"Parameter index error: {path_info}")
                             continue
-                        caller_functions = self.ts_analyzer.get_all_caller_functions(state.function)
+                        caller_functions = self.ts_analyzer.get_all_caller_functions(
+                            state.function
+                        )
                         for caller_function in caller_functions:
                             callee_name = state.function.function_name
-                            pointer_args = self.ts_analyzer.get_argument_by_index(caller_function, callee_name, index)
+                            pointer_args = self.ts_analyzer.get_argument_by_index(
+                                caller_function, callee_name, index
+                            )
                             for arg in pointer_args:
                                 caller_state = DFAState(arg, caller_function)
-                                if (self.__analyze(caller_state, depth+1, info_list)):
-                                    current_path.add_child(caller_state, dependency, propagation_line=-1)
-        
+                                if self.__analyze(caller_state, depth + 1, info_list):
+                                    current_path.add_child(
+                                        caller_state, dependency, propagation_line=-1
+                                    )
+
         return True
 
     def get_prompt(self, state: DFAState) -> str:
@@ -159,7 +189,11 @@ class DataflowAnalyzer(LLMTool):
         Generate the prompt
         """
         src_name = state.var.name
-        src_type = self.seed_type_prompt[state.var.label] if state.var.label in self.seed_type_prompt else ""
+        src_type = (
+            self.seed_type_prompt[state.var.label]
+            if state.var.label in self.seed_type_prompt
+            else ""
+        )
         src_line_number = state.get_src_line()
 
         with open(self.prompt_file, "r") as f:
@@ -168,19 +202,22 @@ class DataflowAnalyzer(LLMTool):
         message = dump_config_dict["task"]
         message += "\n" + "\n".join(dump_config_dict["analysis_rules"])
         message += "\n" + "\n".join(dump_config_dict["analysis_examples"])
-        
+
         answer_format = "\n".join(dump_config_dict["answer_format_cot"])
 
         message += "\n" + "".join(dump_config_dict["meta_prompts"])
         message = message.replace("<FUNCTION>", state.function.lined_code)
         question = (
-            dump_config_dict["question_template"].replace("<SRC_NAME>", src_name)
+            dump_config_dict["question_template"]
+            .replace("<SRC_NAME>", src_name)
             .replace("<SRC_LINE>", str(src_line_number))
             .replace("<SRC_TYPE>", src_type)
         )
         message = message.replace("<QUESTION>", question)
         message = message.replace("<ANSWER>", answer_format)
-        message = message.replace("<SRC_NAME>", src_name).replace("<SRC_LINE>", str(src_line_number))
+        message = message.replace("<SRC_NAME>", src_name).replace(
+            "<SRC_LINE>", str(src_line_number)
+        )
 
         key_points = self.construct_key_points_prompt(state.function)
         message = message.replace("<KEY_POINTS>", key_points)
@@ -193,16 +230,16 @@ class DataflowAnalyzer(LLMTool):
         :param message: The message to be sent to the LLM
         :return: A tuple containing the parsed result and the query info
         Parsed result format:
-        {   
-            "path_lines": lines, 
-            "path_status": status, 
+        {
+            "path_lines": lines,
+            "path_status": status,
             "propagation_info": [{
                 "type": "Argument",
                 "function_name": callee_name,
                 "index": index,
                 "dependency": dependency,
                 "line": callsite_line
-                }], 
+                }],
             "bug_info": {
                 "operation": operation,
                 "dependency": dependency,
@@ -210,7 +247,7 @@ class DataflowAnalyzer(LLMTool):
                 },
             "safe_info": {
                 "dependency": dependency
-                } 
+                }
         }
         """
         format_error = " "
@@ -223,7 +260,7 @@ class DataflowAnalyzer(LLMTool):
             format_error = ""
             output, input_token_cost, output_token_cost = self.model.infer(
                 message, True
-                )
+            )
             query_info = {}
             query_info["message"] = message
             query_info["answer"] = output
@@ -236,13 +273,13 @@ class DataflowAnalyzer(LLMTool):
             self.total_output_token_cost += output_token_cost
 
             # parse the output
-            lines =  output.split("\n")
+            lines = output.split("\n")
             idx = 0
             for line in lines:
                 if "Answer:" in line:
                     break
                 idx += 1
-            lines = lines[idx+1:]
+            lines = lines[idx + 1 :]
 
             current_path = None
             for line in lines:
@@ -255,7 +292,7 @@ class DataflowAnalyzer(LLMTool):
                     status = match.group("status")
                     current_path = {"path_lines": lines, "path_status": status}
                     result.append(current_path)
-                
+
                 if line.startswith("-"):
                     if not current_path:
                         format_error = "Path not found"
@@ -269,16 +306,20 @@ class DataflowAnalyzer(LLMTool):
                             break
                         dependency = match.group("dependency")
                         current_path["safe_info"] = {"dependency": dependency}
-                    
-                    if status == "Bug":    
+
+                    if status == "Bug":
                         match = re.search(self.bug_pattern, line)
                         if not match:
                             format_error = f"Bug format error {line}"
                             break
-                        bug_line = match.group('line')
-                        operation = match.group('operation')
-                        dependency = match.group('dependency')
-                        current_path["bug_info"] = {"operation": operation, "dependency": dependency, "line": bug_line}
+                        bug_line = match.group("line")
+                        operation = match.group("operation")
+                        dependency = match.group("dependency")
+                        current_path["bug_info"] = {
+                            "operation": operation,
+                            "dependency": dependency,
+                            "line": bug_line,
+                        }
 
                     if status == "Unknown":
                         if "propagation_info" not in current_path:
@@ -287,12 +328,20 @@ class DataflowAnalyzer(LLMTool):
                         if not match:
                             format_error = f"Propagation format error {line}"
                             break
-                        type = match.group('type')
-                        function_name = match.group('function')
-                        index = match.group('index')
-                        line_number = match.group('line')
-                        dependency = match.group('dependency')
-                        current_path["propagation_info"].append({"type": type, "function_name": function_name, "index": index, "dependency": dependency, "line": line_number})
+                        type = match.group("type")
+                        function_name = match.group("function")
+                        index = match.group("index")
+                        line_number = match.group("line")
+                        dependency = match.group("dependency")
+                        current_path["propagation_info"].append(
+                            {
+                                "type": type,
+                                "function_name": function_name,
+                                "index": index,
+                                "dependency": dependency,
+                                "line": line_number,
+                            }
+                        )
 
             if format_error != "":
                 print(format_error)
@@ -304,12 +353,14 @@ class DataflowAnalyzer(LLMTool):
             dump_config_dict = json.load(f)
         role = dump_config_dict["system_role"].replace("<LANGUAGE>", self.language)
         return role
-    
-    def extract_key_points_in_Cpp(self, function:Function, bug_type:str) -> List[Value]:
+
+    def extract_key_points_in_Cpp(
+        self, function: Function, bug_type: str
+    ) -> List[Value]:
         """
         Extract key points from the function, including return site, invocation site and bug related site:
         Memory Leak: memory deletion sites
-        Null Pointer Dereference: pointer dereference sites 
+        Null Pointer Dereference: pointer dereference sites
         Use after free: pointer usage sites
         """
         source_code = function.function_code
@@ -324,7 +375,9 @@ class DataflowAnalyzer(LLMTool):
             for node in nodes:
                 line_number = source_code[: node.start_byte].count("\n") + 1
                 name = source_code[node.start_byte : node.end_byte]
-                lines.append(Value(name, line_number, ValueLabel.SINK, function.file_name))
+                lines.append(
+                    Value(name, line_number, ValueLabel.SINK, function.file_name)
+                )
         if bug_type == "NPD":
             nodes.extend(find_nodes_by_type(function_node, "pointer_expression"))
             nodes.extend(find_nodes_by_type(function_node, "field_expression"))
@@ -334,7 +387,9 @@ class DataflowAnalyzer(LLMTool):
                     continue
                 line_number = source_code[: node.start_byte].count("\n") + 1
                 name = source_code[node.start_byte : node.end_byte]
-                lines.append(Value(name, line_number, ValueLabel.SINK, function.file_name))
+                lines.append(
+                    Value(name, line_number, ValueLabel.SINK, function.file_name)
+                )
         if bug_type == "UAF":
             nodes.extend(find_nodes_by_type(function_node, "pointer_expression"))
             nodes.extend(find_nodes_by_type(function_node, "field_expression"))
@@ -344,10 +399,12 @@ class DataflowAnalyzer(LLMTool):
                     continue
                 line_number = source_code[: node.start_byte].count("\n") + 1
                 name = source_code[node.start_byte : node.end_byte]
-                lines.append(Value(name, line_number, ValueLabel.SINK, function.file_name))
+                lines.append(
+                    Value(name, line_number, ValueLabel.SINK, function.file_name)
+                )
         return lines
 
-    def construct_key_points_prompt(self, function:Function) -> str:
+    def construct_key_points_prompt(self, function: Function) -> str:
         """
         Construct the key points of the function
         """
@@ -364,5 +421,7 @@ class DataflowAnalyzer(LLMTool):
         if not key_points:
             return ""
         for key_point in key_points:
-            key_point_info_template += f"- Line {key_point.line_number}: {key_point.name}\n"
+            key_point_info_template += (
+                f"- Line {key_point.line_number}: {key_point.name}\n"
+            )
         return key_point_info_template

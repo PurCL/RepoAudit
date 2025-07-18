@@ -12,17 +12,13 @@ from abc import ABC, abstractmethod
 
 sys.path.append(path.dirname(path.dirname(path.dirname(path.abspath(__file__)))))
 
-    
+
 class Extractor(ABC):
     """
     Extractor class providing a common interface for source/sink extraction using tree-sitter.
     """
-    def __init__(
-        self,
-        project_path: str,
-        language_setting: str,
-        seed_path: str
-    ):
+
+    def __init__(self, project_path: str, language_setting: str, seed_path: str):
         cwd = Path(__file__).resolve().parent.absolute()
         TSPATH = cwd / "../../../lib/build/"
         language_path = TSPATH / "my-languages.so"
@@ -49,12 +45,11 @@ class Extractor(ABC):
             self.suffix = {"py"}
         else:
             raise ValueError("Invalid language setting")
-        
+
         self.parser = tree_sitter.Parser()
         self.parser.set_language(self.language)
         self.seed_path = seed_path
         self.travese_files(project_path, self.suffix)
-        
 
     def run(self):
         """
@@ -63,16 +58,15 @@ class Extractor(ABC):
         pbar = tqdm(total=len(self.all_files), desc="Parsing files")
         for file_name, file_code in self.all_files.items():
             pbar.update(1)
-            if 'test' in file_name or 'example' in file_name:
+            if "test" in file_name or "example" in file_name:
                 continue
             tree = self.parser.parse(bytes(file_code, "utf8"))
             root = tree.root_node
             self.seeds.extend(self.find_seeds(file_code, root, file_name))
-    
-        with open(self.seed_path, 'w') as f:
+
+        with open(self.seed_path, "w") as f:
             json.dump([str(seed) for seed in self.seeds], f, indent=4, sort_keys=True)
         return
-    
 
     def travese_files(self, project_path: str, suffix: set) -> None:
         """
@@ -86,11 +80,12 @@ class Extractor(ABC):
                     c_file_content = c_file.read()
                     self.all_files[os.path.join(root, file)] = c_file_content
             for dir in dirs:
-                self.travese_files(os.path.join(root, dir), suffix) 
+                self.travese_files(os.path.join(root, dir), suffix)
 
-    
     @abstractmethod
-    def find_seeds(self, source_code: str, root_node: tree_sitter.Node, file_path: str) -> List[Tuple[Value, bool]]:
+    def find_seeds(
+        self, source_code: str, root_node: tree_sitter.Node, file_path: str
+    ) -> List[Tuple[Value, bool]]:
         """
         Extract the seeds that can cause the bugs from the source code.
         :param source_code: Content of the source file.

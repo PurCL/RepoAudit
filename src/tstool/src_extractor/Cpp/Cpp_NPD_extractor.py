@@ -4,8 +4,11 @@ from ..extractor import *
 import tree_sitter
 import argparse
 
+
 class Cpp_NPD_Extractor(Extractor):
-    def find_seeds(self, source_code: str, root_node: tree_sitter.Node, file_name: str) -> List[Tuple[Value, bool]]:
+    def find_seeds(
+        self, source_code: str, root_node: tree_sitter.Node, file_name: str
+    ) -> List[Tuple[Value, bool]]:
         """
         Extract the seeds that can cause the NPD bugs from the C/C++ programs.
         :param source_code: Content of the source file.
@@ -24,7 +27,7 @@ class Cpp_NPD_Extractor(Extractor):
         2. return NULL;
         3. (type)* ptr = NULL;
         """
-        spec_apis = {"malloc"}        # specific user-defined APIs that can return NULL
+        spec_apis = {"malloc"}  # specific user-defined APIs that can return NULL
         seeds = []
         for node in nodes:
             is_seed_node = False
@@ -75,9 +78,9 @@ def start_extract():
     project_path = args.project_path
     language_setting = args.language
     seed_path = args.seed_path
-    
-    npd_extractor = Cpp_NPD_Extractor(project_path, language_setting, seed_path) 
-    npd_extractor.run() 
+
+    npd_extractor = Cpp_NPD_Extractor(project_path, language_setting, seed_path)
+    npd_extractor.run()
 
 
 if __name__ == "__main__":

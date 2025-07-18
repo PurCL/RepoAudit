@@ -2,6 +2,7 @@ import re
 from typing import Set
 from enum import Enum
 
+
 class ValueLabel(Enum):
     SRC = 1
     SINK = 2
@@ -9,7 +10,7 @@ class ValueLabel(Enum):
     RET = 4
     ARG = 5
     OUT = 6
-    
+
     LOCAL = 7
     GLOBAL = 8
 
@@ -71,8 +72,7 @@ class Value:
 
     def __repr__(self) -> str:
         return self.__str__()
-    
-    
+
     @classmethod
     def from_str_to_value(cls, s: str) -> "Value":
         """
@@ -80,9 +80,7 @@ class Value:
             "((name, file, line_number, index), label)"
         and create a Value instance from it.
         """
-        pattern = (
-            r'^\(\(\s*(?P<name>[^,]+),\s*(?P<file>[^,]+),\s*(?P<line_number>\d+),\s*(?P<index>-?\d+)\s*\),\s*(?P<label>[^)]+)\)$'
-        )
+        pattern = r"^\(\(\s*(?P<name>[^,]+),\s*(?P<file>[^,]+),\s*(?P<line_number>\d+),\s*(?P<index>-?\d+)\s*\),\s*(?P<label>[^)]+)\)$"
         match = re.match(pattern, s)
         if not match:
             raise ValueError(f"String does not match expected format: {s}")

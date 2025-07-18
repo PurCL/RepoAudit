@@ -18,7 +18,6 @@ from botocore.exceptions import BotoCoreError, ClientError
 import boto3
 
 
-
 class LLM:
     """
     An online inference model using different LLMs:
@@ -29,17 +28,18 @@ class LLM:
     """
 
     def __init__(
-        self, 
+        self,
         online_model_name: str,
         temperature: float = 0.0,
-        system_role="You are a experienced programmer and good at understanding programs written in mainstream programming languages."
+        system_role="You are a experienced programmer and good at understanding programs written in mainstream programming languages.",
     ) -> None:
         self.online_model_name = online_model_name
-        self.encoding = tiktoken.encoding_for_model("gpt-3.5-turbo-0125") # We only use gpt-3.5 to measure token cost
+        self.encoding = tiktoken.encoding_for_model(
+            "gpt-3.5-turbo-0125"
+        )  # We only use gpt-3.5 to measure token cost
         self.temperature = temperature
         self.systemRole = system_role
         return
-
 
     def infer(
         self, message: str, is_measure_cost: bool = False
@@ -58,7 +58,7 @@ class LLM:
             output = self.infer_with_deepseek_model(message)
         else:
             raise ValueError("Unsupported model name")
-            
+
         input_token_cost = (
             0
             if not is_measure_cost
@@ -69,7 +69,6 @@ class LLM:
             0 if not is_measure_cost else len(self.encoding.encode(output))
         )
         return output, input_token_cost, output_token_cost
-
 
     def run_with_timeout(self, func, timeout):
         """Run a function with timeout that works in multiple threads"""
@@ -84,11 +83,10 @@ class LLM:
                 print(f"Operation failed: {e}")
                 return ""
 
-
     def infer_with_gemini(self, message: str) -> str:
         """Infer using the Gemini model from Google Generative AI"""
         gemini_model = genai.GenerativeModel("gemini-pro")
-        
+
         def call_api():
             message_with_role = self.systemRole + "\n" + message
             safety_settings = [
@@ -118,9 +116,8 @@ class LLM:
             except Exception as e:
                 print(f"API error: {e}")
             time.sleep(2)
-        
-        return ""
 
+        return ""
 
     def infer_with_openai_model(self, message):
         """Infer using the OpenAI model"""
@@ -129,7 +126,7 @@ class LLM:
             {"role": "system", "content": self.systemRole},
             {"role": "user", "content": message},
         ]
-        
+
         def call_api():
             client = OpenAI(api_key=api_key)
             response = client.chat.completions.create(
@@ -149,9 +146,8 @@ class LLM:
             except Exception as e:
                 print(f"API error: {e}")
             time.sleep(2)
-        
+
         return ""
-    
 
     def infer_with_o3_mini_model(self, message):
         """Infer using the o3-mini model"""
@@ -160,12 +156,11 @@ class LLM:
             {"role": "system", "content": self.systemRole},
             {"role": "user", "content": message},
         ]
-        
+
         def call_api():
             client = OpenAI(api_key=api_key)
             response = client.chat.completions.create(
-                model=self.online_model_name,
-                messages=model_input
+                model=self.online_model_name, messages=model_input
             )
             return response.choices[0].message.content
 
@@ -179,9 +174,8 @@ class LLM:
             except Exception as e:
                 print(f"API error: {e}")
             time.sleep(2)
-        
+
         return ""
-    
 
     def infer_with_deepseek_model(self, message):
         """
@@ -215,9 +209,8 @@ class LLM:
             except Exception as e:
                 print(f"API error: {e}")
             time.sleep(2)
-        
-        return ""
 
+        return ""
 
     def infer_with_claude(self, message):
         """Infer using the Claude model via AWS Bedrock"""
@@ -225,7 +218,7 @@ class LLM:
             model_id = "anthropic.claude-3-5-sonnet-20241022-v2:0"
         if "3.7" in self.online_model_name:
             model_id = "us.anthropic.claude-3-7-sonnet-20250219-v1:0"
-        
+
         model_input = [
             {
                 "role": "assistant",
@@ -233,28 +226,32 @@ class LLM:
             },
             {"role": "user", "content": message},
         ]
-        
-        body = json.dumps({
-            "messages": model_input,
-            "max_tokens": 4000,
-            "anthropic_version": "bedrock-2023-05-31",
-            "temperature": self.temperature,
-            "top_k": 50,
-        })
+
+        body = json.dumps(
+            {
+                "messages": model_input,
+                "max_tokens": 4000,
+                "anthropic_version": "bedrock-2023-05-31",
+                "temperature": self.temperature,
+                "top_k": 50,
+            }
+        )
 
         def call_api():
             client = boto3.client(
-                "bedrock-runtime", 
-                region_name="us-west-2", 
-                config=Config(read_timeout=100)
+                "bedrock-runtime",
+                region_name="us-west-2",
+                config=Config(read_timeout=100),
             )
-            
-            response = client.invoke_model(
-                modelId=model_id,
-                contentType="application/json",
-                body=body
-            )["body"].read().decode("utf-8")
-            
+
+            response = (
+                client.invoke_model(
+                    modelId=model_id, contentType="application/json", body=body
+                )["body"]
+                .read()
+                .decode("utf-8")
+            )
+
             response = json.loads(response)
             return response["content"][0]["text"]
 
@@ -268,5 +265,5 @@ class LLM:
             except Exception as e:
                 print(f"API error: {str(e)}")
             time.sleep(2)
-        
+
         return ""

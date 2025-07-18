@@ -9,21 +9,20 @@ from memory.semantic.dfa_state import *
 from memory.syntactic.function import *
 from memory.syntactic.value import *
 from llmtool.LLM_tool import *
+
 BASE_PATH = Path(__file__).resolve().parents[1]
+
 
 class DataFlowValidator(LLMTool):
     """
     Forward slicer class
     """
-    def __init__(
-            self, 
-            model_name, 
-            temperature, 
-            language,
-            bug_type
-            ) -> None:
+
+    def __init__(self, model_name, temperature, language, bug_type) -> None:
         self.bug_type = bug_type
-        self.prompt_file = f"{BASE_PATH}/prompt/{language}/{bug_type}/validation_prompt.json"
+        self.prompt_file = (
+            f"{BASE_PATH}/prompt/{language}/{bug_type}/validation_prompt.json"
+        )
         super().__init__(model_name, temperature, language)
         self.bug_type_prompt = {
             "NPD": "Null Pointer Dereference",
@@ -42,8 +41,12 @@ class DataFlowValidator(LLMTool):
         prompt = self.get_prompt(path, explanation, function)
         return self.query_LLM(prompt, "validation")
 
-
-    def get_prompt(self, path: str, explanation: str, function: str,) -> str:
+    def get_prompt(
+        self,
+        path: str,
+        explanation: str,
+        function: str,
+    ) -> str:
         """
         Generate prompt for the given path
         """
@@ -53,7 +56,7 @@ class DataFlowValidator(LLMTool):
         question_template = dump_config_dict["question_template"]
 
         question_template = "\n".join(question_template)
-    
+
         question = (
             question_template.replace("<BUG_TYPE>", bug_type_prompt)
             .replace("<PATH>", path)
@@ -73,7 +76,7 @@ class DataFlowValidator(LLMTool):
         )
         return prompt
 
-    def query_LLM(self, message: str, key:str) -> Tuple[bool, dict]:
+    def query_LLM(self, message: str, key: str) -> Tuple[bool, dict]:
         """
         Query the LLM model with the given message
         """
@@ -82,7 +85,7 @@ class DataFlowValidator(LLMTool):
             start_time = time.time()
 
             response, input_token_cost, output_token_cost = self.model.infer(message)
-            
+
             query_info = {}
             query_info["message"] = message
             query_info["answer"] = response
@@ -92,7 +95,7 @@ class DataFlowValidator(LLMTool):
 
             self.query_num += 1
             print(response)
-            answer_match = re.search(r'Answer:\s*(\w+)', response)
+            answer_match = re.search(r"Answer:\s*(\w+)", response)
             if answer_match:
                 answer = answer_match.group(1).strip()
                 break

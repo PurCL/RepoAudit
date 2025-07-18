@@ -9,22 +9,19 @@ class Cache:
             "type": "",
             "callee_name": "",
             "index": "",
-            "variable_name": ""
+            "variable_name": "",
         }
-        self.external_variables = external_variables if external_variables is not None else []
+        self.external_variables = (
+            external_variables if external_variables is not None else []
+        )
 
     def add_external_variable(self, value_dict: dict) -> None:
         if value_dict.keys() == self.__variable_format.keys():
             self.external_variables.append(value_dict)
-               
 
 
 class LLMTool(ABC):
-    def __init__(self,
-                 model_name: str, 
-                 temperature: float,
-                 language: str
-                 ) -> None:
+    def __init__(self, model_name: str, temperature: float, language: str) -> None:
         self.language = language
         self.model_name = model_name
         self.model = LLM(model_name)
@@ -38,5 +35,3 @@ class LLMTool(ABC):
 
     def fetch_system_role(self) -> str:
         return "You are a experienced programmer and good at understanding programs written in mainstream programming languages."
-
-

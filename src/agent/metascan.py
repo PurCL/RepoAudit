@@ -9,17 +9,16 @@ from llmtool.LLM_utils import *
 from llmtool.LLM_utils import *
 from pathlib import Path
 
+
 class MetaScanAgent:
     """
     This agent is designed to extract meta information from the source code.
     Used for testing llmtools :)
     """
-    def __init__(self,
-                 project_name,
-                 language,
-                 all_files,
-                 inference_model_name,
-                 temperature):
+
+    def __init__(
+        self, project_name, language, all_files, inference_model_name, temperature
+    ):
         self.project_name = project_name
         self.language = language
         self.all_files = all_files
@@ -46,7 +45,8 @@ class MetaScanAgent:
         Start the detection process.
         """
         log_dir_path = str(
-            Path(__file__).resolve().parent.parent.parent / ("result/metascan/" + self.project_name)
+            Path(__file__).resolve().parent.parent.parent
+            / ("result/metascan/" + self.project_name)
         )
         if not os.path.exists(log_dir_path):
             os.makedirs(log_dir_path)
@@ -69,10 +69,18 @@ class MetaScanAgent:
             function_meta_data["call_sites"] = []
             for call_site in function.call_site_nodes:
                 call_site_info = {}
-                file_content = self.ts_analyzer.ts_parser.fileContentDic[function.file_name]
-                call_site_info["callee_id"] = self.ts_analyzer.get_callee_at_callsite(call_site, file_content)
-                call_site_info["args"] = list(self.ts_analyzer.get_arguments_at_callsite(call_site, file_content))
-                call_site_info["call_site_start_line"] = file_content[:call_site.start_byte].count("\n") + 1
+                file_content = self.ts_analyzer.ts_parser.fileContentDic[
+                    function.file_name
+                ]
+                call_site_info["callee_id"] = self.ts_analyzer.get_callee_at_callsite(
+                    call_site, file_content
+                )
+                call_site_info["args"] = list(
+                    self.ts_analyzer.get_arguments_at_callsite(call_site, file_content)
+                )
+                call_site_info["call_site_start_line"] = (
+                    file_content[: call_site.start_byte].count("\n") + 1
+                )
                 function_meta_data["call_sites"].append(call_site_info)
 
             # function call
@@ -80,22 +88,27 @@ class MetaScanAgent:
             if function_id in self.ts_analyzer.caller_callee_map:
                 for callee_id in self.ts_analyzer.caller_callee_map[function_id]:
                     function_meta_data["callee_ids"].append(callee_id)
-            
+
             function_meta_data["caller_ids"] = []
             if function_id in self.ts_analyzer.callee_caller_map:
                 for caller_id in self.ts_analyzer.callee_caller_map[function_id]:
                     function_meta_data["caller_ids"].append(caller_id)
-    
+
             # control flow
             function_meta_data["if_statements"] = []
-            for (if_statement_start_line, if_statement_end_line) in self.ts_analyzer.environment[function_id].if_statements:
+            for (
+                if_statement_start_line,
+                if_statement_end_line,
+            ) in self.ts_analyzer.environment[function_id].if_statements:
                 (
                     condition_start_line,
                     condition_end_line,
                     condition_str,
                     (true_branch_start_line, true_branch_end_line),
-                    (else_branch_start_line, else_branch_end_line)
-                ) = self.ts_analyzer.environment[function_id].if_statements[(if_statement_start_line, if_statement_end_line)]
+                    (else_branch_start_line, else_branch_end_line),
+                ) = self.ts_analyzer.environment[function_id].if_statements[
+                    (if_statement_start_line, if_statement_end_line)
+                ]
                 if_statement = {}
                 if_statement["condition_str"] = condition_str
                 if_statement["condition_start_line"] = condition_start_line
@@ -109,15 +122,19 @@ class MetaScanAgent:
             function_meta_data_dict[function_id] = function_meta_data
 
             function_meta_data["loop_statements"] = []
-            for (loop_statement_start_line, loop_statement_end_line) in self.ts_analyzer.environment[function_id].loop_statements:
+            for (
+                loop_statement_start_line,
+                loop_statement_end_line,
+            ) in self.ts_analyzer.environment[function_id].loop_statements:
                 (
-                    
                     header_start_line,
                     header_end_line,
                     header_str,
                     loop_body_start_line,
-                    loop_body_end_line
-                ) = self.ts_analyzer.environment[function_id].loop_statements[(loop_statement_start_line, loop_statement_end_line)]
+                    loop_body_end_line,
+                ) = self.ts_analyzer.environment[function_id].loop_statements[
+                    (loop_statement_start_line, loop_statement_end_line)
+                ]
                 loop_statement = {}
                 loop_statement["loop_statement_start_line"] = loop_statement_start_line
                 loop_statement["loop_statement_end_line"] = loop_statement_end_line
@@ -128,14 +145,13 @@ class MetaScanAgent:
                 loop_statement["loop_body_end_line"] = loop_body_end_line
                 function_meta_data["loop_statements"].append(loop_statement)
 
-        with open(log_dir_path + "/meta_scan_result.json", 'w') as f:
+        with open(log_dir_path + "/meta_scan_result.json", "w") as f:
             json.dump(function_meta_data_dict, f, indent=4, sort_keys=True)
-        
+
         for callee, callers in self.ts_analyzer.callee_caller_map.items():
             call_edge_num += len(callers)
 
         print("Function Number: ", len(function_meta_data_dict))
         print("Call Edge Number: ", call_edge_num)
-        
+
         return
-    

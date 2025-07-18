@@ -9,6 +9,7 @@ from memory.semantic.dfa_state import *
 from memory.syntactic.function import *
 from memory.syntactic.value import *
 from llmtool.LLM_tool import *
+
 BASE_PATH = Path(__file__).resolve().parents[1]
 
 
@@ -16,15 +17,10 @@ class DataflowAnalyzer(LLMTool):
     """
     Forward slicer class
     """
+
     def __init__(
-            self, 
-            model_name, 
-            temperature, 
-            language, 
-            ts_analyzer,
-            boundary,
-            bug_type
-            ) -> None:
+        self, model_name, temperature, language, ts_analyzer, boundary, bug_type
+    ) -> None:
         self.bug_type = bug_type
         self.prompt_file = f"{BASE_PATH}/prompt/{language}/analysis_prompt.json"
         super().__init__(model_name, temperature, language)
@@ -35,22 +31,25 @@ class DataflowAnalyzer(LLMTool):
         self.total_output_token_cost = 0
 
         self.seed_type_prompt = {
-            ValueLabel.SRC: "",                         # start point
-            ValueLabel.PARA: "parameter of",            # goto callee
-            ValueLabel.OUT: "return value of",          # goto caller
-            ValueLabel.ARG: "argument of",              # goto caller
+            ValueLabel.SRC: "",  # start point
+            ValueLabel.PARA: "parameter of",  # goto callee
+            ValueLabel.OUT: "return value of",  # goto caller
+            ValueLabel.ARG: "argument of",  # goto caller
         }
 
         self.path_pattern = r"(Lines|Line) (?P<lines>.+?)\."
         self.propagation_pattern = r"- Type: (?P<type>.+?)\. Function Name: (?P<function>.+?)\. Index: (?P<index>.+?)\. Line: (?P<line>.+?)\. Dependency: (?P<dependency>.+)"
-
 
     def get_prompt(self, state: DFAState) -> str:
         """
         Generate the prompt
         """
         src_name = state.var.name
-        src_type = self.seed_type_prompt[state.var.label] if state.var.label in self.seed_type_prompt else ""
+        src_type = (
+            self.seed_type_prompt[state.var.label]
+            if state.var.label in self.seed_type_prompt
+            else ""
+        )
         src_line_number = state.get_src_line()
 
         with open(self.prompt_file, "r") as f:
@@ -59,21 +58,24 @@ class DataflowAnalyzer(LLMTool):
         message = dump_config_dict["task"]
         message += "\n" + "\n".join(dump_config_dict["analysis_rules"])
         message += "\n" + "\n".join(dump_config_dict["analysis_examples"])
-        
+
         answer_format = "\n".join(dump_config_dict["answer_format_cot"])
 
         message += "\n" + "".join(dump_config_dict["meta_prompts"])
         message = message.replace("<FUNCTION>", state.function.lined_code)
         question = (
-            dump_config_dict["question_template"].replace("<SRC_NAME>", src_name)
+            dump_config_dict["question_template"]
+            .replace("<SRC_NAME>", src_name)
             .replace("<SRC_LINE>", str(src_line_number))
             .replace("<SRC_TYPE>", src_type)
         )
         message = message.replace("<QUESTION>", question)
         message = message.replace("<ANSWER>", answer_format)
-        message = message.replace("<SRC_NAME>", src_name).replace("<SRC_LINE>", str(src_line_number))
+        message = message.replace("<SRC_NAME>", src_name).replace(
+            "<SRC_LINE>", str(src_line_number)
+        )
 
-        # TODO: Replace <SINK>, <CALL_STATEMENTS> and <RETURN_STATEMENTS>        
+        # TODO: Replace <SINK>, <CALL_STATEMENTS> and <RETURN_STATEMENTS>
 
         return message
 
@@ -83,7 +85,7 @@ class DataflowAnalyzer(LLMTool):
         :param message: The message to be sent to the LLM
         :return: A tuple containing the parsed result and the query info
         Parsed result format:
-        {   
+        {
             "path_lines": lines,
             "propagation_info": [{
                 "type": "Argument",
@@ -104,7 +106,7 @@ class DataflowAnalyzer(LLMTool):
             format_error = ""
             output, input_token_cost, output_token_cost = self.model.infer(
                 message, True
-                )
+            )
             query_info = {}
             query_info["message"] = message
             query_info["answer"] = output
@@ -117,13 +119,13 @@ class DataflowAnalyzer(LLMTool):
             self.total_output_token_cost += output_token_cost
 
             # parse the output
-            lines =  output.split("\n")
+            lines = output.split("\n")
             idx = 0
             for line in lines:
                 if "Answer:" in line:
                     break
                 idx += 1
-            lines = lines[idx+1:]
+            lines = lines[idx + 1 :]
 
             current_path = None
             for line in lines:
@@ -135,7 +137,7 @@ class DataflowAnalyzer(LLMTool):
                     lines = match.group("lines")
                     current_path = {"path_lines": lines}
                     result.append(current_path)
-                
+
                 if line.startswith("-"):
                     if not current_path:
                         format_error = "Path not found"
@@ -146,12 +148,20 @@ class DataflowAnalyzer(LLMTool):
                     if not match:
                         format_error = f"Propagation format error {line}"
                         break
-                    type = match.group('type')
-                    function_name = match.group('function')
-                    index = match.group('index')
-                    line_number = match.group('line')
-                    dependency = match.group('dependency')
-                    current_path["propagation_info"].append({"type": type, "function_name": function_name, "index": index, "dependency": dependency, "line": line_number})
+                    type = match.group("type")
+                    function_name = match.group("function")
+                    index = match.group("index")
+                    line_number = match.group("line")
+                    dependency = match.group("dependency")
+                    current_path["propagation_info"].append(
+                        {
+                            "type": type,
+                            "function_name": function_name,
+                            "index": index,
+                            "dependency": dependency,
+                            "line": line_number,
+                        }
+                    )
 
             if format_error != "":
                 print(format_error)

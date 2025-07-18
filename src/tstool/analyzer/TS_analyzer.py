@@ -13,12 +13,12 @@ sys.path.append(path.dirname(path.dirname(path.dirname(path.abspath(__file__))))
 from memory.syntactic.function import *
 from memory.syntactic.value import *
 
-    
+
 class TSParser(ABC):
     """
     BaseParser class providing a common interface for source code parsing using tree-sitter.
     """
-    
+
     def __init__(self, code_in_projects: Dict[str, str], language_setting: str) -> None:
         """
         Initialize the parser with project source code and language setting.
@@ -57,9 +57,10 @@ class TSParser(ABC):
 
         self.parser.set_language(self.language)
 
-    
     @abstractmethod
-    def parse_function_info(self, file_path: str, source_code: str, tree: tree_sitter.Tree) -> None:
+    def parse_function_info(
+        self, file_path: str, source_code: str, tree: tree_sitter.Tree
+    ) -> None:
         """
         Parse function information from a source file.
         :param file_path: Path of the source file.
@@ -69,7 +70,9 @@ class TSParser(ABC):
         pass
 
     @abstractmethod
-    def parse_global_info(self, file_path: str, source_code: str, tree: tree_sitter.Tree) -> None:
+    def parse_global_info(
+        self, file_path: str, source_code: str, tree: tree_sitter.Tree
+    ) -> None:
         """
         Parse macro or global variable information from a source file.
         :param file_path: Path of the source file.
@@ -77,7 +80,7 @@ class TSParser(ABC):
         :param tree: Parsed syntax tree.
         """
         pass
-    
+
     def parse_project(self) -> None:
         """
         Parse the project.
@@ -121,7 +124,7 @@ class TSAnalyzer(ABC):
         # Each funcntion in the environments maintains the local meta data, including
         # (1) AST node type analysis
         # (2) intraprocedural control flow analysis
-        self.environment = {}  
+        self.environment = {}
 
         # Macro variable map
         self.glb_var_map = self.ts_parser.glb_var_map
@@ -131,7 +134,9 @@ class TSAnalyzer(ABC):
         self.callee_caller_map = {}
         self.call_graph = nx.DiGraph()
 
-        pbar = tqdm(total=len(self.ts_parser.functionRawDataDic), desc="Analyzing functions")
+        pbar = tqdm(
+            total=len(self.ts_parser.functionRawDataDic), desc="Analyzing functions"
+        )
         for function_id in self.ts_parser.functionRawDataDic:
             pbar.update(1)
             (name, start_line_number, end_line_number, function_node) = (
@@ -139,15 +144,27 @@ class TSAnalyzer(ABC):
             )
             file_name = self.ts_parser.functionToFile[function_id]
             file_content = self.ts_parser.fileContentDic[file_name]
-            function_code = file_content[function_node.start_byte:function_node.end_byte]
+            function_code = file_content[
+                function_node.start_byte : function_node.end_byte
+            ]
             current_function = Function(
-                function_id, name, function_code, start_line_number, end_line_number, function_node, file_name
+                function_id,
+                name,
+                function_code,
+                start_line_number,
+                end_line_number,
+                function_node,
+                file_name,
             )
-            current_function = self.extract_meta_data_in_single_function(current_function)
+            current_function = self.extract_meta_data_in_single_function(
+                current_function
+            )
             self.environment[function_id] = current_function
         pbar.close()
 
-        pbar = tqdm(total=len(self.ts_parser.functionRawDataDic), desc="Analyzing call graphs")
+        pbar = tqdm(
+            total=len(self.ts_parser.functionRawDataDic), desc="Analyzing call graphs"
+        )
         for function_id in self.environment:
             pbar.update(1)
             current_function = self.environment[function_id]
@@ -159,7 +176,7 @@ class TSAnalyzer(ABC):
             for callee_id in self.caller_callee_map[caller_id]:
                 self.call_graph.add_edge(caller_id, callee_id)
         return
-    
+
     @abstractmethod
     def create_ts_parser(self) -> TSParser:
         """
@@ -167,7 +184,9 @@ class TSAnalyzer(ABC):
         """
         pass
 
-    def extract_meta_data_in_single_function(self, current_function: Function) -> Function:
+    def extract_meta_data_in_single_function(
+        self, current_function: Function
+    ) -> Function:
         """
         Extract meta data in a single function
         :param current_function: the function to be analyzed
@@ -178,7 +197,9 @@ class TSAnalyzer(ABC):
 
         # AST node type analysis
         current_function.paras = self.get_paras_in_single_function(current_function)
-        current_function.retsmts = self.get_retstmts_in_single_function(current_function)
+        current_function.retsmts = self.get_retstmts_in_single_function(
+            current_function
+        )
 
         # Intraprocedural control flow analysis
         current_function.if_statements = self.get_if_statements(
@@ -205,7 +226,9 @@ class TSAnalyzer(ABC):
         pass
 
     @abstractmethod
-    def get_callee_name_at_call_site(self, node: tree_sitter.Node, source_code: str) -> str:
+    def get_callee_name_at_call_site(
+        self, node: tree_sitter.Node, source_code: str
+    ) -> str:
         """
         Get the callee name at the call site.
         :param node: the node of the call site
@@ -214,9 +237,11 @@ class TSAnalyzer(ABC):
         :return: the name of the callee function
         """
         pass
-    
+
     @abstractmethod
-    def get_callsite_by_callee_name(self, current_function: Function, callee_name: str) -> List[tree_sitter.Node]:
+    def get_callsite_by_callee_name(
+        self, current_function: Function, callee_name: str
+    ) -> List[tree_sitter.Node]:
         """
         Find the call site by callee name.
         :param current_function: the function to be analyzed
@@ -226,7 +251,9 @@ class TSAnalyzer(ABC):
         pass
 
     @abstractmethod
-    def get_arguments_at_callsite(self, node: tree_sitter.Node, source_code: str) -> List[str]:
+    def get_arguments_at_callsite(
+        self, node: tree_sitter.Node, source_code: str
+    ) -> List[str]:
         """
         Get arguments at the call site.
         :param node: the node of the call site
@@ -235,7 +262,9 @@ class TSAnalyzer(ABC):
         """
         pass
 
-    def get_callee_at_callsite(self, call_site_node: tree_sitter.Node, source_code: str) -> List[int]:
+    def get_callee_at_callsite(
+        self, call_site_node: tree_sitter.Node, source_code: str
+    ) -> List[int]:
         """
         Find the callee function of the call site.
         :param file_content: the content of the file
@@ -258,7 +287,7 @@ class TSAnalyzer(ABC):
             if len(paras) == len(arguments):
                 callee_ids.append(callee_id)
         return callee_ids
-    
+
     def get_all_caller_functions(self, function: Function) -> List[Function]:
         """
         Get the caller function of the function.
@@ -270,7 +299,9 @@ class TSAnalyzer(ABC):
         caller = [self.environment[caller_id] for caller_id in caller_ids]
         return caller
 
-    def get_all_callee_functions(self, function: Function, callee: str) -> List[Function]:
+    def get_all_callee_functions(
+        self, function: Function, callee: str
+    ) -> List[Function]:
         """
         Get the callee function of the function with name `callee`.
         :param function: the function to be analyzed
@@ -285,22 +316,26 @@ class TSAnalyzer(ABC):
             if self.environment[callee_id].function_name == callee:
                 callee_list.append(self.environment[callee_id])
         return callee_list
-    
+
     #################################################
     ########## AST Node Type Analysis ###############
-    #################################################   
-    
+    #################################################
+
     @abstractmethod
-    def get_paras_in_single_function(self, current_function: Function) -> Set[Tuple[str, int, int]]:
+    def get_paras_in_single_function(
+        self, current_function: Function
+    ) -> Set[Tuple[str, int, int]]:
         """
         Find the parameters of the function.
         :param current_function: the function to be analyzed
         :return: (para_name, line_number, index) of the parameters
         """
         pass
-    
+
     @abstractmethod
-    def get_args_by_callee_name(self, current_function: Function, callee: str) -> Set[Tuple[str, int, int]]:
+    def get_args_by_callee_name(
+        self, current_function: Function, callee: str
+    ) -> Set[Tuple[str, int, int]]:
         """
         Find the arguments of the callee function.
         :param current_function: the function to be analyzed
@@ -310,7 +345,9 @@ class TSAnalyzer(ABC):
         pass
 
     @abstractmethod
-    def get_retstmts_in_single_function(self, current_function: Function) -> List[Tuple[str, int]]:
+    def get_retstmts_in_single_function(
+        self, current_function: Function
+    ) -> List[Tuple[str, int]]:
         # TODO: Need to be polished along with Function class
         # We need to track multiple return values, especially for Python and Go.
         """
@@ -324,7 +361,9 @@ class TSAnalyzer(ABC):
     #################################################
 
     @abstractmethod
-    def get_if_statements(self, function: Function, source_code: str) -> Dict[Tuple, Tuple]:
+    def get_if_statements(
+        self, function: Function, source_code: str
+    ) -> Dict[Tuple, Tuple]:
         """
         Find the if statements in the function.
         :param function: the function to be analyzed
@@ -334,7 +373,9 @@ class TSAnalyzer(ABC):
         pass
 
     @abstractmethod
-    def get_loop_statements(self, function: Function, source_code: str) -> Dict[Tuple, Tuple]:
+    def get_loop_statements(
+        self, function: Function, source_code: str
+    ) -> Dict[Tuple, Tuple]:
         """
         Find the loop statements in the function.
         :param function: the function to be analyzed
@@ -345,7 +386,9 @@ class TSAnalyzer(ABC):
     #################################################
     ########## Control Order Analysis ################
     #################################################
-    def check_control_order(self, function: Function, src_line_number: str, sink_line_number: str) -> bool:
+    def check_control_order(
+        self, function: Function, src_line_number: str, sink_line_number: str
+    ) -> bool:
         """
         If the function return True, the line src_line_number may be execeted before the line sink_line_number.
         The semantics of return statements are not considered.
@@ -377,11 +420,11 @@ class TSAnalyzer(ABC):
                 and else_branch_end_line != 0
             ):
                 return False
-            
+
         # Consider loops
         if src_line_number_in_function > sink_line_number_in_function:
             for loop_start_line, loop_end_line in function.loop_statements:
-                (                
+                (
                     _,
                     _,
                     _,
@@ -403,26 +446,33 @@ class TSAnalyzer(ABC):
     #######################################################
     ########## Control reachability Analysis ##############
     #######################################################
-    def check_control_reachability(self, function: Function, src_line_number: str, sink_line_number: str) -> bool:
+    def check_control_reachability(
+        self, function: Function, src_line_number: str, sink_line_number: str
+    ) -> bool:
         """
         If the function return True, the line src_line_number may be execeted before the line sink_line_number.
         The semantics of return statements are considered.
         This is an over-approximation of the control reachability.
         """
-        if self.check_control_order(function, src_line_number, sink_line_number) is False:
+        if (
+            self.check_control_order(function, src_line_number, sink_line_number)
+            is False
+        ):
             return False
-        
+
         # TODO: Temporarily disable the return satement check
         # for retstmt, retstmt_line_number in function.retsmts:
         #     if self.check_control_order(function, src_line_number, retstmt_line_number) and \
         #         not self.check_control_order(function, sink_line_number, retstmt_line_number):
         #         return False
         return True
-    
+
     #################################################
     ########## AST visitor utility ##################
     #################################################
-    def get_node_by_line_number(self, line_number: int) -> List[Tuple[str, tree_sitter.Node]]:
+    def get_node_by_line_number(
+        self, line_number: int
+    ) -> List[Tuple[str, tree_sitter.Node]]:
         """
         Find the node that contains the specific line number
         :param line_number: the line number to be searched
@@ -449,18 +499,22 @@ class TSAnalyzer(ABC):
                 if start_line == end_line == line_number:
                     code_node_list.append((function.function_code, node))
         return code_node_list
-    
+
     #################################################
     ############# AST selector utility ##############
     #################################################
-    def get_function_from_localvalue(self, value: Value) ->  Function:
+    def get_function_from_localvalue(self, value: Value) -> Function:
         """
         Get the function from the local value.
         """
         file_name = value.file
         for function_id, function in self.environment.items():
             if function.file_name == file_name:
-                if function.start_line_number <= value.line_number <= function.end_line_number:
+                if (
+                    function.start_line_number
+                    <= value.line_number
+                    <= function.end_line_number
+                ):
                     return function
         return None
 
@@ -472,10 +526,14 @@ class TSAnalyzer(ABC):
         """
         for para in self.get_paras_in_single_function(function):
             if para[2] == index:
-                return Value(para[0], para[1], ValueLabel.PARA, function.file_name, index)
+                return Value(
+                    para[0], para[1], ValueLabel.PARA, function.file_name, index
+                )
         return None
-    
-    def get_argument_by_index(self, function: Function, callee_name: str, index: int) -> List[Value]:
+
+    def get_argument_by_index(
+        self, function: Function, callee_name: str, index: int
+    ) -> List[Value]:
         """
         Get the argument by callee_name and index.
         :param function: the function to be analyzed
@@ -485,9 +543,11 @@ class TSAnalyzer(ABC):
         results = []
         for arg in self.get_args_by_callee_name(function, callee_name):
             if arg[2] == index:
-                results.append(Value(arg[0], arg[1], ValueLabel.ARG, function.file_name, index))
+                results.append(
+                    Value(arg[0], arg[1], ValueLabel.ARG, function.file_name, index)
+                )
         return results
-    
+
     def get_content_by_line_number(self, line_number: int, file_name: str) -> str:
         """
         Get the content at `line_number` in `file`.
@@ -499,8 +559,10 @@ class TSAnalyzer(ABC):
         if line_number > len(file_lines):
             return ""
         return file_lines[line_number - 1]
-    
-    def get_return_value_from_callsite(self, function: Function, callee_name: str) -> List[Value]:
+
+    def get_return_value_from_callsite(
+        self, function: Function, callee_name: str
+    ) -> List[Value]:
         """
         Get the return value from the call site.
         :param function: the function to be analyzed
@@ -514,8 +576,11 @@ class TSAnalyzer(ABC):
 
             # TODO: TO BE Polished. @Chengpeng.
             # We need to extract multiple return values for each return statement and maintain their indexes starting from 0.
-            results.append(Value(name, line_number, ValueLabel.OUT, function.file_name, 0))
+            results.append(
+                Value(name, line_number, ValueLabel.OUT, function.file_name, 0)
+            )
         return results
+
 
 #################################################
 ############# Helper functions ##################
@@ -532,7 +597,10 @@ def find_all_nodes(root_node: tree_sitter.Node) -> List[tree_sitter.Node]:
         nodes.extend(find_all_nodes(child_node))
     return nodes
 
-def find_nodes_by_type(root_node: tree_sitter.Node, node_type: str, k = 0) -> List[tree_sitter.Node]:
+
+def find_nodes_by_type(
+    root_node: tree_sitter.Node, node_type: str, k=0
+) -> List[tree_sitter.Node]:
     """
     Find all the nodes with the specific type in the parse tree
     :param root_node: the root node of the parse tree
@@ -544,5 +612,5 @@ def find_nodes_by_type(root_node: tree_sitter.Node, node_type: str, k = 0) -> Li
     if root_node.type == node_type:
         nodes.append(root_node)
     for child_node in root_node.children:
-        nodes.extend(find_nodes_by_type(child_node, node_type, k+1))
+        nodes.extend(find_nodes_by_type(child_node, node_type, k + 1))
     return nodes
