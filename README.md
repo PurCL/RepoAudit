@@ -81,6 +81,26 @@ For a large repository, a sequential analysis process may be quite time-consumin
 
 We currently open-source the implementation of [dfbscan](https://github.com/PurCL/RepoAudit/tree/artifact). We will release more technical reports/research papers and open-source other agents in RepoAudit very soon. For more information, please refer to our website: [RepoAudit: Auditing Code As Human](https://repoaudit-home.github.io/).
 
+If you find our research or tool helpful, please cite the following paper.
+
+```bibtex
+@inproceedings{repoaudit2025,
+  title={RepoAudit: An Autonomous LLM-Agent for Repository-Level Code Auditing},
+  author={Guo, Jinyao* and Wang, Chengpeng* and Xu, Xiangzhe and Su, Zian and Zhang, Xiangyu},
+  booktitle={Proceedings of the 42nd International Conference on Machine Learning},
+  year={2025},
+  note={*Equal contribution}
+}
+```
+
 ## License
 
 This project is licensed under [MIT license](LICENSE).
+
+## Contact
+
+For any questions or suggestions, please submit issues or pull requests on GitHub. You can also reach out to our maintainers:
+
+- Chengpeng Wang (Purdue University) - [wang6590@purdue.edu](mailto:wang6590@purdue.edu)
+
+- Jinyao Guo (Purdue University) - [guo846@purdue.edu](mailto:guo846@purdue.edu) 
