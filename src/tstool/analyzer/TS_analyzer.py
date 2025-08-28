@@ -156,6 +156,8 @@ class TSAnalyzer(ABC):
             self.language = Language(str(language_path), "java")
         elif language_name == "Python":
             self.language = Language(str(language_path), "python")
+        elif language_name == "Javascript":
+            self.language = Language(str(language_path), "javascript")
         elif language_name == "Go":
             self.language = Language(str(language_path), "go")
         else:
@@ -354,7 +356,11 @@ class TSAnalyzer(ABC):
         file_content = self.fileContentDic[file_name]
 
         call_node_type = None
-        if self.language_name == "C" or self.language_name == "Cpp":
+        if (
+            self.language_name == "C"
+            or self.language_name == "Cpp"
+            or self.language_name == "Javascript"
+        ):
             call_node_type = "call_expression"
         elif self.language_name == "Java":
             call_node_type = "method_invocation"
@@ -367,7 +373,7 @@ class TSAnalyzer(ABC):
 
         all_call_sites = find_nodes_by_type(
             current_function.parse_tree_root_node, call_node_type
-        )
+        )        
         function_call_sites = []
         api_call_sites = []
 

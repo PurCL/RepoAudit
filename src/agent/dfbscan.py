@@ -19,6 +19,7 @@ from tstool.dfbscan_extractor.Cpp.Cpp_NPD_extractor import *
 from tstool.dfbscan_extractor.Cpp.Cpp_UAF_extractor import *
 from tstool.dfbscan_extractor.Java.Java_NPD_extractor import *
 from tstool.dfbscan_extractor.Python.Python_NPD_extractor import *
+from tstool.dfbscan_extractor.Javascript.Javascript_NPD_extractor import *
 from tstool.dfbscan_extractor.Go.Go_NPD_extractor import *
 
 from llmtool.LLM_utils import *
@@ -109,9 +110,13 @@ class DFBScanAgent(Agent):
         elif self.language == "Python":
             if self.bug_type == "NPD":
                 return Python_NPD_Extractor(self.ts_analyzer)
+        elif self.language == "Javascript":
+            if self.bug_type == "NPD":
+                return Javascript_NPD_Extractor(self.ts_analyzer)
         elif self.language == "Go":
             if self.bug_type == "NPD":
                 return Go_NPD_Extractor(self.ts_analyzer)
+        
         raise NotImplementedError(
             f"Unsupported bug type: {self.bug_type} in {self.language}"
         )

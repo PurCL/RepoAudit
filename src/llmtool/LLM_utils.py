@@ -92,7 +92,7 @@ class LLM:
 
     def infer_with_gemini(self, message: str) -> str:
         """Infer using the Gemini model from Google Generative AI"""
-        gemini_model = genai.GenerativeModel("gemini-pro")
+        gemini_model = genai.GenerativeModel(self.online_model_name)
 
         def call_api():
             message_with_role = self.systemRole + "\n" + message
