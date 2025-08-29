@@ -1,20 +1,17 @@
-function hello5() {
-    let output = [];
-
-    for (let i = 0; i < 5; i++) {
-        output.push(null);
-    }
-    return output;
+function func(value) {
+    return func2(value);
 }
 
-function hello6() {
-    let output = hello5();
-    for (let i = 0; i < 4; i++) {
-        output[i] = i.toString();
-    }
-    if (output[4] !== null && output[4] !== undefined) {
-        return output[4].length;
-    }
-    return 0;
+function func2(value) {
+    console.log(+value.prop);
+    delete value.prop;
+    return value;
 }
 
+const printprop = () => {
+	let d = {
+        prop: "1"
+    };
+    d = func(d);
+    console.log(d.prop.length);
+}

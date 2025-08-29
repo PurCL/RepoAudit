@@ -1,7 +1,13 @@
-function getLength(value) {
-    return value.length;
+function func_generator(value) {
+    let fn = null;
+    if (value % 3 == 0) {
+        fn = console.log;
+    } else if (value % 3 == 1) {
+        fn = console.error;
+    }
+    return fn;
 }
 
 const print = () => {
-    console.log(getLength(null));
+    func_generator(8)("Hello world!");
 }

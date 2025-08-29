@@ -10,13 +10,23 @@ class Javascript_NPD_Extractor(DFBScanExtractor):
         file_path = function.file_path
         null_value_nodes = find_nodes_by_type(root_node, "null")
         null_value_nodes.extend(find_nodes_by_type(root_node, "undefined"))
-
+        unary_expressions = find_nodes_by_type(root_node, "unary_expression")
+        
         sources = []
+        
+        for unary_expression in unary_expressions:
+            operator = unary_expression.child(0)
+            if operator is not None and operator.type == "delete":
+                line_number = source_code[: unary_expression.start_byte].count("\n") + 1
+                name = source_code[unary_expression.start_byte : unary_expression.end_byte]
+                sources.append(Value(name, line_number, ValueLabel.SRC, file_path))
+
+        
         for node in null_value_nodes:
             line_number = source_code[: node.start_byte].count("\n") + 1
             name = source_code[node.start_byte : node.end_byte]
             sources.append(Value(name, line_number, ValueLabel.SRC, file_path))
-            
+        
         return sources
 
     def extract_sinks(self, function: Function) -> List[Value]:
@@ -31,6 +41,7 @@ class Javascript_NPD_Extractor(DFBScanExtractor):
 
         nodes = find_nodes_by_type(root_node, "member_expression")
         nodes.extend(find_nodes_by_type(root_node, "subscript_expression"))
+        nodes.extend(find_nodes_by_type(root_node, "call_expression"))
         sinks = []
 
         for node in nodes:

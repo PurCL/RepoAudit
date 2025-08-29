@@ -34,6 +34,7 @@ class DFBScanExtractor(ABC):
             function_root_node = function.parse_tree_root_node
             self.sources.extend(self.extract_sources(function))
             self.sinks.extend(self.extract_sinks(function))
+        
         return self.sources, self.sinks
 
     @abstractmethod

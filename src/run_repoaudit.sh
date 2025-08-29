@@ -3,7 +3,7 @@ SCAN_TYPE=$1
 LANGUAGE=Javascript
 # MODEL=claude-3.7
 # MODEL=o3-mini
-MODEL=gemini-2.5-flash
+MODEL=gemini-2.0-flash
 BUG_TYPE=NPD
 PROJECT=toy
 
