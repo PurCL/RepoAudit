@@ -1,17 +1,10 @@
-function hello() {
-    let output = [];
-
-    for (let i = 0; i < 5; i++) {
-        output.push(null);
-    }
-    return output;
+function test2_process(data) {
+    let value = data[0];
+    return value;
 }
+    
 
-function hello2() {
-    let output = hello();
-    for (let i = 0; i < 4; i++) {
-        output[i] = i.toString();
-    }
-    return output[4].length;
+function test2_caller() {
+    let data = null;
+    return test2_process(data)
 }
-

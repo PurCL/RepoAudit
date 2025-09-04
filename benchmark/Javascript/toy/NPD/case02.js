@@ -10,4 +10,5 @@ function func_generator(value) {
 
 const print = () => {
     func_generator(8)("Hello world!");
+    console.log("Done");
 }

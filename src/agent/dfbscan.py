@@ -362,9 +362,18 @@ class DFBScanAgent(Agent):
                     if value.label == ValueLabel.SINK:
                         # For NPD-style bug types
                         if self.is_reachable:
-                            self.state.update_potential_buggy_paths(
-                                src_value, path_with_unknown_status + [value]
-                            )
+                            
+                            # Checks if the sink is a called to a predefined function
+                            is_defined_function = False
+                            for func in self.ts_analyzer.function_env.values():
+                                if value.name == func.function_name:
+                                    is_defined_function = True
+                                    break
+                            
+                            if not is_defined_function:
+                                self.state.update_potential_buggy_paths(
+                                    src_value, path_with_unknown_status + [value]
+                                )
                     elif value.label in {
                         ValueLabel.PARA,
                         ValueLabel.RET,
