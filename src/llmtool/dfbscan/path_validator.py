@@ -86,11 +86,16 @@ class PathValidator(LLMTool):
             value_lines.append(value_line)
         prompt = prompt.replace("<PATH>", "\n".join(value_lines))
         prompt = prompt.replace("<BUG_TYPE>", input.bug_type)
+        
+        functions: Set[Function] = set()
+        for func in input.values_to_functions.values():
+            if func is not None:
+                functions.add(func)
 
         program = "\n".join(
             [
-                "```\n" + func.lined_code + "\n```\n" if func is not None else "\n"
-                for func in input.values_to_functions.values()
+                "```\n" + func.lined_code + "\n```\n"
+                for func in functions
             ]
         )
         prompt = prompt.replace("<PROGRAM>", program)
