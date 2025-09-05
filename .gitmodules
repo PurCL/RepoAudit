@@ -10,3 +10,6 @@
 [submodule "benchmark/Go/sally"]
 	path = benchmark/Go/sally
 	url = https://github.com/uber-go/sally.git
+[submodule "benchmark/Javascript/toy/NPD/microlight"]
+	path = benchmark/Javascript/toy/NPD/microlight
+	url = https://github.com/asvd/microlight.git

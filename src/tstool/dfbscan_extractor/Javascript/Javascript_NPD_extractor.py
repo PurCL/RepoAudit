@@ -4,6 +4,25 @@ from ..dfbscan_extractor import *
 
 
 class Javascript_NPD_Extractor(DFBScanExtractor):
+    BUILTIN_NULLABLE_METHODS = {
+        b"exec",
+        b"match",
+        b"matchAll",
+        b"getElementById",
+        b"querySelector",
+        b"querySelectorAll",
+        b"getElementsByClassName",
+        b"getElementsByTagName",
+        b"getAttribute",
+        b"find",
+        b"findIndex",
+        b"pop",
+        b"shift",
+        b"get",
+        b"getOwnPropertyDescriptor",
+        b"stringify",
+    }
+
     def extract_sources(self, function: Function) -> List[Value]:
         root_node = function.parse_tree_root_node
         source_code = self.ts_analyzer.code_in_files[function.file_path]
@@ -11,8 +30,23 @@ class Javascript_NPD_Extractor(DFBScanExtractor):
         null_value_nodes = find_nodes_by_type(root_node, "null")
         null_value_nodes.extend(find_nodes_by_type(root_node, "undefined"))
         unary_expressions = find_nodes_by_type(root_node, "unary_expression")
+        call_expressions = find_nodes_by_type(root_node, "call_expression")
         
         sources = []
+        
+        for call_expression in call_expressions:
+            member_expression = call_expression.child(0)
+            if member_expression is None or member_expression.type != "member_expression":
+                continue
+
+            property_identifier = member_expression.child(2)
+            if property_identifier is None or property_identifier.type != "property_identifier":
+                continue
+
+            if property_identifier.text in self.BUILTIN_NULLABLE_METHODS:
+                line_number = source_code[: property_identifier.start_byte].count("\n") + 1
+                name = source_code[property_identifier.start_byte : property_identifier.end_byte]
+                sources.append(Value(name, line_number, ValueLabel.SRC, file_path))
         
         for unary_expression in unary_expressions:
             operator = unary_expression.child(0)
@@ -21,7 +55,6 @@ class Javascript_NPD_Extractor(DFBScanExtractor):
                 name = source_code[unary_expression.start_byte : unary_expression.end_byte]
                 sources.append(Value(name, line_number, ValueLabel.SRC, file_path))
 
-        
         for node in null_value_nodes:
             line_number = source_code[: node.start_byte].count("\n") + 1
             name = source_code[node.start_byte : node.end_byte]

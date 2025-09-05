@@ -65,7 +65,7 @@ class Javascript_TSAnalyzer(TSAnalyzer):
             if not name_node or not value_node:
                 continue
 
-            if value_node.type != "arrow_function":
+            if value_node.type != "arrow_function" and value_node.type != "function_expression":
                 continue
             
             function_name = source_code[name_node.start_byte : name_node.end_byte]
