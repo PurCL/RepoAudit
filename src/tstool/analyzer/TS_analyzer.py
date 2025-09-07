@@ -170,8 +170,11 @@ class TSAnalyzer(ABC):
         self.functionToFile: Dict[int, str] = {}
         self.fileContentDic: Dict[str, str] = {}
         self.glb_var_map: Dict[str, str] = {}  # global var info
-
+        self.globalsRawDataDic: Dict[str, Tuple[str, int, Node]] = {}
+        self.globalsToFile: Dict[int, str] = {}
+        
         self.function_env: Dict[int, Function] = {}
+        self.globals_env = {}
         self.api_env: Dict[int, API] = {}
 
         # Results of call graph analysis
@@ -231,6 +234,7 @@ class TSAnalyzer(ABC):
         """
         Parse all project files using tree-sitter.
         """
+        # Parses files in the project
         with concurrent.futures.ThreadPoolExecutor(
             max_workers=self.max_symbolic_workers_num
         ) as executor:
@@ -249,6 +253,7 @@ class TSAnalyzer(ABC):
                 pbar.update(1)
             pbar.close()
 
+        # Analyzes extracted functions
         with concurrent.futures.ThreadPoolExecutor(
             max_workers=self.max_symbolic_workers_num
         ) as executor:
@@ -267,6 +272,24 @@ class TSAnalyzer(ABC):
                 self.function_env[func_id] = current_function
                 pbar.update(1)
             pbar.close()
+            
+            
+        # Analyzes extracted global variables
+        pbar = tqdm(total=len(self.globalsRawDataDic), desc="Analyzing Global Variables")
+        for global_id, global_var_tuple in self.globalsRawDataDic.items():
+            name = global_var_tuple[0]
+            line = global_var_tuple[1]
+            value = Value(
+                name=name,
+                line_number=line,
+                label=ValueLabel.GLOBAL,
+                file=self.globalsToFile[global_id]
+            )
+            
+            self.globals_env[global_id] = value
+            pbar.update(1)
+        pbar.close()
+            
         return
 
     def analyze_call_graph(self) -> None:

@@ -89,7 +89,27 @@ class Javascript_TSAnalyzer(TSAnalyzer):
         For Javascript, this may include module-level variables.
         Currently not implemented.
         """
-        # TODO: Add global variable analysis if needed.
+        for child in tree.root_node.children:
+            if child.type != "lexical_declaration":
+                continue
+            
+            declarator_node = child.child(1)
+            if declarator_node is not None and declarator_node.type == "variable_declarator":
+                name_node = declarator_node.child_by_field_name("name")
+                value_node = declarator_node.child_by_field_name("value")
+
+                if not name_node or not value_node:
+                    continue
+
+                if value_node.type == "arrow_function" or value_node.type == "function_expression":
+                    continue
+                
+                global_name = source_code[name_node.start_byte : name_node.end_byte]
+                line = source_code[:name_node.start_byte].count("\n") + 1
+                global_id = len(self.globalsRawDataDic) + 1
+                self.globalsRawDataDic[global_id] = (global_name, line, declarator_node)
+                self.globalsToFile[global_id] = file_path
+                
         return
 
     def get_callee_name_at_call_site(
