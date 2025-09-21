@@ -89,8 +89,12 @@ class Javascript_TSAnalyzer(TSAnalyzer):
         For Javascript, this may include module-level variables.
         Currently not implemented.
         """
+        declaration_types = [
+            "lexical_declaration",
+            "variable_declaration"
+        ]
         for child in tree.root_node.children:
-            if child.type != "lexical_declaration":
+            if child.type not in declaration_types:
                 continue
             
             declarator_node = child.child(1)
@@ -107,7 +111,7 @@ class Javascript_TSAnalyzer(TSAnalyzer):
                 global_name = source_code[name_node.start_byte : name_node.end_byte]
                 line = source_code[:name_node.start_byte].count("\n") + 1
                 global_id = len(self.globalsRawDataDic) + 1
-                self.globalsRawDataDic[global_id] = (global_name, line, declarator_node)
+                self.globalsRawDataDic[global_id] = (global_name, line, child)
                 self.globalsToFile[global_id] = file_path
                 
         return
@@ -354,3 +358,24 @@ class Javascript_TSAnalyzer(TSAnalyzer):
                 end_line,
             )
         return loops
+    
+    def get_global_expressions_by_identifier(
+        self, identifier: str, program_root: Node
+    ) -> List[Node]:
+        output_nodes = []
+        children = program_root.children
+        global_expression_types = [
+            "variable_declaration",
+            "lexical_declaration",
+            "expression_statement"
+        ]
+        
+        for child in children:
+            if child.type not in global_expression_types:
+                continue
+            
+            if find_nodes_by_type(child, "identifier")[0].text.decode() == identifier:
+                output_nodes.append(child)
+        
+        return output_nodes
+

@@ -16,10 +16,12 @@ class PathValidatorInput(LLMToolInput):
         bug_type: str,
         values: List[Value],
         values_to_functions: Dict[Value, Optional[Function]],
+        relevant_global_exprs: List[Node] = [],
     ) -> None:
         self.bug_type = bug_type
         self.values = values
         self.values_to_functions = values_to_functions
+        self.relevant_global_exprs = relevant_global_exprs
         return
 
     def __hash__(self) -> int:
@@ -86,17 +88,26 @@ class PathValidator(LLMTool):
             value_lines.append(value_line)
         prompt = prompt.replace("<PATH>", "\n".join(value_lines))
         prompt = prompt.replace("<BUG_TYPE>", input.bug_type)
-        
+
         functions: Set[Function] = set()
         for func in input.values_to_functions.values():
             if func is not None:
                 functions.add(func)
 
-        program = "\n".join(
-            [
-                "```\n" + func.lined_code + "\n```\n"
-                for func in functions
-            ]
+        program = "\n"
+        if len(input.relevant_global_exprs) > 0:
+            program = (
+                "\n".join(
+                    [
+                        "```\n" + expr.text.decode() + "\n```\n"
+                        for expr in input.relevant_global_exprs
+                    ]
+                )
+                + "\n"
+            )
+
+        program += "\n".join(
+            ["```\n" + func.lined_code + "\n```\n" for func in functions]
         )
         prompt = prompt.replace("<PROGRAM>", program)
         return prompt

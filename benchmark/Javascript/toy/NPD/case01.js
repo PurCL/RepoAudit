@@ -1,5 +1,10 @@
+var myname = "daniel";
+myname = null;
+
 function test2_process(data) {
+    let current = myname;
     let value = data[0];
+    console.log(current.length)
     return value;
 }
     

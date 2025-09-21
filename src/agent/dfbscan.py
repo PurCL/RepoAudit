@@ -116,7 +116,7 @@ class DFBScanAgent(Agent):
         elif self.language == "Go":
             if self.bug_type == "NPD":
                 return Go_NPD_Extractor(self.ts_analyzer)
-        
+
         raise NotImplementedError(
             f"Unsupported bug type: {self.bug_type} in {self.language}"
         )
@@ -362,14 +362,14 @@ class DFBScanAgent(Agent):
                     if value.label == ValueLabel.SINK:
                         # For NPD-style bug types
                         if self.is_reachable:
-                            
+
                             # Checks if the sink is a called to a predefined function
                             is_defined_function = False
                             for func in self.ts_analyzer.function_env.values():
                                 if value.name == func.function_name:
                                     is_defined_function = True
                                     break
-                            
+
                             if not is_defined_function:
                                 self.state.update_potential_buggy_paths(
                                     src_value, path_with_unknown_status + [value]
@@ -568,6 +568,9 @@ class DFBScanAgent(Agent):
         # Total number of source values
         total_src_values = len(self.src_values)
 
+        for global_value in self.ts_analyzer.globals_env.values():
+            self.__process_global_value(global_value)
+
         # Process each source value in parallel with a progress bar
         with tqdm(
             total=total_src_values, desc="Processing Source Values", unit="src"
@@ -598,6 +601,148 @@ class DFBScanAgent(Agent):
         for log_file in self.get_log_files():
             self.logger.print_console(log_file)
         return
+
+    def __process_global_value(self, global_value):
+        worklist = []
+        reference_in_funcs = self.ts_analyzer.get_function_global_value_reference(
+            global_value
+        )
+        if len(reference_in_funcs) == 0:
+            return
+        initial_context = CallContext(False)
+
+        for func, global_references in reference_in_funcs.items():
+            for global_reference in global_references:
+                worklist.append((global_reference, func, initial_context))
+
+        # TODO: test intra dataflow analyzer for globals
+        while len(worklist) > 0:
+            (start_value, start_function, call_context) = worklist.pop(0)
+            if len(call_context.context) > self.call_depth:
+                continue
+
+            # Construct the input for intra-procedural data-flow analysis
+            sinks_in_function = self.__obtain_extractor().extract_sinks(start_function)
+            sink_values = [
+                (sink.name, sink.line_number - start_function.start_line_number + 1)
+                for sink in sinks_in_function
+            ]
+
+            call_statements = []
+            for call_site_node in start_function.function_call_site_nodes:
+                file_content = self.ts_analyzer.code_in_files[start_function.file_path]
+                call_site_line_number = (
+                    file_content[: call_site_node.start_byte].count("\n") + 1
+                )
+                call_site_name = file_content[
+                    call_site_node.start_byte : call_site_node.end_byte
+                ]
+                call_statements.append((call_site_name, call_site_line_number))
+
+            ret_values = [
+                (ret.name, ret.line_number - start_function.start_line_number + 1)
+                for ret in (
+                    start_function.retvals if start_function.retvals is not None else []
+                )
+            ]
+
+            df_input = IntraDataFlowAnalyzerInput(
+                start_function, start_value, sink_values, call_statements, ret_values
+            )
+
+            # Invoke the intra-procedural data-flow analysis
+            df_output = self.intra_dfa.invoke(df_input, IntraDataFlowAnalyzerOutput)
+
+            if df_output is None:
+                continue
+
+            for path_index in range(len(df_output.reachable_values)):
+                reachable_values_in_single_path = set([])
+                for value in df_output.reachable_values[path_index]:
+                    reachable_values_in_single_path.add((value, call_context))
+                self.state.update_reachable_values_per_path(
+                    (start_value, call_context), reachable_values_in_single_path
+                )
+
+                delta_worklist = self.__update_worklist(
+                    df_input, df_output, call_context, path_index
+                )
+                worklist.extend(delta_worklist)
+
+        if global_value.label != ValueLabel.SRC:
+            return
+
+        found_potential_buggy_paths = False
+        for func, global_references in reference_in_funcs.items():
+            for global_reference in global_references:
+                self.__collect_potential_buggy_paths(
+                    global_reference, (global_reference, CallContext(False))
+                )
+
+                if global_reference in self.state.potential_buggy_paths:
+                    found_potential_buggy_paths = True
+
+        # If no potential buggy paths are found, return early
+        if not found_potential_buggy_paths:
+            return
+
+        for start_value, buggy_paths in self.state.potential_buggy_paths.items():
+            for buggy_path in buggy_paths.values():
+                values_to_functions = {
+                    value: self.ts_analyzer.get_function_from_localvalue(value)
+                    for value in buggy_path
+                }
+
+                program_root = None
+                functions: Set[Function] = set()
+                for func in values_to_functions.values():
+                    if func is not None:
+                        functions.add(func)
+                    if program_root is None:
+                        program_root = func.parse_tree_root_node.parent
+
+                relevant_global_exprs = (
+                    self.ts_analyzer.get_global_expressions_by_identifier(
+                        global_value.name, program_root
+                    )
+                )
+
+                if self.state.check_existence(start_value, functions):
+                    continue
+
+                pv_input = PathValidatorInput(
+                    self.bug_type,
+                    buggy_path,
+                    values_to_functions,
+                    relevant_global_exprs,
+                )
+                pv_output = self.path_validator.invoke(pv_input, PathValidatorOutput)
+
+                if pv_output is None:
+                    continue
+
+                if pv_output.is_reachable:
+                    relevant_functions = {}
+                    for value in buggy_path:
+                        function = self.ts_analyzer.get_function_from_localvalue(value)
+                        if function is not None:
+                            relevant_functions[function.function_id] = function
+
+                    bug_report = BugReport(
+                        self.bug_type,
+                        start_value,
+                        relevant_functions,
+                        pv_output.explanation_str,
+                    )
+                    self.state.update_bug_report(bug_report)
+                    bug_report_dict = {
+                        bug_report_id: bug.to_dict()
+                        for bug_report_id, bug in self.state.bug_reports.items()
+                    }
+
+                    bug_info_file_path = self.res_dir_path + "/detect_info.json"
+                    with open(bug_info_file_path, "w") as f:
+                        json.dump(bug_report_dict, f, indent=4)
 
     def __process_src_value(self, src_value: Value) -> None:
         worklist = []
@@ -710,10 +855,9 @@ class DFBScanAgent(Agent):
                     for bug_report_id, bug in self.state.bug_reports.items()
                 }
 
-                with open(
-                    self.res_dir_path + "/detect_info.json", "w"
-                ) as bug_info_file:
-                    json.dump(bug_report_dict, bug_info_file, indent=4)
+                bug_info_file_path = self.res_dir_path + "/detect_info.json"
+                with open(bug_info_file_path, "w") as f:
+                    json.dump(bug_report_dict, f, indent=4)
         return
 
     def get_agent_state(self) -> DFBScanState:

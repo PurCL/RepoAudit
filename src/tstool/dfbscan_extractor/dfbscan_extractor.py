@@ -44,11 +44,7 @@ class DFBScanExtractor(ABC):
             node = self.ts_analyzer.globalsRawDataDic[global_id][2]
             if self.is_global_source(node):
                 global_var.label = ValueLabel.SRC
-                self.sources.append(global_var)
-
-            if self.is_global_sink(node):
-                global_var.label = ValueLabel.SINK
-                self.sinks.append(global_var)
+                self.ts_analyzer.globals_env[global_id] = global_var
 
         pbar.close()
 
