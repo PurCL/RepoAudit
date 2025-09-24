@@ -603,25 +603,34 @@ class DFBScanAgent(Agent):
         return
 
     def __process_global_value(self, global_value):
+        """
+        Perform data-flow analysis starting from a global variable.
+
+        1. Finds all functions referencing the global variable.
+        2. Runs intra-procedural data-flow analysis to discover reachable values.
+        3. If the global is marked as a source (SRC), collects potential buggy paths and
+        reports them if confirmed.
+        """
         worklist = []
         reference_in_funcs = self.ts_analyzer.get_function_global_value_reference(
             global_value
         )
         if len(reference_in_funcs) == 0:
             return
+
         initial_context = CallContext(False)
 
+        # Seed worklist with all function references to the global.
         for func, global_references in reference_in_funcs.items():
             for global_reference in global_references:
                 worklist.append((global_reference, func, initial_context))
 
-        # TODO: test intra dataflow analyzer for globals
-        while len(worklist) > 0:
-            (start_value, start_function, call_context) = worklist.pop(0)
+        # Worklist-driven intra-procedural analysis
+        while worklist:
+            start_value, start_function, call_context = worklist.pop(0)
             if len(call_context.context) > self.call_depth:
                 continue
 
-            # Construct the input for intra-procedural data-flow analysis
             sinks_in_function = self.__obtain_extractor().extract_sinks(start_function)
             sink_values = [
                 (sink.name, sink.line_number - start_function.start_line_number + 1)
@@ -641,34 +650,30 @@ class DFBScanAgent(Agent):
 
             ret_values = [
                 (ret.name, ret.line_number - start_function.start_line_number + 1)
-                for ret in (
-                    start_function.retvals if start_function.retvals is not None else []
-                )
+                for ret in (start_function.retvals if start_function.retvals else [])
             ]
 
             df_input = IntraDataFlowAnalyzerInput(
                 start_function, start_value, sink_values, call_statements, ret_values
             )
-
-            # Invoke the intra-procedural data-flow analysis
             df_output = self.intra_dfa.invoke(df_input, IntraDataFlowAnalyzerOutput)
-
             if df_output is None:
                 continue
 
             for path_index in range(len(df_output.reachable_values)):
-                reachable_values_in_single_path = set([])
-                for value in df_output.reachable_values[path_index]:
-                    reachable_values_in_single_path.add((value, call_context))
+                reachable_values_in_single_path = {
+                    (value, call_context)
+                    for value in df_output.reachable_values[path_index]
+                }
                 self.state.update_reachable_values_per_path(
                     (start_value, call_context), reachable_values_in_single_path
                 )
-
                 delta_worklist = self.__update_worklist(
                     df_input, df_output, call_context, path_index
                 )
                 worklist.extend(delta_worklist)
 
+        # Only proceed with bug-path checks if this global is a source
         if global_value.label != ValueLabel.SRC:
             return
 
@@ -678,14 +683,13 @@ class DFBScanAgent(Agent):
                 self.__collect_potential_buggy_paths(
                     global_reference, (global_reference, CallContext(False))
                 )
-
                 if global_reference in self.state.potential_buggy_paths:
                     found_potential_buggy_paths = True
 
-        # If no potential buggy paths are found, return early
         if not found_potential_buggy_paths:
             return
 
+        # Validate each potential buggy path
         for start_value, buggy_paths in self.state.potential_buggy_paths.items():
             for buggy_path in buggy_paths.values():
                 values_to_functions = {
@@ -694,11 +698,11 @@ class DFBScanAgent(Agent):
                 }
 
                 program_root = None
-                functions: Set[Function] = set()
+                functions = set()
                 for func in values_to_functions.values():
-                    if func is not None:
+                    if func:
                         functions.add(func)
-                    if program_root is None:
+                    if program_root is None and func:
                         program_root = func.parse_tree_root_node.parent
 
                 relevant_global_exprs = (
@@ -717,15 +721,11 @@ class DFBScanAgent(Agent):
                     relevant_global_exprs,
                 )
                 pv_output = self.path_validator.invoke(pv_input, PathValidatorOutput)
-
-                if pv_output is None:
-                    continue
-
-                if pv_output.is_reachable:
+                if pv_output and pv_output.is_reachable:
                     relevant_functions = {}
                     for value in buggy_path:
                         function = self.ts_analyzer.get_function_from_localvalue(value)
-                        if function is not None:
+                        if function:
                             relevant_functions[function.function_id] = function
 
                     bug_report = BugReport(
@@ -735,29 +735,36 @@ class DFBScanAgent(Agent):
                         pv_output.explanation_str,
                     )
                     self.state.update_bug_report(bug_report)
+
                     bug_report_dict = {
                         bug_report_id: bug.to_dict()
                         for bug_report_id, bug in self.state.bug_reports.items()
                     }
-
-                    bug_info_file_path = self.res_dir_path + "/detect_info.json"
-                    with open(bug_info_file_path, "w") as f:
+                    with open(self.res_dir_path + "/detect_info.json", "w") as f:
                         json.dump(bug_report_dict, f, indent=4)
 
     def __process_src_value(self, src_value: Value) -> None:
+        """
+        Perform data-flow analysis starting from a local source value.
+
+        1. Locates the function containing the source.
+        2. Performs intra-procedural data-flow analysis to find reachable values.
+        3. Collects and validates potential buggy paths, creating bug reports
+        when confirmed.
+        """
         worklist = []
         src_function = self.ts_analyzer.get_function_from_localvalue(src_value)
         if src_function is None:
             return
-        initial_context = CallContext(False)
 
+        initial_context = CallContext(False)
         worklist.append((src_value, src_function, initial_context))
-        while len(worklist) > 0:
-            (start_value, start_function, call_context) = worklist.pop(0)
+
+        while worklist:
+            start_value, start_function, call_context = worklist.pop(0)
             if len(call_context.context) > self.call_depth:
                 continue
 
-            # Construct the input for intra-procedural data-flow analysis
             sinks_in_function = self.__obtain_extractor().extract_sinks(start_function)
             sink_values = [
                 (sink.name, sink.line_number - start_function.start_line_number + 1)
@@ -777,70 +784,52 @@ class DFBScanAgent(Agent):
 
             ret_values = [
                 (ret.name, ret.line_number - start_function.start_line_number + 1)
-                for ret in (
-                    start_function.retvals if start_function.retvals is not None else []
-                )
+                for ret in (start_function.retvals if start_function.retvals else [])
             ]
+
             df_input = IntraDataFlowAnalyzerInput(
                 start_function, start_value, sink_values, call_statements, ret_values
             )
-
-            # Invoke the intra-procedural data-flow analysis
             df_output = self.intra_dfa.invoke(df_input, IntraDataFlowAnalyzerOutput)
-
             if df_output is None:
                 continue
 
             for path_index in range(len(df_output.reachable_values)):
-                reachable_values_in_single_path = set([])
-                for value in df_output.reachable_values[path_index]:
-                    reachable_values_in_single_path.add((value, call_context))
+                reachable_values_in_single_path = {
+                    (value, call_context)
+                    for value in df_output.reachable_values[path_index]
+                }
                 self.state.update_reachable_values_per_path(
                     (start_value, call_context), reachable_values_in_single_path
                 )
-
                 delta_worklist = self.__update_worklist(
                     df_input, df_output, call_context, path_index
                 )
                 worklist.extend(delta_worklist)
 
-        # Collect potential buggy paths
+        # Collect and validate buggy paths
         self.__collect_potential_buggy_paths(src_value, (src_value, CallContext(False)))
-
-        # If no potential buggy paths are found, return early
         if src_value not in self.state.potential_buggy_paths:
             return
 
-        # Validate buggy paths and generate bug reports
         for buggy_path in self.state.potential_buggy_paths[src_value].values():
             values_to_functions = {
                 value: self.ts_analyzer.get_function_from_localvalue(value)
                 for value in buggy_path
             }
-
-            functions: Set[Function] = set()
-            for func in values_to_functions.values():
-                if func is not None:
-                    functions.add(func)
-
+            functions = {func for func in values_to_functions.values() if func}
             if self.state.check_existence(src_value, functions):
                 continue
 
             pv_input = PathValidatorInput(
-                self.bug_type,
-                buggy_path,
-                values_to_functions,
+                self.bug_type, buggy_path, values_to_functions
             )
             pv_output = self.path_validator.invoke(pv_input, PathValidatorOutput)
-
-            if pv_output is None:
-                continue
-
-            if pv_output.is_reachable:
+            if pv_output and pv_output.is_reachable:
                 relevant_functions = {}
                 for value in buggy_path:
                     function = self.ts_analyzer.get_function_from_localvalue(value)
-                    if function is not None:
+                    if function:
                         relevant_functions[function.function_id] = function
 
                 bug_report = BugReport(
@@ -850,15 +839,13 @@ class DFBScanAgent(Agent):
                     pv_output.explanation_str,
                 )
                 self.state.update_bug_report(bug_report)
+
                 bug_report_dict = {
                     bug_report_id: bug.to_dict()
                     for bug_report_id, bug in self.state.bug_reports.items()
                 }
-
-                bug_info_file_path = self.res_dir_path + "/detect_info.json"
-                with open(bug_info_file_path, "w") as f:
+                with open(self.res_dir_path + "/detect_info.json", "w") as f:
                     json.dump(bug_report_dict, f, indent=4)
-        return
 
     def get_agent_state(self) -> DFBScanState:
         return self.state

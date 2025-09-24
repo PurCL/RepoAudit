@@ -118,7 +118,7 @@
   ],
   "meta_prompts": [
     "Now I will give you a target function with the source point `<SRC_NAME>` at line <SRC_LINE>: \n```\n<FUNCTION>\n``` \n\n",
-    "You may see the following statements as potential sink points. Identify which of these are related to SRC and its aliases;\n",
+    "You may see the following expressions at these line as sink points. Identify which of these are related to SRC and its aliases;\n",
     "<SINK_VALUES>\n",
     "Here are the Function call sites and return statements within the function, which can be used in Step 1;\n",
     "<CALL_STATEMENTS>\n",

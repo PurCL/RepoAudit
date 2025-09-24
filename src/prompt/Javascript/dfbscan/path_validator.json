@@ -82,9 +82,7 @@
   ],
   "meta_prompts": [
     "Now I will provide you with the program:",
-    "```",
     "<PROGRAM>",
-    "```",
     "Please answer the following question:",
     "<QUESTION>",
     "Your answer should follow this format:",
