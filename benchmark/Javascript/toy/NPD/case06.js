@@ -1,16 +1,14 @@
-function process_data(myobj) {
-    const inner_processing = (myobj) => {
-        delete myobj.func;
-        return myobj;
+const obj = {
+    greet() {
+        console.log("hello");
     }
-    myobj.func("Hello");
-    myobj = inner_processing(myobj);
-    myobj.func("Hello");
+};
+
+const a = obj;
+
+function exec() {
+    delete a.greet;
+    a.greet();
 }
 
-function main() {
-    let myobj = {
-        func: console.log
-    };
-    process_data(myobj)
-}
+exec();

@@ -29,6 +29,20 @@ class Javascript_NPD_Extractor(DFBScanExtractor):
         sibling = global_declaration_node.next_sibling
 
         while sibling is not None:
+            # Look for unary_expression nodes whose operator is 'delete'
+            for descendant in sibling.children:
+                if descendant.type == "unary_expression":
+                    operator = descendant.child(0)
+                    if operator and operator.type == "delete":
+                        # The next child should be the expression being deleted
+                        target = descendant.child(1)
+                        if target and target.type == "member_expression":
+                            # Check that the object part of member_expression matches our global variable
+                            obj_node = target.child_by_field_name("object")
+                            if obj_node:
+                                if obj_node.text == global_name:
+                                    return True
+                                
             if sibling.type != "expression_statement":
                 sibling = sibling.next_sibling
                 continue
@@ -78,7 +92,7 @@ class Javascript_NPD_Extractor(DFBScanExtractor):
 
         unary_expressions = find_nodes_by_type(root_node, "unary_expression")
         call_expressions = find_nodes_by_type(root_node, "call_expression")
-
+        
         sources = []
 
         for call_expression in call_expressions:
@@ -96,6 +110,7 @@ class Javascript_NPD_Extractor(DFBScanExtractor):
             ):
                 continue
 
+            # If the call expression calls builtin nullable methods
             if property_identifier.text.decode() in self.BUILTIN_NULLABLE_METHODS:
                 line_number = (
                     source_code[: property_identifier.start_byte].count("\n") + 1
