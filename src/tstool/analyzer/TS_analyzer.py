@@ -156,6 +156,8 @@ class TSAnalyzer(ABC):
             self.language = Language(str(language_path), "java")
         elif language_name == "Python":
             self.language = Language(str(language_path), "python")
+        elif language_name == "Javascript":
+            self.language = Language(str(language_path), "javascript")
         elif language_name == "Go":
             self.language = Language(str(language_path), "go")
         else:
@@ -168,8 +170,11 @@ class TSAnalyzer(ABC):
         self.functionToFile: Dict[int, str] = {}
         self.fileContentDic: Dict[str, str] = {}
         self.glb_var_map: Dict[str, str] = {}  # global var info
+        self.globalsRawDataDic: Dict[str, Tuple[str, int, Node]] = {}
+        self.globalsToFile: Dict[int, str] = {}
 
         self.function_env: Dict[int, Function] = {}
+        self.globals_env = {}
         self.api_env: Dict[int, API] = {}
 
         # Results of call graph analysis
@@ -229,6 +234,7 @@ class TSAnalyzer(ABC):
         """
         Parse all project files using tree-sitter.
         """
+        # Parses files in the project
         with concurrent.futures.ThreadPoolExecutor(
             max_workers=self.max_symbolic_workers_num
         ) as executor:
@@ -247,6 +253,7 @@ class TSAnalyzer(ABC):
                 pbar.update(1)
             pbar.close()
 
+        # Analyzes extracted functions
         with concurrent.futures.ThreadPoolExecutor(
             max_workers=self.max_symbolic_workers_num
         ) as executor:
@@ -265,6 +272,25 @@ class TSAnalyzer(ABC):
                 self.function_env[func_id] = current_function
                 pbar.update(1)
             pbar.close()
+
+        # Analyzes extracted global variables
+        pbar = tqdm(
+            total=len(self.globalsRawDataDic), desc="Analyzing Global Variables"
+        )
+        for global_id, global_var_tuple in self.globalsRawDataDic.items():
+            name = global_var_tuple[0]
+            line = global_var_tuple[1]
+            value = Value(
+                name=name,
+                line_number=line,
+                label=ValueLabel.GLOBAL,
+                file=self.globalsToFile[global_id],
+            )
+
+            self.globals_env[global_id] = value
+            pbar.update(1)
+        pbar.close()
+
         return
 
     def analyze_call_graph(self) -> None:
@@ -354,7 +380,11 @@ class TSAnalyzer(ABC):
         file_content = self.fileContentDic[file_name]
 
         call_node_type = None
-        if self.language_name == "C" or self.language_name == "Cpp":
+        if (
+            self.language_name == "C"
+            or self.language_name == "Cpp"
+            or self.language_name == "Javascript"
+        ):
             call_node_type = "call_expression"
         elif self.language_name == "Java":
             call_node_type = "method_invocation"
@@ -761,6 +791,50 @@ class TSAnalyzer(ABC):
                     code_node_list.append((function.function_code, node))
         return code_node_list
 
+    def get_function_global_value_reference(
+        self, global_value: Value
+    ) -> Dict[Function, List[Value]]:
+        """
+        Find references to a given global value in all functions
+        belonging to the same source file.
+
+        Args:
+            global_value: The global Value to search for.
+
+        Returns:
+            A dictionary mapping each Function to a list of Value
+            references where the global is used.
+        """
+        file_name = global_value.file
+        references: Dict[Function, List[Value]] = {}
+
+        for _, function in self.function_env.items():
+            if function.file_path != file_name:
+                continue
+
+            identifiers = find_nodes_by_type(
+                function.parse_tree_root_node, "identifier"
+            )
+            for identifier in identifiers:
+                if global_value.name == identifier.text.decode():
+                    line_number = identifier.start_point[0] + 1
+                    ref_value = Value(
+                        global_value.name,
+                        line_number,
+                        ValueLabel.GLOBAL,
+                        function.file_path,
+                        -1,
+                    )
+                    references.setdefault(function, []).append(ref_value)
+
+        return references
+    
+    @abstractmethod
+    def get_global_expressions_by_identifier(
+        self, identifier: str, program_root: Node
+    ) -> List[Node]:
+        pass
+        
     def get_function_from_localvalue(self, value: Value) -> Optional[Function]:
         """
         Retrieve the function corresponding to a local value.

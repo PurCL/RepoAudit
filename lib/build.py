@@ -25,6 +25,12 @@ if not (cwd / "vendor/tree-sitter-python/grammar.js").exists():
     os.system(
         f'git clone https://github.com/tree-sitter/tree-sitter-python.git {cwd / "vendor/tree-sitter-python"}'
     )
+    
+if not (cwd / "vendor/tree-sitter-javascript/grammar.js").exists():
+    os.system(
+        f'git clone https://github.com/tree-sitter/tree-sitter-javascript.git {cwd / "vendor/tree-sitter-javascript"}'
+    )
+
 
 if not (cwd / "vendor/tree-sitter-go/grammar.js").exists():
     os.system(
@@ -41,6 +47,7 @@ Language.build_library(
         str(cwd / "vendor/tree-sitter-cpp"),
         str(cwd / "vendor/tree-sitter-java"), 
         str(cwd / "vendor/tree-sitter-python"), 
+        str(cwd / "vendor/tree-sitter-javascript"),
         str(cwd / "vendor/tree-sitter-go"), 
     ],
 )
