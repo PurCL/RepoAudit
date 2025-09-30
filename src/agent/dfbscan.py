@@ -350,7 +350,7 @@ class DFBScanAgent(Agent):
                     # For memory leak-style bug types we only update when the path is empty.
                     if not self.is_reachable:
                         self.state.update_potential_buggy_paths(
-                            src_value, path_with_unknown_status
+                            src_value, path_with_unknown_status + [src_value]
                         )
                     continue
                 for value, ctx in path_set:
