@@ -23,57 +23,54 @@ class Javascript_NPD_Extractor(DFBScanExtractor):
         "getOwnPropertyDescriptor",
         "stringify",
     }
+    
+    def is_expression_delete(self, expr: Tree) -> bool:
+        if expr.type == "unary_expression":
+            operator = expr.child(0)
+            if operator and operator.type == "delete":
+                return True
+                
+        return False
+    
+    def is_expression_nullable(self, expr: Tree) -> bool:
+        if expr.type != "assignment_expression":
+            return False
+
+        value_node = expr.child(2)
+        value_type = value_node.type
+
+        # Nullish constant (e.g. null/undefined)
+        if value_type in self.NULLISH_VALUES:
+            return True
+
+        # Possible call expression check
+        if value_type == "call_expression":
+            member_expr = value_node.child(0)
+            if member_expr is not None and member_expr.type == "member_expression":
+                prop_id = member_expr.child(2)
+                if (
+                    prop_id is not None
+                    and prop_id.type == "property_identifier"
+                    and prop_id.text.decode() in self.BUILTIN_NULLABLE_METHODS
+                ):
+                    return True
+                    
 
     def is_global_source(self, global_declaration_node: Tree) -> bool:
         global_name = global_declaration_node.child(1).child_by_field_name("name").text
         sibling = global_declaration_node.next_sibling
 
         while sibling is not None:
-            # Look for unary_expression nodes whose operator is 'delete'
-            for descendant in sibling.children:
-                if descendant.type == "unary_expression":
-                    operator = descendant.child(0)
-                    if operator and operator.type == "delete":
-                        # The next child should be the expression being deleted
-                        target = descendant.child(1)
-                        if target and target.type == "member_expression":
-                            # Check that the object part of member_expression matches our global variable
-                            obj_node = target.child_by_field_name("object")
-                            if obj_node:
-                                if obj_node.text == global_name:
-                                    return True
-                                
-            if sibling.type != "expression_statement":
-                sibling = sibling.next_sibling
-                continue
-
             expr = sibling.child(0)
-            if expr.type != "assignment_expression":
-                sibling = sibling.next_sibling
-                continue
-
-            if expr.child(0).text != global_name:
-                sibling = sibling.next_sibling
-                continue
-
-            value_node = expr.child(2)
-            value_type = value_node.type
-
-            # Nullish constant (e.g. null/undefined)
-            if value_type in self.NULLISH_VALUES:
+            
+            if self.is_expression_delete(expr):
+                # the target object with property being deleted
+                obj_node = expr.child(1).child_by_field_name("object")
+                if obj_node and obj_node.text == global_name:
+                    return True
+                
+            if self.is_expression_nullable(expr) and expr.child(0).text == global_name:
                 return True
-
-            # Possible call expression check
-            if value_type == "call_expression":
-                member_expr = value_node.child(0)
-                if member_expr is not None and member_expr.type == "member_expression":
-                    prop_id = member_expr.child(2)
-                    if (
-                        prop_id is not None
-                        and prop_id.type == "property_identifier"
-                        and prop_id.text.decode() in self.BUILTIN_NULLABLE_METHODS
-                    ):
-                        return True
 
             return False
         return False
@@ -95,6 +92,7 @@ class Javascript_NPD_Extractor(DFBScanExtractor):
         
         sources = []
 
+        # Look for call expressions of builtin nullable methods
         for call_expression in call_expressions:
             member_expression = call_expression.child(0)
             if (
@@ -110,7 +108,6 @@ class Javascript_NPD_Extractor(DFBScanExtractor):
             ):
                 continue
 
-            # If the call expression calls builtin nullable methods
             if property_identifier.text.decode() in self.BUILTIN_NULLABLE_METHODS:
                 line_number = (
                     source_code[: property_identifier.start_byte].count("\n") + 1
@@ -120,6 +117,7 @@ class Javascript_NPD_Extractor(DFBScanExtractor):
                 ]
                 sources.append(Value(name, line_number, ValueLabel.SRC, file_path))
 
+        # Look for delete expressions
         for unary_expression in unary_expressions:
             operator = unary_expression.child(0)
             if operator is not None and operator.type == "delete":
@@ -129,6 +127,7 @@ class Javascript_NPD_Extractor(DFBScanExtractor):
                 ]
                 sources.append(Value(name, line_number, ValueLabel.SRC, file_path))
 
+        # Look for nullish value nodes
         for node in null_value_nodes:
             line_number = source_code[: node.start_byte].count("\n") + 1
             name = source_code[node.start_byte : node.end_byte]
