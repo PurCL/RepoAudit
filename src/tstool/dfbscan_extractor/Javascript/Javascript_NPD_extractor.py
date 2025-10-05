@@ -61,6 +61,10 @@ class Javascript_NPD_Extractor(DFBScanExtractor):
         sibling = global_declaration_node.next_sibling
 
         while sibling is not None:
+            if len(sibling.children) == 0:
+                sibling = sibling.next_sibling
+                continue
+
             expr = sibling.child(0)
             
             if self.is_expression_delete(expr):
@@ -72,7 +76,7 @@ class Javascript_NPD_Extractor(DFBScanExtractor):
             if self.is_expression_nullable(expr) and expr.child(0).text == global_name:
                 return True
 
-            return False
+            sibling = sibling.next_sibling
         return False
 
     def is_global_sink(self, global_declarator_node: Tree) -> bool:
