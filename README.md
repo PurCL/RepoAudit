@@ -55,24 +55,78 @@ We are keeping implementing more agents and will open-source them very soon. Uti
    export ANTHROPIC_API_KEY=xxxxxx >> ~/.bashrc
    ```
 
-
 ## Quick Start
 
-1. We have prepared several benchmark programs in the `benchmark` directory for a quick start. Some of these are submodules, so you may need to initialize them using the following commands:
+Getting started with RepoAudit is simple — you can run a full scan on a project in just a few commands.
 
-   ```sh
-   cd RepoAudit
-   git submodule update --init --recursive
-   ```
+### Initialize the Benchmarks (one-time setup)
 
-2. We provide the script `src/run_repoaudit.sh` to scan files in the `benchmark/Java/toy/NPD` directory. You can run the following commands:
+We provide several prepared benchmark programs in the `benchmark` directory. Some of these are Git submodules, so you may need to initialize them first:
 
-   ```sh
-   cd src
-   sh run_repoaudit.sh  # Run the agent DFBScanAgent
-   ```
+```sh
+cd RepoAudit
+git submodule update --init --recursive
+```
 
-3. After the scanning is complete, you can check the resulting JSON and log files.
+### Run a Scan with the Helper Script
+
+We provide a ready-to-use script:
+`src/run_repoaudit.sh`
+This script scans a **target project folder** for specific types of bugs using our analysis engine.
+
+You can run the script in several ways:
+
+#### A. **Basic usage** (use default benchmark project and bug type):
+
+```sh
+cd src
+sh run_repoaudit.sh
+```
+
+This will scan the default toy project located at:
+
+```
+../benchmark/Python/toy
+```
+
+for **NPD** bugs (Null Pointer Dereference).
+
+#### B. **Specify your own project path**:
+
+```sh
+sh run_repoaudit.sh /path/to/your/project
+```
+
+This will scan the provided project for **NPD** bugs by default.
+
+You can use either a **relative** or **absolute** path.
+
+#### C. **Specify bug type too**:
+
+```sh
+sh run_repoaudit.sh /path/to/your/project UAF
+```
+
+The second argument lets you choose the **bug type** to scan for. Supported types are:
+
+| Code | Meaning                  |
+| ---- | ------------------------ |
+| MLK  | Memory Leak              |
+| NPD  | Null Pointer Dereference |
+| UAF  | Use After Free           |
+
+> ⚠️ Bug type is **case-insensitive** (`npd`, `NPD`, or `NpD` all work).
+
+
+### View Results
+
+Once the scan finishes, the tool generates **JSON** and **log** files containing the findings.
+You can find these files in the output directory printed by the script.
+
+✅ **That's it!**
+
+With just one script, you can quickly run RepoAudit on either a built-in benchmark project or any project path you specify.
+
 
 
 ## Parallel Auditing Support
