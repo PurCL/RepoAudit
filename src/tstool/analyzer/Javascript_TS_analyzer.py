@@ -16,6 +16,156 @@ class Javascript_TSAnalyzer(TSAnalyzer):
     Implements Javascript-specific parsing and analysis.
     """
 
+    def extract_scope_info(self, tree: tree_sitter.Tree) -> None:
+        """
+        Parse source code to extract scope topography
+        :param tree: Parsed syntax tree
+        """
+        scope_stack: List[int] = []
+        scope_id: int = 0
+
+        def search(root: Node) -> None:
+            nonlocal scope_id
+
+            for child in root.children:
+                if child.type == "statement_block":
+                    if len(scope_stack) > 0:
+                        self.scope_env[scope_stack[-1]][1].append(scope_id)
+
+                    self.scope_env[scope_id] = (child, [])
+                    self.scope_root_to_scope_id[child] = scope_id
+                    scope_stack.append(scope_id)
+                    scope_id += 1
+                    search(child)
+                    scope_stack.pop()
+                else:
+                    search(child)
+
+            return
+
+        self.scope_env[scope_id] = (tree.root_node, [])
+        self.scope_root_to_scope_id[tree.root_node] = scope_id
+        scope_stack.append(scope_id)
+        scope_id += 1
+        search(tree.root_node)
+        return
+
+    def extract_nonlocal_info(self) -> None:
+        identifiers_per_scope = dict()
+        for scope_id, scope_data in self.scope_env.items():
+            scope_root, child_scope_ids = scope_data
+            for scope_child in scope_root.children:
+                # Found variables declared with const or let
+                if scope_child.type == "lexical_declaration":
+                    variable_name = (
+                        scope_child.child(1).child_by_field_name("name").text.decode()
+                    )
+                    
+                    reference_found = False
+                    # Determines whether the variable is used in child functions and should be analyzed separately
+                    for child_scope_id in child_scope_ids:
+                        child_scope = self.scope_env[child_scope_id]
+                        child_scope_root, _ = child_scope
+                        
+                        # Skips if the nested scope does not resemble a nested function
+                        if not child_scope_root.parent or (child_scope_root.parent.type != "arrow_function" and child_scope_root.parent.type != "function_declaration"):
+                            continue
+
+                        # Finds all identifier nodes for each scope with memorization
+                        if child_scope_id not in identifiers_per_scope:
+                            identifiers_per_scope[child_scope_id] = find_nodes_by_type(
+                                child_scope_root, "identifier"
+                            )
+
+                        for candidate_node in identifiers_per_scope[child_scope_id]:
+                            # Skip identifiers with different names
+                            if candidate_node.text.decode() != variable_name:
+                                continue
+
+                            # Skip declarations of variables with the same name in the child scopes
+                            if (
+                                candidate_node.parent.type == "variable_declarator"
+                                and candidate_node.parent.child_by_field_name("name")
+                                == candidate_node
+                            ):
+                                continue
+
+                            reference_found = True
+                            break
+                        
+                        if reference_found: break
+
+                    if reference_found:
+                        label = ValueLabel.LOCAL
+                        if scope_root.type == "program":
+                            label = ValueLabel.GLOBAL
+
+                        non_local_value = Value(
+                            variable_name, scope_child.start_point[0] + 1, label, -1
+                        )
+                        self.non_local_to_scope_id[non_local_value] = scope_id
+
+                # Found variables declared with var
+                elif scope_child.type == "variable_declaration":
+                    variable_name = (
+                        scope_child.child(1).child_by_field_name("name").text.decode()
+                    )
+                    
+                    # Finds the enclosing function as variables declared with var are accessible in the entire function
+                    function_root = scope_root
+                    while function_root:
+                        parent = function_root.parent
+                        if parent and (parent.type == "arrow_function" or parent.type == "function_declaration"):
+                            break
+
+                        function_root = parent
+                    
+                    function_scope_id = self.scope_root_to_scope_id[function_root]
+                    reference_found = False
+                    
+                    # Determines whether the variable is used in child functions and should be analyzed separately
+                    for child_scope_id in self.scope_env[function_scope_id][1]:
+                        child_scope = self.scope_env[child_scope_id]
+                        child_scope_root, _ = child_scope
+                        
+                        # Skips if the nested scope does not resemble a nested function
+                        if not child_scope_root.parent or (child_scope_root.parent.type != "arrow_function" and child_scope_root.parent.type != "function_declaration"):
+                            continue
+
+                        # Finds all identifier nodes for each scope with memorization
+                        if child_scope_id not in identifiers_per_scope:
+                            identifiers_per_scope[child_scope_id] = find_nodes_by_type(
+                                child_scope_root, "identifier"
+                            )
+
+                        for candidate_node in identifiers_per_scope[child_scope_id]:
+                            # Skip identifiers with different names
+                            if candidate_node.text.decode() != variable_name:
+                                continue
+
+                            # Skip declarations of variables with the same name in the child scopes
+                            if (
+                                candidate_node.parent.type == "variable_declarator"
+                                and candidate_node.parent.child_by_field_name("name")
+                                == candidate_node
+                            ):
+                                continue
+
+                            reference_found = True
+                            break
+                        
+                        if reference_found: break
+                    
+                    if reference_found:
+                        label = ValueLabel.LOCAL
+                        if scope_root.type == "program":
+                            label = ValueLabel.GLOBAL
+
+                        non_local_value = Value(
+                            variable_name, scope_child.start_point[0] + 1, label, -1
+                        )
+                        self.non_local_to_scope_id[non_local_value] = function_scope_id
+
     def extract_function_info(
         self, file_path: str, source_code: str, tree: tree_sitter.Tree
     ) -> None:
@@ -31,7 +181,7 @@ class Javascript_TSAnalyzer(TSAnalyzer):
         all_variable_declarator_nodes = find_nodes_by_type(
             tree.root_node, "variable_declarator"
         )
-        
+
         for node in all_function_header_nodes:
             function_name = ""
             for sub_node in node.children:
@@ -57,7 +207,7 @@ class Javascript_TSAnalyzer(TSAnalyzer):
             if function_name not in self.functionNameToId:
                 self.functionNameToId[function_name] = set([])
             self.functionNameToId[function_name].add(function_id)
-            
+
         for node in all_variable_declarator_nodes:
             name_node = node.child_by_field_name("name")
             value_node = node.child_by_field_name("value")
@@ -65,20 +215,26 @@ class Javascript_TSAnalyzer(TSAnalyzer):
             if not name_node or not value_node:
                 continue
 
-            if value_node.type != "arrow_function" and value_node.type != "function_expression":
+            if (
+                value_node.type != "arrow_function"
+                and value_node.type != "function_expression"
+            ):
                 continue
-            
+
             function_name = source_code[name_node.start_byte : name_node.end_byte]
-            start_line = source_code[:node.start_byte].count("\n") + 1
-            end_line = source_code[:node.end_byte].count("\n") + 1
+            start_line = source_code[: node.start_byte].count("\n") + 1
+            end_line = source_code[: node.end_byte].count("\n") + 1
             function_id = len(self.functionRawDataDic) + 1
 
             self.functionRawDataDic[function_id] = (
-                function_name, start_line, end_line, node
+                function_name,
+                start_line,
+                end_line,
+                node,
             )
             self.functionToFile[function_id] = file_path
             self.functionNameToId.setdefault(function_name, set()).add(function_id)
-        
+
         return
 
     def extract_global_info(
@@ -89,31 +245,34 @@ class Javascript_TSAnalyzer(TSAnalyzer):
         For Javascript, this may include module-level variables.
         Currently not implemented.
         """
-        declaration_types = [
-            "lexical_declaration",
-            "variable_declaration"
-        ]
+        declaration_types = ["lexical_declaration", "variable_declaration"]
         for child in tree.root_node.children:
             if child.type not in declaration_types:
                 continue
-            
+
             declarator_node = child.child(1)
-            if declarator_node is not None and declarator_node.type == "variable_declarator":
+            if (
+                declarator_node is not None
+                and declarator_node.type == "variable_declarator"
+            ):
                 name_node = declarator_node.child_by_field_name("name")
                 value_node = declarator_node.child_by_field_name("value")
 
                 if not name_node or not value_node:
                     continue
 
-                if value_node.type == "arrow_function" or value_node.type == "function_expression":
+                if (
+                    value_node.type == "arrow_function"
+                    or value_node.type == "function_expression"
+                ):
                     continue
-                
+
                 global_name = source_code[name_node.start_byte : name_node.end_byte]
-                line = source_code[:name_node.start_byte].count("\n") + 1
+                line = source_code[: name_node.start_byte].count("\n") + 1
                 global_id = len(self.globalsRawDataDic) + 1
                 self.globalsRawDataDic[global_id] = (global_name, line, child)
                 self.globalsToFile[global_id] = file_path
-                
+
         return
 
     def get_callee_name_at_call_site(
@@ -358,7 +517,7 @@ class Javascript_TSAnalyzer(TSAnalyzer):
                 end_line,
             )
         return loops
-    
+
     def get_global_expressions_by_identifier(
         self, identifier: str, program_root: Node
     ) -> List[Node]:
@@ -367,15 +526,14 @@ class Javascript_TSAnalyzer(TSAnalyzer):
         global_expression_types = [
             "variable_declaration",
             "lexical_declaration",
-            "expression_statement"
+            "expression_statement",
         ]
-        
+
         for child in children:
             if child.type not in global_expression_types:
                 continue
-            
+
             if find_nodes_by_type(child, "identifier")[0].text.decode() == identifier:
                 output_nodes.append(child)
-        
-        return output_nodes
 
+        return output_nodes

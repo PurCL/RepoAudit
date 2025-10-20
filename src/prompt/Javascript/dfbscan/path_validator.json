@@ -7,7 +7,6 @@
     "Keep the following guidelines in mind:",
     "- If the source in the first function flows to the sink in the last function without any interference, then the path is reachable and your answer should be Yes.",
     "- For NPD detection, if the source value is modified or its null/undefined state is verified (for example, via an explicit check like 'p !== null') before reaching the sink, then the path is unreachable and you should answer No.",
-    "- For NPD detection, if a program is accessing a variable or property that may be null/undefined and the variable/property isn't redefined before it is accessed, then the path is reachable and you should answer Yes.",
     "- If a function exits or returns before the sink or other propagation sites (such as function calls) are reached, the path is unreachable; answer No in such cases.",
     "- If a sink is a call to an object or a function that is builtin in Javascript or defined in the scope, then the path is unreachable; answer No in such cases.",
     "- Analyze conditions within each function: infer the outcome of branch statements and then verify whether the conditions across different sub-paths conflict. If conflicts exist, the overall path is unreachable.",

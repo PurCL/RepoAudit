@@ -5,24 +5,6 @@ from ..dfbscan_extractor import *
 
 class Javascript_NPD_Extractor(DFBScanExtractor):
     NULLISH_VALUES = {"null", "undefined"}
-    BUILTIN_NULLABLE_METHODS = {
-        "exec",
-        "match",
-        "matchAll",
-        "getElementById",
-        "querySelector",
-        "querySelectorAll",
-        "getElementsByClassName",
-        "getElementsByTagName",
-        "getAttribute",
-        "find",
-        "findIndex",
-        "pop",
-        "shift",
-        "get",
-        "getOwnPropertyDescriptor",
-        "stringify",
-    }
     
     def is_expression_delete(self, expr: Tree) -> bool:
         if expr.type == "unary_expression":
@@ -32,7 +14,7 @@ class Javascript_NPD_Extractor(DFBScanExtractor):
                 
         return False
     
-    def is_expression_nullable(self, expr: Tree) -> bool:
+    def is_expression_null(self, expr: Tree) -> bool:
         if expr.type != "assignment_expression":
             return False
 
@@ -42,19 +24,6 @@ class Javascript_NPD_Extractor(DFBScanExtractor):
         # Nullish constant (e.g. null/undefined)
         if value_type in self.NULLISH_VALUES:
             return True
-
-        # Possible call expression check
-        if value_type == "call_expression":
-            member_expr = value_node.child(0)
-            if member_expr is not None and member_expr.type == "member_expression":
-                prop_id = member_expr.child(2)
-                if (
-                    prop_id is not None
-                    and prop_id.type == "property_identifier"
-                    and prop_id.text.decode() in self.BUILTIN_NULLABLE_METHODS
-                ):
-                    return True
-                    
 
     def is_global_source(self, global_declaration_node: Tree) -> bool:
         global_name = global_declaration_node.child(1).child_by_field_name("name").text
@@ -73,7 +42,7 @@ class Javascript_NPD_Extractor(DFBScanExtractor):
                 if obj_node and obj_node.text == global_name:
                     return True
                 
-            if self.is_expression_nullable(expr) and expr.child(0).text == global_name:
+            if self.is_expression_null(expr) and expr.child(0).text == global_name:
                 return True
 
             sibling = sibling.next_sibling
@@ -92,34 +61,8 @@ class Javascript_NPD_Extractor(DFBScanExtractor):
             null_value_nodes.extend(find_nodes_by_type(root_node, nullish_value))
 
         unary_expressions = find_nodes_by_type(root_node, "unary_expression")
-        call_expressions = find_nodes_by_type(root_node, "call_expression")
         
         sources = []
-
-        # Look for call expressions of builtin nullable methods
-        for call_expression in call_expressions:
-            member_expression = call_expression.child(0)
-            if (
-                member_expression is None
-                or member_expression.type != "member_expression"
-            ):
-                continue
-
-            property_identifier = member_expression.child(2)
-            if (
-                property_identifier is None
-                or property_identifier.type != "property_identifier"
-            ):
-                continue
-
-            if property_identifier.text.decode() in self.BUILTIN_NULLABLE_METHODS:
-                line_number = (
-                    source_code[: property_identifier.start_byte].count("\n") + 1
-                )
-                name = source_code[
-                    property_identifier.start_byte : property_identifier.end_byte
-                ]
-                sources.append(Value(name, line_number, ValueLabel.SRC, file_path))
 
         # Look for delete expressions
         for unary_expression in unary_expressions:

@@ -174,8 +174,15 @@ class TSAnalyzer(ABC):
         self.globalsToFile: Dict[int, str] = {}
 
         self.function_env: Dict[int, Function] = {}
-        self.globals_env = {}
+        self.globals_env: Dict[int, Value] = {}
+        self.scope_env: Dict[int, Tuple[Node, Set[Dict]]] = {}
         self.api_env: Dict[int, API] = {}
+        
+        # Dictionary storing mapping from the root node of the scope to its scope id
+        self.scope_root_to_scope_id: Dict[Node, int] = {}
+        
+        # Dictionary storing mapping of a non local value to its declarator scope id
+        self.non_local_to_scope_id: Dict[Value, int] = {}
 
         # Results of call graph analysis
         ## Caller-callee relationship between user-defined functions
@@ -206,6 +213,7 @@ class TSAnalyzer(ABC):
         # Call user-defined processing.
         self.extract_function_info(file_path, source_code, tree)
         self.extract_global_info(file_path, source_code, tree)
+        self.extract_scope_info(tree)
         return file_path, source_code
 
     def _analyze_single_function(
@@ -252,7 +260,9 @@ class TSAnalyzer(ABC):
                 self.fileContentDic[file_path] = source
                 pbar.update(1)
             pbar.close()
-
+            
+        self.extract_nonlocal_info()
+        
         # Analyzes extracted functions
         with concurrent.futures.ThreadPoolExecutor(
             max_workers=self.max_symbolic_workers_num
@@ -272,7 +282,7 @@ class TSAnalyzer(ABC):
                 self.function_env[func_id] = current_function
                 pbar.update(1)
             pbar.close()
-
+            
         # Analyzes extracted global variables
         pbar = tqdm(
             total=len(self.globalsRawDataDic), desc="Analyzing Global Variables"
@@ -320,6 +330,20 @@ class TSAnalyzer(ABC):
     ###########################################
     # Helper function for project AST parsing #
     ###########################################
+    @abstractmethod
+    def extract_scope_info(self, tree: tree_sitter.Tree) -> None:
+        """
+        Parse source code to extract scope topography
+        :param tree: Parsed syntax tree
+        """
+    
+    @abstractmethod
+    def extract_nonlocal_info(self) -> None:
+        """
+        Traverse the scopes to identify declarations of non locals
+        """
+        pass
+    
     @abstractmethod
     def extract_function_info(
         self, file_path: str, source_code: str, tree: Tree
@@ -427,7 +451,7 @@ class TSAnalyzer(ABC):
                 tmp_api = API(-1, callee_name, len(arguments))
 
                 # Insert the API into the API environment if it does not exist previously
-                for single_api_id in self.api_env:
+                for single_api_id in list(self.api_env):
                     if self.api_env[single_api_id] == tmp_api:
                         api_id = single_api_id
                 if api_id == None:

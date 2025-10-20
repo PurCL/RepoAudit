@@ -13,3 +13,12 @@
 [submodule "benchmark/Javascript/microlight"]
 	path = benchmark/Javascript/microlight
 	url = https://github.com/asvd/microlight.git
+[submodule "benchmark/Javascript/mocha"]
+	path = benchmark/Javascript/mocha
+	url = https://github.com/mochajs/mocha.git
+[submodule "squish"]
+	path = squish
+	url = https://github.com/shgysk8zer0/squish.git
+[submodule "benchmark/Javascript/squish"]
+	path = benchmark/Javascript/squish
+	url = https://github.com/shgysk8zer0/squish.git
