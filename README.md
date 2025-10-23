@@ -170,7 +170,7 @@ If you find our research or tools helpful, please cite the following papers. Mor
 
 ## License
 
-This project is licensed under [MIT license](LICENSE).
+This project is licensed under [Purdue license](LICENSE).
 
 ## Contact
 
