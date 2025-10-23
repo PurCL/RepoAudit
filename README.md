@@ -95,7 +95,7 @@ If you find our research or tool helpful, please cite the following paper.
 
 ## License
 
-This project is licensed under [MIT license](LICENSE).
+This project is licensed under [Purdue license](LICENSE).
 
 ## Contact
 
