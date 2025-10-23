@@ -17,12 +17,12 @@ You acknowledge and agree:
 1.	Grant of Copyright License. Licensor grants You a worldwide, royalty-free, non-exclusive license to the Software for the duration of the copyright to redistribute and use for non-commercial purposes in source and binary forms, with or without modification, provided that the following conditions are met:
 
 	- The Software is used solely for non-commercial purposes. It may not be used indirectly for commercial use, such as on a website that accepts advertising money for content. Non- commercial use does include use by a for-profit company in its research. For commercial use rights, contact the Office of Technology Commercialization at Purdue Research Foundation, at otcip@prf.org and inquire about RepoAudit.
+	
+	- Redistributions of source code must retain the above copyright notice, this list of conditions, and the disclaimer in Section 4 below.
 
-  - Redistributions of source code must retain the above copyright notice, this list of conditions, and the disclaimer in Section 4 below.
+	- Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the disclaimer in Section 4 below in the documentation and/or other materials provided with the distribution.
 
-  - Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the disclaimer in Section 4 below in the documentation and/or other materials provided with the distribution.
-
-  - Neither the name of Purdue Research Foundation, Purdue University, nor the names of its contributors, nor any of their trademarks or service marks, may be used, including to endorse or promote products derived from this Software, without specific prior written permission.
+	- Neither the name of Purdue Research Foundation, Purdue University, nor the names of its contributors, nor any of their trademarks or service marks, may be used, including to endorse or promote products derived from this Software, without specific prior written permission.
 
 2.	No Implied License. Except as expressly stated herein, nothing in this License grants any license to Licensor's trademarks, copyrights, patents, trade secrets or any other intellectual property. No patent license is granted to make, use, sell, offer for sale, have made, or import embodiments of any patent claims. No license is granted to the trademarks of Licensor even if such marks are included in the Software. Nothing in this License shall be interpreted to prohibit Licensor from licensing under terms different from this License any Software that Licensor otherwise would have a right to license.
 
