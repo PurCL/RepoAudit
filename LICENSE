@@ -1,21 +1,39 @@
-MIT License
+RepoAudit Non-Commercial Open Source Software License
 
-Copyright (c) [2025] [PurCL]
+Copyright © 2025 Purdue University. Developed by Jinyao Guo, Chengpeng Wang, and Xiangyu Zhang. Purdue Research Foundation Reference Number [TBD]
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the “Software”), to deal
-in the Software without restriction, including without limitation the rights  
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell     
-copies of the Software, and to permit persons to whom the Software is         
-furnished to do so, subject to the following conditions:                       
+This Non-Commercial Open Source Software License (the "License" or “Agreement”) applies to any Software made available by its owner (the "Licensor"), and Derivative Works thereof, for use according to the following terms and conditions.
 
-The above copyright notice and this permission notice shall be included in all 
-copies or substantial portions of the Software.                                
+For purposes of this License:
 
-THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR     
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,       
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE    
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER        
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, 
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE 
-SOFTWARE.
+“Software” means (i) the actual copy of all or any portion of code for program routines made accessible to You by Licensor pursuant to this Agreement, inclusive of backups, updates, and/or merged copies permitted hereunder or subsequently supplied by Licensor, including all or any file structures, programming instructions, user interfaces and screen formats and sequences as well as any and all documentation and instructions related to it.
+
+“Derivative Works” means any and all derivatives and/or modifications created or made by You to the Software.
+
+“You”, whether in upper or lower case, means an individual or a legal entity exercising rights under, and complying with all of the terms of, this License. For legal entities, "You" includes any entity that controls, is controlled by, or is under common control with you. For purposes of this definition, "control" means (i) the power, direct or indirect, to cause the direction or management of such entity, whether by contract or otherwise, or (ii) ownership of fifty percent (50%) or more of the outstanding shares, or (iii) beneficial ownership of such entity.
+
+You acknowledge and agree:
+
+1.	Grant of Copyright License. Licensor grants You a worldwide, royalty-free, non-exclusive license to the Software for the duration of the copyright to redistribute and use for non-commercial purposes in source and binary forms, with or without modification, provided that the following conditions are met:
+
+	- The Software is used solely for non-commercial purposes. It may not be used indirectly for commercial use, such as on a website that accepts advertising money for content. Non- commercial use does include use by a for-profit company in its research. For commercial use rights, contact the Office of Technology Commercialization at Purdue Research Foundation, at otcip@prf.org and inquire about RepoAudit.
+
+  - Redistributions of source code must retain the above copyright notice, this list of conditions, and the disclaimer in Section 4 below.
+
+  - Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the disclaimer in Section 4 below in the documentation and/or other materials provided with the distribution.
+
+  - Neither the name of Purdue Research Foundation, Purdue University, nor the names of its contributors, nor any of their trademarks or service marks, may be used, including to endorse or promote products derived from this Software, without specific prior written permission.
+
+2.	No Implied License. Except as expressly stated herein, nothing in this License grants any license to Licensor's trademarks, copyrights, patents, trade secrets or any other intellectual property. No patent license is granted to make, use, sell, offer for sale, have made, or import embodiments of any patent claims. No license is granted to the trademarks of Licensor even if such marks are included in the Software. Nothing in this License shall be interpreted to prohibit Licensor from licensing under terms different from this License any Software that Licensor otherwise would have a right to license.
+
+3.	Same License and Attribution in Derivative Works. Derivative Works must be released under this same license when distributing Derivative Works or the licensed Software. You must retain in the source code of any Derivative Works that You create, all copyright, patent, or trademark notices from the source code of the Software, as well as any notices of licensing and any descriptive text identified therein as an "Attribution Notice." You must cause the source code for any Derivative Works that You create to carry a prominent Attribution Notice reasonably calculated to inform recipients that You have modified the Software.
+
+4.	DISCLAIMER OF WARRANTIES. THE SOFTWARE IS PROVIDED “AS-IS”WITHOUT WARRANTY OF ANY KIND INCLUDING ANY WARRANTIES OF PERFORMANCE OR MERCHANTABILITY OR FITNESS FOR A PARTICULAR USE OR PURPOSE OR OF NON-INFRINGEMENT. LICENSEE BEARS ALL RISK RELATING TO QUALITY AND PERFORMANCE OF THE SOFTWARE AND RELATED MATERIALS.
+
+5.	Limitation of Liability. Under no circumstances and under no legal theory, whether in tort (including negligence), contract, or otherwise, shall the Licensor be liable to anyone for any indirect, special, incidental, or consequential damages of any character arising as a result of this License or the use of the Software including, without limitation, damages for loss of goodwill, work stoppage, computer failure or malfunction, or any and all other commercial damages or losses. This limitation of liability shall not apply to the extent applicable law prohibits such limitation.
+
+6.	Acceptance and Termination. Your act of accessing or using the Software constitutes express assent to and acceptance of the terms and conditions of this License. Nothing in this License is intended to affect copyright exceptions and limitations (including "fair use" or "fair dealing"). This License shall terminate immediately, and You may no longer exercise any of the rights granted to You by this License, upon your failure to honor the conditions in Section 1.
+
+7.	Jurisdiction, Venue and Governing Law. Any action or suit relating to this License may be brought only in the courts of a jurisdiction wherein the Licensor resides or in which Licensor conducts its primary business, and under the laws of that jurisdiction without regard to its conflict- of-law provisions. The application of the United Nations Convention on Contracts for the International Sale of Goods is expressly excluded. Any use of the Software outside the scope of this License or after its termination shall be subject to the requirements and penalties of copyright or patent law in the appropriate jurisdiction. This section shall survive the termination of this License.
+
+8.	Severability. If any provision or portion of any provision of this Agreement not essential to the purpose of this Agreement shall be held to be illegal, invalid or unenforceable by a court of competent jurisdiction, it is the intention of the You and Licensor that the remaining provisions or portions thereof shall constitute their agreement with respect to the subject matter hereof, and all such remaining provisions or portions thereof shall remain in full force and effect. To the extent legally permissible, any illegal, invalid or unenforceable provision of this Agreement shall be replaced by a valid provision which will implement the commercial purpose of the illegal, invalid or unenforceable provision. In the event that any provision essential to the purpose of this Agreement is held to be illegal, invalid or unenforceable and cannot be replaced by a valid provision which will implement the purpose of this Agreement, this Agreement and the rights granted herein shall terminate.
