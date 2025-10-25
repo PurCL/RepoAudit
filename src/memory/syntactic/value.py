@@ -15,7 +15,8 @@ class ValueLabel(Enum):
     NON_BUF_ACCESS_EXPR = 8  # non-buffer access
 
     LOCAL = 9
-    GLOBAL = 10
+    NONLOCAL = 10
+    GLOBAL = 11
 
     def __str__(self) -> str:
         mapping = {
@@ -28,6 +29,7 @@ class ValueLabel(Enum):
             ValueLabel.BUF_ACCESS_EXPR: "ValueLabel.BUF_ACCESS_EXPR",
             ValueLabel.NON_BUF_ACCESS_EXPR: "ValueLabel.NON_BUF_ACCESS_EXPR",
             ValueLabel.LOCAL: "ValueLabel.LOCAL",
+            ValueLabel.NONLOCAL: "ValueLabel.NONLOCAL",
             ValueLabel.GLOBAL: "ValueLabel.GLOBAL",
         }
         return mapping[self]
@@ -44,6 +46,7 @@ class ValueLabel(Enum):
             "ValueLabel.BUF_ACCESS_EXPR": ValueLabel.BUF_ACCESS_EXPR,
             "ValueLabel.NON_BUF_ACCESS_EXPR": ValueLabel.NON_BUF_ACCESS_EXPR,
             "ValueLabel.LOCAL": ValueLabel.LOCAL,
+            "ValueLabel.NONLOCAL": ValueLabel.NONLOCAL,
             "ValueLabel.GLOBAL": ValueLabel.GLOBAL,
         }
         try:

@@ -4,11 +4,12 @@
   "system_role": "You are a Javascript programmer and very good at analyzing Javascript code. Particularly, you excel at understanding individual Javascript functions and their data flow relationships.",
   "task": "Given a specific source variable/parameter/expression (denoted as SRC) at a specific line (denoted as L1), analyze the execution flows of the given function and determine the variables to which SRC can propagate.",
   "analysis_rules": [
-    "The key principle for answering this question is to extract all execution paths related to SRC and simulate the function's execution along each path to determine where SRC propagates. In Javascript, SRC can propagate to four possible locations:",
+    "The key principle for answering this question is to extract all execution paths related to SRC and simulate the function's execution along each path to determine where SRC propagates. In Javascript, SRC can propagate to five possible locations:",
     "1. Function Calls: SRC propagates to a call site where it is passed as an argument to a callee function within the current function.",
     "2. Return Statements: SRC propagates to a return statement, returning a value to the caller of the current function.",
     "3. Function Parameters: SRC propagates to a parameter of the current function and can be referenced in the caller function, since objects are passed by reference.",
     "4. Sink variables: SRC reaches one of the predefined sink variables provided in the input.",
+    "5. Non local variable assignment: SRC propagates its value to a predefined non local variable.",
     "If SRC is referenced by function parameters, it can propagate beyond the function scope after the function exits, due to object references being shared between caller and callee. For example, if function goo passes an object base to its callee function foo, and foo(obj: Base) { obj = SRC; }, then the caller function goo can access the updated state of SRC through the object base.",
     "To conduct the analysis, follow these three steps:",
     "",
@@ -17,6 +18,7 @@
     "  2. Function Invocations: Call sites where SRC is passed as an argument.",
     "  3. Return Statements: Points where the function returns, possibly propagating SRC.",
     "  4. Parameter Assignments: Assignments where SRC is assigned to a parameter or an object field that is accessible outside the function.",
+    "  5. Non local variable assignment: Assignments where SRC is assigned to a predefined non local variable.",
     "- Step 2: Identify all execution paths relevant to the key points found in Step 1. For each path:",
     "  - Identify every potential execution path;",
     "  - Verify whether the key points are executed along each path;",
@@ -28,7 +30,8 @@
     "- If there are potential race conditions, for example, calling an async function without await, differentiate the control paths to consider the race condition;",
     "- Expand the first iteration of loops to analyze nested execution paths;",
     "- Treat each conditional branch (if, switch) as a separate execution path;",
-    "- Expand nested conditions and loops to ensure all paths are analyzed."
+    "- Expand nested conditions and loops to ensure all paths are analyzed.",
+    "- For non local variables, they can be defined anywhere outside the function and you should not assume any information about its declaration (including line numbers of their declaration or their initial values)."
   ],
   "analysis_examples": [
     "Example 1: Propagation via Sink, Function call, and Return",
@@ -110,11 +113,13 @@
     "    - For a return propagation: 'Type: Return; Name: {return name}; Function: None; Index: {return value index}; Line: {return statement line number}; Dependency: {summary of dependency from SRC to return value}';",
     "    - For parameter propagation: 'Type: Parameter; Name: {parameter name}; Function: None; Index: {parameter index}; Line: {assignment line number}; Dependency: {summary of dependency from SRC to parameter}';",
     "    - For sink propagation: 'Type: Sink; Name: {sink name}; Function: None; Index: None; Line: {sink statement line number}; Dependency: {summary of dependency from SRC to sink}';",
+    "    - For non local variable assignment: 'Type: Nonlocal; Name: {non local name}; Function: None; Index: None; Line: {assignment statement line number}; Dependency: {summary of dependency from SRC to assignment}';",
     "(4) If there is no propagation along a path, provide a brief explanation of why SRC does not propagate in that path as follows:",
     "- Path <Path Number>: <Execution Path>;",
     "    - No propagation; Dependency: {reason for no propagation};",
     "(5) Each Execution Path should start with the word \"Lines\", with each line number separated by \" -> \" and ended with a semicolon.",
-    "(5) Remember: All the indexes start from 0 instead of 1. If there is only one return value, the index is 0."
+    "(6) Remember: All the indexes start from 0 instead of 1. If there is only one return value, the index is 0.",
+    "(7) Remember: For non local variable assignment, only list 'Type: Nonlocal; Name: {non local name}; Function: None; Index: None; Line: {assignment statement line number}; Dependency: {summary of dependency from SRC to assignment}' if assignments are explicitly stated in the function code (Eg. non_local = something)."
   ],
   "meta_prompts": [
     "Now I will give you a target function with the source point `<SRC_NAME>` at line <SRC_LINE>: \n```\n<FUNCTION>\n``` \n\n",
@@ -123,6 +128,7 @@
     "Here are the Function call sites and return statements within the function, which can be used in Step 1;\n",
     "<CALL_STATEMENTS>\n",
     "<RETURN_VALUES>\n",
+    "<NONLOCAL_VALUES>",
     "Now, please answer the following question:\n<QUESTION>\n",
     "Your response should strictly follow the format:\n<ANSWER>\n"
   ]

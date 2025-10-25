@@ -181,8 +181,8 @@ class TSAnalyzer(ABC):
         # Dictionary storing mapping from the root node of the scope to its scope id
         self.scope_root_to_scope_id: Dict[Node, int] = {}
         
-        # Dictionary storing mapping of a non local value to its declarator scope id
-        self.non_local_to_scope_id: Dict[Value, int] = {}
+        # Dictionary storing mapping from a scope id to all the non locals it is depended on
+        self.child_scope_id_to_non_locals: Dict[int, Set[Value]] = {}
 
         # Results of call graph analysis
         ## Caller-callee relationship between user-defined functions

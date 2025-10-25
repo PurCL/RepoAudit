@@ -192,6 +192,85 @@ class DFBScanAgent(Agent):
                                     set({(para, new_call_context)}),
                                 )
 
+            if value.label == ValueLabel.NONLOCAL:
+                # Consider side effect.
+                # Example: the non local variable g is used in the function g = null;
+                # We need to consider the side effect of g.
+                caller_functions = self.ts_analyzer.get_all_caller_functions(function)
+
+                if caller_functions:
+                    for caller_function in caller_functions:
+                        new_call_context = copy.deepcopy(call_context)
+
+                        top_unmatched_context_label = (
+                            new_call_context.get_top_unmatched_context_label()
+                        )
+
+                        call_site_nodes = self.ts_analyzer.get_callsites_by_callee_name(
+                            caller_function, function.function_name
+                        )
+                        for call_site_node in call_site_nodes:
+                            caller_function_file_name = self.ts_analyzer.functionToFile[
+                                caller_function.function_id
+                            ]
+                            file_content = self.ts_analyzer.code_in_files[
+                                caller_function_file_name
+                            ]
+                            call_site_lower_line_number = (
+                                file_content[: call_site_node.start_byte].count("\n")
+                                + 1
+                            )
+
+                            if top_unmatched_context_label is not None:
+                                if (
+                                    top_unmatched_context_label.parenthesis
+                                    == Parenthesis.LEFT_PAR
+                                ):
+                                    if (
+                                        call_site_lower_line_number
+                                        != top_unmatched_context_label.line_number
+                                        or caller_function_file_name
+                                        != top_unmatched_context_label.file_name
+                                        or top_unmatched_context_label.function_id
+                                        != function.function_id
+                                    ):
+                                        continue
+
+                            append_context_label = ContextLabel(
+                                caller_function_file_name,
+                                call_site_lower_line_number,
+                                function.function_id,
+                                Parenthesis.RIGHT_PAR,
+                            )
+                            new_value = Value(
+                                value.name,
+                                call_site_node.start_point[0] + 1,
+                                ValueLabel.NONLOCAL,
+                                value.file,
+                            )
+
+                            new_call_context.add_and_check_context(append_context_label)
+
+                            delta_worklist.append(
+                                (
+                                    new_value,
+                                    caller_function,
+                                    new_call_context,
+                                )
+                            )
+                            self.state.update_external_value_match(
+                                (value, call_context),
+                                set({(new_value, new_call_context)}),
+                            )
+                else:
+                    delta_worklist.append(
+                        (
+                            value,
+                            function,
+                            call_context,
+                        )
+                    )
+
             if value.label == ValueLabel.PARA:
                 # Consider side-effect.
                 # Example: the parameter *p is used in the function: p->f = null;
@@ -379,6 +458,7 @@ class DFBScanAgent(Agent):
                         ValueLabel.RET,
                         ValueLabel.ARG,
                         ValueLabel.OUT,
+                        ValueLabel.NONLOCAL,
                     }:
                         # For other propagation types, check further external matches.
                         if (value, ctx) in external_match_snapshot:
@@ -568,9 +648,6 @@ class DFBScanAgent(Agent):
         # Total number of source values
         total_src_values = len(self.src_values)
 
-        for global_value in self.ts_analyzer.globals_env.values():
-            self.__process_global_value(global_value)
-
         # Process each source value in parallel with a progress bar
         with tqdm(
             total=total_src_values, desc="Processing Source Values", unit="src"
@@ -601,147 +678,6 @@ class DFBScanAgent(Agent):
         for log_file in self.get_log_files():
             self.logger.print_console(log_file)
         return
-
-    def __process_global_value(self, global_value):
-        """
-        Perform data-flow analysis starting from a global variable.
-
-        1. Finds all functions referencing the global variable.
-        2. Runs intra-procedural data-flow analysis to discover reachable values.
-        3. If the global is marked as a source (SRC), collects potential buggy paths and
-        reports them if confirmed.
-        """
-        worklist = []
-        reference_in_funcs = self.ts_analyzer.get_function_global_value_reference(
-            global_value
-        )
-        if len(reference_in_funcs) == 0:
-            return
-
-        initial_context = CallContext(False)
-
-        # Seed worklist with all function references to the global.
-        for func, global_references in reference_in_funcs.items():
-            for global_reference in global_references:
-                worklist.append((global_reference, func, initial_context))
-
-        # Worklist-driven intra-procedural analysis
-        while worklist:
-            start_value, start_function, call_context = worklist.pop(0)
-            if len(call_context.context) > self.call_depth:
-                continue
-
-            sinks_in_function = self.__obtain_extractor().extract_sinks(start_function)
-            sink_values = [
-                (sink.name, sink.line_number - start_function.start_line_number + 1)
-                for sink in sinks_in_function
-            ]
-
-            call_statements = []
-            for call_site_node in start_function.function_call_site_nodes:
-                file_content = self.ts_analyzer.code_in_files[start_function.file_path]
-                call_site_line_number = (
-                    file_content[: call_site_node.start_byte].count("\n") + 1
-                )
-                call_site_name = file_content[
-                    call_site_node.start_byte : call_site_node.end_byte
-                ]
-                call_statements.append((call_site_name, call_site_line_number))
-
-            ret_values = [
-                (ret.name, ret.line_number - start_function.start_line_number + 1)
-                for ret in (start_function.retvals if start_function.retvals else [])
-            ]
-
-            df_input = IntraDataFlowAnalyzerInput(
-                start_function, start_value, sink_values, call_statements, ret_values
-            )
-            df_output = self.intra_dfa.invoke(df_input, IntraDataFlowAnalyzerOutput)
-            if df_output is None:
-                continue
-
-            for path_index in range(len(df_output.reachable_values)):
-                reachable_values_in_single_path = {
-                    (value, call_context)
-                    for value in df_output.reachable_values[path_index]
-                }
-                self.state.update_reachable_values_per_path(
-                    (start_value, call_context), reachable_values_in_single_path
-                )
-                delta_worklist = self.__update_worklist(
-                    df_input, df_output, call_context, path_index
-                )
-                worklist.extend(delta_worklist)
-
-        # Only proceed with bug-path checks if this global is a source
-        if global_value.label != ValueLabel.SRC:
-            return
-
-        found_potential_buggy_paths = False
-        for func, global_references in reference_in_funcs.items():
-            for global_reference in global_references:
-                self.__collect_potential_buggy_paths(
-                    global_reference, (global_reference, CallContext(False))
-                )
-                if global_reference in self.state.potential_buggy_paths:
-                    found_potential_buggy_paths = True
-
-        if not found_potential_buggy_paths:
-            return
-
-        # Validate each potential buggy path
-        for start_value, buggy_paths in self.state.potential_buggy_paths.items():
-            for buggy_path in buggy_paths.values():
-                values_to_functions = {
-                    value: self.ts_analyzer.get_function_from_localvalue(value)
-                    for value in buggy_path
-                }
-
-                program_root = None
-                functions = set()
-                for func in values_to_functions.values():
-                    if func:
-                        functions.add(func)
-                    if program_root is None and func:
-                        program_root = func.parse_tree_root_node.parent
-
-                relevant_global_exprs = (
-                    self.ts_analyzer.get_global_expressions_by_identifier(
-                        global_value.name, program_root
-                    )
-                )
-
-                if self.state.check_existence(start_value, functions):
-                    continue
-
-                pv_input = PathValidatorInput(
-                    self.bug_type,
-                    buggy_path,
-                    values_to_functions,
-                    relevant_global_exprs,
-                )
-                pv_output = self.path_validator.invoke(pv_input, PathValidatorOutput)
-                if pv_output and pv_output.is_reachable:
-                    relevant_functions = {}
-                    for value in buggy_path:
-                        function = self.ts_analyzer.get_function_from_localvalue(value)
-                        if function:
-                            relevant_functions[function.function_id] = function
-
-                    bug_report = BugReport(
-                        self.bug_type,
-                        start_value,
-                        relevant_functions,
-                        pv_output.explanation_str,
-                    )
-                    self.state.update_bug_report(bug_report)
-
-                    bug_report_dict = {
-                        bug_report_id: bug.to_dict()
-                        for bug_report_id, bug in self.state.bug_reports.items()
-                    }
-                    with open(self.res_dir_path + "/detect_info.json", "w") as f:
-                        json.dump(bug_report_dict, f, indent=4)
 
     def __process_src_value(self, src_value: Value) -> None:
         """
@@ -787,8 +723,36 @@ class DFBScanAgent(Agent):
                 for ret in (start_function.retvals if start_function.retvals else [])
             ]
 
+            non_local_list = []
+            function_block_node = None
+            if start_function.parse_tree_root_node.type == "function_declaration":
+                function_block_node = start_function.parse_tree_root_node.child(3)
+            elif start_function.parse_tree_root_node.type == "variable_declarator":
+                function_block_node = start_function.parse_tree_root_node.child(
+                    2
+                ).child(2)
+
+            if (
+                function_block_node
+                and function_block_node in self.ts_analyzer.scope_root_to_scope_id
+            ):
+                function_scope_id = self.ts_analyzer.scope_root_to_scope_id[
+                    function_block_node
+                ]
+                non_local_list = [
+                    (value.name, value.line_number)
+                    for value in self.ts_analyzer.child_scope_id_to_non_locals[
+                        function_scope_id
+                    ]
+                ]
+
             df_input = IntraDataFlowAnalyzerInput(
-                start_function, start_value, sink_values, call_statements, ret_values
+                start_function,
+                start_value,
+                sink_values,
+                call_statements,
+                ret_values,
+                non_local_list,
             )
             df_output = self.intra_dfa.invoke(df_input, IntraDataFlowAnalyzerOutput)
             if df_output is None:
