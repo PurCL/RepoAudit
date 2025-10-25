@@ -739,12 +739,13 @@ class DFBScanAgent(Agent):
                 function_scope_id = self.ts_analyzer.scope_root_to_scope_id[
                     function_block_node
                 ]
-                non_local_list = [
-                    (value.name, value.line_number)
-                    for value in self.ts_analyzer.child_scope_id_to_non_locals[
-                        function_scope_id
+                if function_scope_id in self.ts_analyzer.child_scope_id_to_non_locals:
+                    non_local_list = [
+                        (value.name, value.line_number)
+                        for value in self.ts_analyzer.child_scope_id_to_non_locals[
+                            function_scope_id
+                        ]
                     ]
-                ]
 
             df_input = IntraDataFlowAnalyzerInput(
                 start_function,

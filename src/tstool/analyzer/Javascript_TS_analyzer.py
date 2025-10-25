@@ -121,7 +121,7 @@ class Javascript_TSAnalyzer(TSAnalyzer):
                         non_local_value = Value(
                             variable_name, scope_child.start_point[0] + 1, label, -1
                         )
-                        
+
                 # Found variables declared with var
                 elif scope_child.type == "variable_declaration":
                     variable_name = (
@@ -148,6 +148,12 @@ class Javascript_TSAnalyzer(TSAnalyzer):
                             break
 
                         function_root = parent
+
+                    if (
+                        not function_root
+                        or function_root not in self.scope_root_to_scope_id
+                    ):
+                        continue
 
                     function_scope_id = self.scope_root_to_scope_id[function_root]
                     reference_found = False
