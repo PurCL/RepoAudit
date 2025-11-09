@@ -26,25 +26,28 @@ class DFBScanExtractor(ABC):
         """
         pbar = tqdm(
             total=len(self.ts_analyzer.function_env)
-            + len(self.ts_analyzer.globals_env),
+            + len(self.ts_analyzer.globalsRawDataDic),
             desc="Parsing files",
         )
+
+        # Extract src/sink values from functions
         for function_id in self.ts_analyzer.function_env:
             pbar.update(1)
             function: Function = self.ts_analyzer.function_env[function_id]
             if "test" in function.file_path or "example" in function.file_path:
                 continue
-            file_content = self.ts_analyzer.code_in_files[function.file_path]
-            function_root_node = function.parse_tree_root_node
+
             self.sources.extend(self.extract_sources(function))
             self.sinks.extend(self.extract_sinks(function))
 
-        for global_id, global_var in self.ts_analyzer.globals_env.items():
+        # Filter out non src global values in global_env
+        for global_id, global_data in self.ts_analyzer.globalsRawDataDic.items():
             pbar.update(1)
-            node = self.ts_analyzer.globalsRawDataDic[global_id][2]
-            if self.is_global_source(node):
-                global_var.label = ValueLabel.SRC
-                self.ts_analyzer.globals_env[global_id] = global_var
+            global_node = global_data[2]
+            if self.is_global_source(global_node):
+                self.ts_analyzer.globals_env[global_id].label = ValueLabel.SRC
+            else:
+                del self.ts_analyzer.globals_env[global_id]
 
         pbar.close()
 

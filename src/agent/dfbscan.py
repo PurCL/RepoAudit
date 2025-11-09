@@ -648,6 +648,27 @@ class DFBScanAgent(Agent):
         # Total number of source values
         total_src_values = len(self.src_values)
 
+        total_global_src_values = len(self.ts_analyzer.globals_env)
+
+        with tqdm(
+            total=total_global_src_values,
+            desc="Processing Global Source Values",
+            unit="src",
+        ) as pbar:
+            with ThreadPoolExecutor(max_workers=self.max_neural_workers) as executor:
+                futures = [
+                    executor.submit(self.__process_global_value, global_value)
+                    for _, global_value in self.ts_analyzer.globals_env.items()
+                ]
+                for future in as_completed(futures):
+                    try:
+                        future.result()
+                    except Exception as e:
+                        self.logger.print_log("Error processing source value:", e)
+                    finally:
+                        # Update the progress bar after each source value is processed
+                        pbar.update(1)
+
         # Process each source value in parallel with a progress bar
         with tqdm(
             total=total_src_values, desc="Processing Source Values", unit="src"
@@ -724,20 +745,13 @@ class DFBScanAgent(Agent):
             ]
 
             non_local_list = []
-            function_block_node = None
-            if start_function.parse_tree_root_node.type == "function_declaration":
-                function_block_node = start_function.parse_tree_root_node.child(3)
-            elif start_function.parse_tree_root_node.type == "variable_declarator":
-                function_block_node = start_function.parse_tree_root_node.child(
-                    2
-                ).child(2)
 
             if (
-                function_block_node
-                and function_block_node in self.ts_analyzer.scope_root_to_scope_id
+                start_function.parse_tree_root_node
+                in self.ts_analyzer.function_root_to_scope_id
             ):
-                function_scope_id = self.ts_analyzer.scope_root_to_scope_id[
-                    function_block_node
+                function_scope_id = self.ts_analyzer.function_root_to_scope_id[
+                    start_function.parse_tree_root_node
                 ]
                 if function_scope_id in self.ts_analyzer.child_scope_id_to_non_locals:
                     non_local_list = [
@@ -811,6 +825,169 @@ class DFBScanAgent(Agent):
                 }
                 with open(self.res_dir_path + "/detect_info.json", "w") as f:
                     json.dump(bug_report_dict, f, indent=4)
+
+    def __process_global_value(self, global_value):
+        """
+        Perform data-flow analysis starting from a global variable.
+
+        1. Finds all functions referencing the global variable.
+        2. Runs intra-procedural data-flow analysis to discover reachable values.
+        3. If the global is marked as a source (SRC), collects potential buggy paths and
+        reports them if confirmed.
+        """
+        worklist = []
+
+        reference_in_funcs = self.ts_analyzer.get_function_global_value_reference(
+            global_value
+        )
+        if len(reference_in_funcs) == 0:
+            return
+
+        initial_context = CallContext(False)
+
+        # Seed worklist with all function references to the global.
+        for func, global_references in reference_in_funcs.items():
+            for global_reference in global_references:
+                worklist.append((global_reference, func, initial_context))
+
+        # Worklist-driven intra-procedural analysis
+        while worklist:
+            start_value, start_function, call_context = worklist.pop(0)
+            if len(call_context.context) > self.call_depth:
+                continue
+
+            sinks_in_function = self.__obtain_extractor().extract_sinks(start_function)
+            sink_values = [
+                (sink.name, sink.line_number - start_function.start_line_number + 1)
+                for sink in sinks_in_function
+            ]
+
+            call_statements = []
+            for call_site_node in start_function.function_call_site_nodes:
+                file_content = self.ts_analyzer.code_in_files[start_function.file_path]
+                call_site_line_number = (
+                    file_content[: call_site_node.start_byte].count("\n") + 1
+                )
+                call_site_name = file_content[
+                    call_site_node.start_byte : call_site_node.end_byte
+                ]
+                call_statements.append((call_site_name, call_site_line_number))
+
+            ret_values = [
+                (ret.name, ret.line_number - start_function.start_line_number + 1)
+                for ret in (start_function.retvals if start_function.retvals else [])
+            ]
+
+            non_local_list = []
+
+            if (
+                start_function.parse_tree_root_node
+                in self.ts_analyzer.function_root_to_scope_id
+            ):
+                function_scope_id = self.ts_analyzer.function_root_to_scope_id[
+                    start_function.parse_tree_root_node
+                ]
+                if function_scope_id in self.ts_analyzer.child_scope_id_to_non_locals:
+                    non_local_list = [
+                        (value.name, value.line_number)
+                        for value in self.ts_analyzer.child_scope_id_to_non_locals[
+                            function_scope_id
+                        ]
+                    ]
+
+            df_input = IntraDataFlowAnalyzerInput(
+                start_function,
+                start_value,
+                sink_values,
+                call_statements,
+                ret_values,
+                non_local_list,
+            )
+
+            df_output = self.intra_dfa.invoke(df_input, IntraDataFlowAnalyzerOutput)
+            if df_output is None:
+                continue
+
+            for path_index in range(len(df_output.reachable_values)):
+                reachable_values_in_single_path = {
+                    (value, call_context)
+                    for value in df_output.reachable_values[path_index]
+                }
+                self.state.update_reachable_values_per_path(
+                    (start_value, call_context), reachable_values_in_single_path
+                )
+                delta_worklist = self.__update_worklist(
+                    df_input, df_output, call_context, path_index
+                )
+                worklist.extend(delta_worklist)
+
+        found_potential_buggy_paths = False
+        for func, global_references in reference_in_funcs.items():
+            for global_reference in global_references:
+                self.__collect_potential_buggy_paths(
+                    global_reference, (global_reference, CallContext(False))
+                )
+                if global_reference in self.state.potential_buggy_paths:
+                    found_potential_buggy_paths = True
+
+        if not found_potential_buggy_paths:
+            return
+
+        # Validate each potential buggy path
+        for start_value, buggy_paths in self.state.potential_buggy_paths.items():
+            for buggy_path in buggy_paths.values():
+                values_to_functions = {
+                    value: self.ts_analyzer.get_function_from_localvalue(value)
+                    for value in buggy_path
+                }
+
+                functions = set()
+                relevant_global_exprs = []
+                for func in values_to_functions.values():
+                    if func:
+                        functions.add(func)
+
+                    current = func.parse_tree_root_node
+                    while current.parent:
+                        current = current.parent
+
+                    relevant_global_exprs.extend(
+                        self.ts_analyzer.get_global_expressions_by_identifier(
+                            global_value.name, current
+                        )
+                    )
+
+                if self.state.check_existence(start_value, functions):
+                    continue
+
+                pv_input = PathValidatorInput(
+                    self.bug_type,
+                    buggy_path,
+                    values_to_functions,
+                    relevant_global_exprs,
+                )
+                pv_output = self.path_validator.invoke(pv_input, PathValidatorOutput)
+                if pv_output and pv_output.is_reachable:
+                    relevant_functions = {}
+                    for value in buggy_path:
+                        function = self.ts_analyzer.get_function_from_localvalue(value)
+                        if function:
+                            relevant_functions[function.function_id] = function
+
+                    bug_report = BugReport(
+                        self.bug_type,
+                        start_value,
+                        relevant_functions,
+                        pv_output.explanation_str,
+                    )
+                    self.state.update_bug_report(bug_report)
+
+                    bug_report_dict = {
+                        bug_report_id: bug.to_dict()
+                        for bug_report_id, bug in self.state.bug_reports.items()
+                    }
+                    with open(self.res_dir_path + "/detect_info.json", "w") as f:
+                        json.dump(bug_report_dict, f, indent=4)
 
     def get_agent_state(self) -> DFBScanState:
         return self.state

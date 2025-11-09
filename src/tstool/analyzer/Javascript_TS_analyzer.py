@@ -35,6 +35,15 @@ class Javascript_TSAnalyzer(TSAnalyzer):
                     self.scope_env[scope_id] = (child, [])
                     self.scope_root_to_scope_id[child] = scope_id
                     scope_stack.append(scope_id)
+
+                    if child.parent.type == "function_declaration":
+                        self.function_root_to_scope_id[child.parent] = scope_id
+                    elif (
+                        child.parent.type == "arrow_function"
+                        or child.parent.type == "function_expression"
+                    ):
+                        self.function_root_to_scope_id[child.parent.parent] = scope_id
+
                     scope_id += 1
                     search(child)
                     scope_stack.pop()
@@ -52,93 +61,32 @@ class Javascript_TSAnalyzer(TSAnalyzer):
 
     def extract_nonlocal_info(self) -> None:
         identifiers_per_scope = dict()
-        for scope_id, scope_data in self.scope_env.items():
+        for _, scope_data in self.scope_env.items():
             scope_root, child_scope_ids = scope_data
             for scope_child in scope_root.children:
-                # Found variables declared with const or let
-                if scope_child.type == "lexical_declaration":
-                    variable_name = (
-                        scope_child.child(1).child_by_field_name("name").text.decode()
-                    )
+                # Skips expressions that does not resemble variable declarations
+                if (
+                    scope_child.type != "lexical_declaration"
+                    and scope_child.type != "variable_declaration"
+                ):
+                    continue
 
-                    label = ValueLabel.LOCAL
-                    if scope_root.type == "program":
-                        label = ValueLabel.GLOBAL
+                variable_name = (
+                    scope_child.child(1).child_by_field_name("name").text.decode()
+                )
 
-                    non_local_value = Value(
-                        variable_name, scope_child.start_point[0] + 1, label, -1
-                    )
+                label = ValueLabel.LOCAL
+                if scope_root.type == "program":
+                    label = ValueLabel.GLOBAL
 
-                    reference_found = False
-                    # Determines whether the variable is used in child functions and should be analyzed separately
-                    for child_scope_id in child_scope_ids:
-                        child_scope = self.scope_env[child_scope_id]
-                        child_scope_root, _ = child_scope
+                non_local_value = Value(
+                    variable_name, scope_child.start_point[0] + 1, label, -1
+                )
 
-                        # Skips if the nested scope does not resemble a nested function
-                        if not child_scope_root.parent or (
-                            child_scope_root.parent.type != "arrow_function"
-                            and child_scope_root.parent.type != "function_declaration"
-                            and child_scope_root.parent.type != "function_expression"
-                        ):
-                            continue
-
-                        # Finds all identifier nodes for each scope with memorization
-                        if child_scope_id not in identifiers_per_scope:
-                            identifiers_per_scope[child_scope_id] = find_nodes_by_type(
-                                child_scope_root, "identifier"
-                            )
-
-                        for candidate_node in identifiers_per_scope[child_scope_id]:
-                            # Skip identifiers with different names
-                            if candidate_node.text.decode() != variable_name:
-                                continue
-
-                            # Skip declarations of variables with the same name in the child scopes
-                            if (
-                                candidate_node.parent.type == "variable_declarator"
-                                and candidate_node.parent.child_by_field_name("name")
-                                == candidate_node
-                            ):
-                                continue
-
-                            reference_found = True
-
-                            if child_scope_id not in self.child_scope_id_to_non_locals:
-                                self.child_scope_id_to_non_locals[child_scope_id] = {
-                                    non_local_value
-                                }
-                            else:
-                                self.child_scope_id_to_non_locals[child_scope_id].add(
-                                    non_local_value
-                                )
-
-                    if reference_found:
-                        label = ValueLabel.LOCAL
-                        if scope_root.type == "program":
-                            label = ValueLabel.GLOBAL
-
-                        non_local_value = Value(
-                            variable_name, scope_child.start_point[0] + 1, label, -1
-                        )
-
-                # Found variables declared with var
-                elif scope_child.type == "variable_declaration":
-                    variable_name = (
-                        scope_child.child(1).child_by_field_name("name").text.decode()
-                    )
-
-                    label = ValueLabel.LOCAL
-                    if scope_root.type == "program":
-                        label = ValueLabel.GLOBAL
-
-                    non_local_value = Value(
-                        variable_name, scope_child.start_point[0] + 1, label, -1
-                    )
-
-                    # Finds the enclosing function as variables declared with var are accessible in the entire function
+                if scope_child.type == "variable_declaration":
+                    # In JavaScript, the variable declared in var propagates to the function's scope
                     function_root = scope_root
-                    while function_root:
+                    while function_root.parent:
                         parent = function_root.parent
                         if parent and (
                             parent.type == "arrow_function"
@@ -156,50 +104,47 @@ class Javascript_TSAnalyzer(TSAnalyzer):
                         continue
 
                     function_scope_id = self.scope_root_to_scope_id[function_root]
-                    reference_found = False
+                    child_scope_ids = self.scope_env[function_scope_id][1]
 
-                    # Determines whether the variable is used in child functions and should be analyzed separately
-                    for child_scope_id in self.scope_env[function_scope_id][1]:
-                        child_scope = self.scope_env[child_scope_id]
-                        child_scope_root, _ = child_scope
+                # Determines whether the variable is used in child functions and should be analyzed separately
+                for child_scope_id in child_scope_ids:
+                    child_scope = self.scope_env[child_scope_id]
+                    child_scope_root, _ = child_scope
 
-                        # Skips if the nested scope does not resemble a nested function
-                        if not child_scope_root.parent or (
-                            child_scope_root.parent.type != "arrow_function"
-                            and child_scope_root.parent.type != "function_declaration"
-                            and child_scope_root.parent.type != "function_expression"
+                    # Skips if the nested scope does not resemble a nested function
+                    if not child_scope_root.parent or (
+                        child_scope_root.parent.type != "arrow_function"
+                        and child_scope_root.parent.type != "function_declaration"
+                        and child_scope_root.parent.type != "function_expression"
+                    ):
+                        continue
+
+                    # Finds all identifier nodes for each scope with memorization
+                    if child_scope_id not in identifiers_per_scope:
+                        identifiers_per_scope[child_scope_id] = find_nodes_by_type(
+                            child_scope_root, "identifier"
+                        )
+
+                    for candidate_node in identifiers_per_scope[child_scope_id]:
+                        # Skip identifiers with different names
+                        if candidate_node.text.decode() != variable_name:
+                            continue
+
+                        # Skip declarations of variables with the same name in the child scopes
+                        if (
+                            candidate_node.parent.type == "variable_declarator"
+                            and candidate_node.parent.child_by_field_name("name")
+                            == candidate_node
                         ):
                             continue
 
-                        # Finds all identifier nodes for each scope with memorization
-                        if child_scope_id not in identifiers_per_scope:
-                            identifiers_per_scope[child_scope_id] = find_nodes_by_type(
-                                child_scope_root, "identifier"
-                            )
+                        self.child_scope_id_to_non_locals.setdefault(
+                            child_scope_id, set()
+                        ).add(non_local_value)
 
-                        for candidate_node in identifiers_per_scope[child_scope_id]:
-                            # Skip identifiers with different names
-                            if candidate_node.text.decode() != variable_name:
-                                continue
-
-                            # Skip declarations of variables with the same name in the child scopes
-                            if (
-                                candidate_node.parent.type == "variable_declarator"
-                                and candidate_node.parent.child_by_field_name("name")
-                                == candidate_node
-                            ):
-                                continue
-
-                            reference_found = True
-
-                            if child_scope_id not in self.child_scope_id_to_non_locals:
-                                self.child_scope_id_to_non_locals[child_scope_id] = {
-                                    non_local_value
-                                }
-                            else:
-                                self.child_scope_id_to_non_locals[child_scope_id].add(
-                                    non_local_value
-                                )
+                        self.non_local_to_child_scopes.setdefault(
+                            non_local_value, set()
+                        ).add(child_scope_id)
 
     def extract_function_info(
         self, file_path: str, source_code: str, tree: tree_sitter.Tree
@@ -556,6 +501,13 @@ class Javascript_TSAnalyzer(TSAnalyzer):
     def get_global_expressions_by_identifier(
         self, identifier: str, program_root: Node
     ) -> List[Node]:
+        """
+        Extracts all expressions related to a specific identifier in the global scope
+        :param identifier: The identifier
+        :param program_root: Program root node
+        :return: A list of extracted nodes
+        """
+
         output_nodes = []
         children = program_root.children
         global_expression_types = [

@@ -1,6 +1,6 @@
 var a = console.error;
 delete a.error;
-
-function exec() {
+const exec = function () {
     a.error();
 }
+exec()

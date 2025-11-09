@@ -181,8 +181,14 @@ class TSAnalyzer(ABC):
         # Dictionary storing mapping from the root node of the scope to its scope id
         self.scope_root_to_scope_id: Dict[Node, int] = {}
         
+        # Dictionary storing mapping from function root node to its scope id
+        self.function_root_to_scope_id: Dict[Node, int] = {}
+                
         # Dictionary storing mapping from a scope id to all the non locals it is depended on
         self.child_scope_id_to_non_locals: Dict[int, Set[Value]] = {}
+        
+        # Dictionary storing mapping from a non local value to its child scopes
+        self.non_local_to_child_scopes: Dict[Value, Set[int]] = {}
 
         # Results of call graph analysis
         ## Caller-callee relationship between user-defined functions
@@ -723,6 +729,18 @@ class TSAnalyzer(ABC):
         :return: A dictionary mapping (start_line, end_line) to loop statement info.
         """
         pass
+    
+    @abstractmethod
+    def get_global_expressions_by_identifier(
+        self, identifier: str, program_root: Node
+    ) -> List[Node]:
+        """
+        Extracts all expressions related to a specific identifier in the global scope
+        :param identifier: The identifier
+        :param program_root: Program root node
+        :return: A list of extracted nodes
+        """
+        pass
 
     def check_control_order(
         self, function: Function, src_line_number: int, sink_line_number: int
@@ -852,12 +870,6 @@ class TSAnalyzer(ABC):
                     references.setdefault(function, []).append(ref_value)
 
         return references
-    
-    @abstractmethod
-    def get_global_expressions_by_identifier(
-        self, identifier: str, program_root: Node
-    ) -> List[Node]:
-        pass
         
     def get_function_from_localvalue(self, value: Value) -> Optional[Function]:
         """
