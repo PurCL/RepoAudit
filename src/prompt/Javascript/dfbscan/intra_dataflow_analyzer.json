@@ -103,7 +103,7 @@
     "Path 3: Lines 1 -> 6;",
     "- No propagation; Dependency: Default return value -1 is unrelated to SRC."
   ],
-  "question_template": "- Where does the source variable <SRC_NAME> at line <SRC_LINE> in this function propagate?",
+  "question_template": "- Where does the source <SRC_NAME> at line <SRC_LINE> in this function propagate?",
   "answer_format_cot": [
     "(1) First, provide a detailed step-by-step reasoning process, following the explanation format used in the examples;",
     "(2) Once the reasoning is complete, begin the final answer section with 'Answer:';",

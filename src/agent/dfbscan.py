@@ -262,14 +262,6 @@ class DFBScanAgent(Agent):
                                 (value, call_context),
                                 set({(new_value, new_call_context)}),
                             )
-                else:
-                    delta_worklist.append(
-                        (
-                            value,
-                            function,
-                            call_context,
-                        )
-                    )
 
             if value.label == ValueLabel.PARA:
                 # Consider side-effect.

@@ -55,15 +55,34 @@ class Javascript_NPD_Extractor(DFBScanExtractor):
         root_node = function.parse_tree_root_node
         source_code = self.ts_analyzer.code_in_files[function.file_path]
         file_path = function.file_path
-        null_value_nodes = []
+        
+        """
+        Extract the potential null values as sources from the source code.
+        1. variable = null;
+        2. return null;
+        """
+        nodes = find_nodes_by_type(root_node, "variable_declarator")
+        nodes.extend(find_nodes_by_type(root_node, "assignment_expression"))
+        nodes.extend(find_nodes_by_type(root_node, "return_statement"))
+        
+        sources = []
+        
+        # Look for nullish value nodes
+        for node in nodes:
+            is_seed_node = False
 
-        for nullish_value in self.NULLISH_VALUES:
-            null_value_nodes.extend(find_nodes_by_type(root_node, nullish_value))
+            for child in node.children:
+                if child.type in self.NULLISH_VALUES:
+                    is_seed_node = True
+
+            if is_seed_node:
+                line_number = source_code[: node.start_byte].count("\n") + 1
+                name = source_code[node.start_byte : node.end_byte]
+                sources.append(Value(name, line_number, ValueLabel.SRC, file_path))
+
 
         unary_expressions = find_nodes_by_type(root_node, "unary_expression")
         
-        sources = []
-
         # Look for delete expressions
         for unary_expression in unary_expressions:
             operator = unary_expression.child(0)
@@ -73,12 +92,6 @@ class Javascript_NPD_Extractor(DFBScanExtractor):
                     unary_expression.start_byte : unary_expression.end_byte
                 ]
                 sources.append(Value(name, line_number, ValueLabel.SRC, file_path))
-
-        # Look for nullish value nodes
-        for node in null_value_nodes:
-            line_number = source_code[: node.start_byte].count("\n") + 1
-            name = source_code[node.start_byte : node.end_byte]
-            sources.append(Value(name, line_number, ValueLabel.SRC, file_path))
 
         return sources
 

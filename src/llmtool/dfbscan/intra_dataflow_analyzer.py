@@ -112,7 +112,7 @@ class IntraDataFlowAnalyzer(LLMTool):
         prompt = prompt.replace("<RETURN_VALUES>", rets_str)
         
         if input.non_locals:
-            non_local_str = "Non local variables relevant to this function:"
+            non_local_str = "Non local variables relevant to this function:\n"
             for non_local in input.non_locals:
                 non_local_str += f"- {non_local[0]} at line {non_local[1]}\n"
             prompt = prompt.replace("<NONLOCAL_VALUES>", non_local_str)
