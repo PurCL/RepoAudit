@@ -58,10 +58,6 @@ class DFBScanExtractor(ABC):
         pass
 
     @abstractmethod
-    def is_global_sink(self, global_var: Tree) -> bool:
-        pass
-
-    @abstractmethod
     def extract_sources(self, function: Function) -> List[Value]:
         """
         Extract the source values that can cause the bugs from the source code.

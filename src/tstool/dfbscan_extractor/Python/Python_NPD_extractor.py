@@ -5,9 +5,10 @@ from ..dfbscan_extractor import *
 
 class Python_NPD_Extractor(DFBScanExtractor):
     def is_global_source(self, global_declarator_node: Tree) -> bool:
-        return False
-        
-    def is_global_sink(self, global_declarator_node: Tree) -> bool:
+        """
+        Determines whether the global variable is initially a source.
+        """
+        # TODO: Implement source detection for global variables if needed
         return False
     
     def extract_sources(self, function: Function) -> List[Value]:

@@ -4,6 +4,13 @@ from ..dfbscan_extractor import *
 
 
 class Cpp_MLK_Extractor(DFBScanExtractor):
+    def is_global_source(self, global_declarator_node: Tree) -> bool:
+        """
+        Determines whether the global variable is initially a source.
+        Currently not implemented.
+        """
+        return False
+    
     def extract_sources(self, function: Function) -> List[Value]:
         """
         Extract the sources that can cause the memory leak bugs from C/C++ programs.

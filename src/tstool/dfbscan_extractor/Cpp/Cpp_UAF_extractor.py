@@ -6,6 +6,13 @@ import argparse
 
 
 class Cpp_UAF_Extractor(DFBScanExtractor):
+    def is_global_source(self, global_declarator_node: Tree) -> bool:
+        """
+        Determines whether the global variable is initially a source.
+        Currently not implemented.
+        """
+        return False
+    
     def extract_sources(self, function: Function) -> List[Value]:
         """
         Extract the sources that can cause the use-after-free bugs from C/C++ programs.
