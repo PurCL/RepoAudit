@@ -59,6 +59,7 @@ class Javascript_NPD_Extractor(DFBScanExtractor):
         1. variable = null;
         2. return null;
         3. delete obj.prop;
+        4. func(null);
         """
         
         root_node = function.parse_tree_root_node
@@ -68,6 +69,7 @@ class Javascript_NPD_Extractor(DFBScanExtractor):
         nodes = find_nodes_by_type(root_node, "variable_declarator")
         nodes.extend(find_nodes_by_type(root_node, "assignment_expression"))
         nodes.extend(find_nodes_by_type(root_node, "return_statement"))
+        nodes.extend(find_nodes_by_type(root_node, "arguments"))
         
         sources = []
         
