@@ -177,16 +177,16 @@ class TSAnalyzer(ABC):
         self.globals_env: Dict[int, Value] = {}
         self.scope_env: Dict[int, Tuple[Node, Set[int]]] = {}
         self.api_env: Dict[int, API] = {}
-        
+
         # Dictionary storing mapping from the root node of the scope to its scope id
         self.scope_root_to_scope_id: Dict[Node, int] = {}
-        
+
         # Dictionary storing mapping from function root node to its scope id
         self.function_root_to_scope_id: Dict[Node, int] = {}
-                
+
         # Dictionary storing mapping from a scope id to all the non locals it is depended on
         self.child_scope_id_to_non_locals: Dict[int, Set[Value]] = {}
-        
+
         # Dictionary storing mapping from a non local value to its child scopes
         self.non_local_to_child_scopes: Dict[Value, Set[int]] = {}
 
@@ -266,9 +266,9 @@ class TSAnalyzer(ABC):
                 self.fileContentDic[file_path] = source
                 pbar.update(1)
             pbar.close()
-            
+
         self.extract_nonlocal_info()
-        
+
         # Analyzes extracted functions
         with concurrent.futures.ThreadPoolExecutor(
             max_workers=self.max_symbolic_workers_num
@@ -288,7 +288,7 @@ class TSAnalyzer(ABC):
                 self.function_env[func_id] = current_function
                 pbar.update(1)
             pbar.close()
-            
+
         # Analyzes extracted global variables
         pbar = tqdm(
             total=len(self.globalsRawDataDic), desc="Analyzing Global Variables"
@@ -343,14 +343,14 @@ class TSAnalyzer(ABC):
         :param tree: Parsed syntax tree
         """
         pass
-    
+
     @abstractmethod
     def extract_nonlocal_info(self) -> None:
         """
         Traverse the scopes to identify declarations of non locals
         """
         pass
-    
+
     @abstractmethod
     def extract_function_info(
         self, file_path: str, source_code: str, tree: Tree
@@ -730,7 +730,7 @@ class TSAnalyzer(ABC):
         :return: A dictionary mapping (start_line, end_line) to loop statement info.
         """
         pass
-    
+
     @abstractmethod
     def get_global_expressions_by_identifier(
         self, identifier: str, program_root: Node
@@ -871,7 +871,7 @@ class TSAnalyzer(ABC):
                     references.setdefault(function, []).append(ref_value)
 
         return references
-        
+
     def get_function_from_localvalue(self, value: Value) -> Optional[Function]:
         """
         Retrieve the function corresponding to a local value.

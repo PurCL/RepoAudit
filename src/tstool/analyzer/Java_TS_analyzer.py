@@ -15,7 +15,7 @@ class Java_TSAnalyzer(TSAnalyzer):
     TSAnalyzer for Java source files using tree-sitter.
     Implements Java-specific parsing and analysis.
     """
-    
+
     def extract_scope_info(self, tree: tree_sitter.Tree) -> None:
         """
         Parse source code to extract scope topography.
@@ -23,7 +23,7 @@ class Java_TSAnalyzer(TSAnalyzer):
         :param tree: Parsed syntax tree
         """
         pass
-    
+
     def extract_nonlocal_info(self) -> None:
         """
         Traverse the scopes to identify declarations of non locals.

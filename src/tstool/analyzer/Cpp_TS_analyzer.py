@@ -15,7 +15,7 @@ class Cpp_TSAnalyzer(TSAnalyzer):
     TSAnalyzer for C/C++ source files using tree-sitter.
     Implements language-specific parsing and analysis.
     """
-    
+
     def extract_scope_info(self, tree: tree_sitter.Tree) -> None:
         """
         Parse source code to extract scope topography.
@@ -23,7 +23,7 @@ class Cpp_TSAnalyzer(TSAnalyzer):
         :param tree: Parsed syntax tree
         """
         pass
-    
+
     def extract_nonlocal_info(self) -> None:
         """
         Traverse the scopes to identify declarations of non locals.
@@ -431,7 +431,7 @@ class Cpp_TSAnalyzer(TSAnalyzer):
                 loop_body_end_line,
             )
         return loop_statements
-    
+
     def get_global_expressions_by_identifier(
         self, identifier: str, program_root: Node
     ) -> List[Node]:

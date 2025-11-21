@@ -5,15 +5,15 @@ from ..dfbscan_extractor import *
 
 class Javascript_NPD_Extractor(DFBScanExtractor):
     NULLISH_VALUES = {"null", "undefined"}
-    
+
     def is_expression_delete(self, expr: Node) -> bool:
         if expr.type == "unary_expression":
             operator = expr.child(0)
             if operator and operator.type == "delete":
                 return True
-                
+
         return False
-    
+
     def is_expression_null(self, expr: Node) -> bool:
         if expr.type != "assignment_expression":
             return False
@@ -24,7 +24,7 @@ class Javascript_NPD_Extractor(DFBScanExtractor):
         # Nullish constant (e.g. null/undefined)
         if value_type in self.NULLISH_VALUES:
             return True
-        
+
         return False
 
     def is_global_source(self, global_declaration_node: Node) -> bool:
@@ -72,7 +72,6 @@ class Javascript_NPD_Extractor(DFBScanExtractor):
 
         return False
 
-
     def extract_sources(self, function: Function) -> List[Value]:
         """
         Extract the potential null/undefined values as sources from the source code.
@@ -81,18 +80,18 @@ class Javascript_NPD_Extractor(DFBScanExtractor):
         3. delete obj.prop;
         4. func(null);
         """
-        
+
         root_node = function.parse_tree_root_node
         source_code = self.ts_analyzer.code_in_files[function.file_path]
         file_path = function.file_path
-        
+
         nodes = find_nodes_by_type(root_node, "variable_declarator")
         nodes.extend(find_nodes_by_type(root_node, "assignment_expression"))
         nodes.extend(find_nodes_by_type(root_node, "return_statement"))
         nodes.extend(find_nodes_by_type(root_node, "arguments"))
-        
+
         sources = []
-        
+
         # Look for nullish value nodes
         for node in nodes:
             is_seed_node = False
@@ -106,9 +105,8 @@ class Javascript_NPD_Extractor(DFBScanExtractor):
                 name = source_code[node.start_byte : node.end_byte]
                 sources.append(Value(name, line_number, ValueLabel.SRC, file_path))
 
-
         unary_expressions = find_nodes_by_type(root_node, "unary_expression")
-        
+
         # Look for delete expressions
         for unary_expression in unary_expressions:
             operator = unary_expression.child(0)
@@ -127,7 +125,7 @@ class Javascript_NPD_Extractor(DFBScanExtractor):
         1. null_obj.prop;
         2. null_obj[1];
         3. null_obj();
-        
+
         :param: function: Function object.
         :return: List of sink values
         """

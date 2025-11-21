@@ -161,7 +161,8 @@ class Javascript_TSAnalyzer(TSAnalyzer):
                         if (
                             candidate_parent is not None
                             and candidate_parent.type == "variable_declarator"
-                            and candidate_parent.child_by_field_name("name") is candidate_node
+                            and candidate_parent.child_by_field_name("name")
+                            is candidate_node
                         ):
                             continue
 

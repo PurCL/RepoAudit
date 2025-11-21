@@ -10,7 +10,7 @@ class Python_NPD_Extractor(DFBScanExtractor):
         """
         # TODO: Implement source detection for global variables if needed
         return False
-    
+
     def extract_sources(self, function: Function) -> List[Value]:
         root_node = function.parse_tree_root_node
         source_code = self.ts_analyzer.code_in_files[function.file_path]

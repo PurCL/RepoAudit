@@ -10,7 +10,7 @@ class Cpp_MLK_Extractor(DFBScanExtractor):
         Currently not implemented.
         """
         return False
-    
+
     def extract_sources(self, function: Function) -> List[Value]:
         """
         Extract the sources that can cause the memory leak bugs from C/C++ programs.

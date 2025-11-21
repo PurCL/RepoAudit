@@ -19,7 +19,7 @@ class IntraDataFlowAnalyzerInput(LLMToolInput):
         sink_values: List[Tuple[str, int]],
         call_statements: List[Tuple[str, int]],
         ret_values: List[Tuple[str, int]],
-        non_locals: List[Tuple[str, int]]
+        non_locals: List[Tuple[str, int]],
     ) -> None:
         self.function = function
         self.summary_start = summary_start
@@ -110,7 +110,7 @@ class IntraDataFlowAnalyzer(LLMTool):
         for ret_val in input.ret_values:
             rets_str += f"- {ret_val[0]} at line {ret_val[1]}\n"
         prompt = prompt.replace("<RETURN_VALUES>", rets_str)
-        
+
         if input.non_locals:
             non_local_str = "Non local variables relevant to this function:\n"
             for non_local in input.non_locals:
@@ -118,7 +118,7 @@ class IntraDataFlowAnalyzer(LLMTool):
             prompt = prompt.replace("<NONLOCAL_VALUES>", non_local_str)
         else:
             prompt = prompt.replace("<NONLOCAL_VALUES>", "")
-        
+
         return prompt
 
     def _parse_response(
@@ -236,7 +236,9 @@ class IntraDataFlowAnalyzer(LLMTool):
                     )
                 elif detail["type"] == "Nonlocal":
                     reachable_values_per_path.add(
-                        Value(detail["name"], line_number, ValueLabel.NONLOCAL, file_path)
+                        Value(
+                            detail["name"], line_number, ValueLabel.NONLOCAL, file_path
+                        )
                     )
             reachable_values.append(reachable_values_per_path)
 

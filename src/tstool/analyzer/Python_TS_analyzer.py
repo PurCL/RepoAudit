@@ -15,7 +15,7 @@ class Python_TSAnalyzer(TSAnalyzer):
     TSAnalyzer for Python source files using tree-sitter.
     Implements Python-specific parsing and analysis.
     """
-    
+
     def extract_scope_info(self, tree: tree_sitter.Tree) -> None:
         """
         Parse source code to extract scope topography
@@ -23,7 +23,7 @@ class Python_TSAnalyzer(TSAnalyzer):
         """
         # TODO: Add scope extraction if needed
         pass
-    
+
     def extract_nonlocal_info(self) -> None:
         """
         Traverse the scopes to identify declarations of non locals
@@ -294,7 +294,7 @@ class Python_TSAnalyzer(TSAnalyzer):
                 end_line,
             )
         return loops
-    
+
     def get_global_expressions_by_identifier(
         self, identifier: str, program_root: Node
     ) -> List[Node]:
