@@ -387,4 +387,4 @@ class Java_TSAnalyzer(TSAnalyzer):
         :param program_root: Program root node
         :return: A list of extracted nodes
         """
-        pass
+        return []

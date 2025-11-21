@@ -305,4 +305,4 @@ class Python_TSAnalyzer(TSAnalyzer):
         :return: A list of extracted nodes
         """
         # TODO: implement if needed
-        pass
+        return []

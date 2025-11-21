@@ -170,12 +170,12 @@ class TSAnalyzer(ABC):
         self.functionToFile: Dict[int, str] = {}
         self.fileContentDic: Dict[str, str] = {}
         self.glb_var_map: Dict[str, str] = {}  # global var info
-        self.globalsRawDataDic: Dict[str, Tuple[str, int, Node]] = {}
+        self.globalsRawDataDic: Dict[int, Tuple[str, int, Node]] = {}
         self.globalsToFile: Dict[int, str] = {}
 
         self.function_env: Dict[int, Function] = {}
         self.globals_env: Dict[int, Value] = {}
-        self.scope_env: Dict[int, Tuple[Node, Set[Dict]]] = {}
+        self.scope_env: Dict[int, Tuple[Node, Set[int]]] = {}
         self.api_env: Dict[int, API] = {}
         
         # Dictionary storing mapping from the root node of the scope to its scope id
@@ -342,6 +342,7 @@ class TSAnalyzer(ABC):
         Parse source code to extract scope topography
         :param tree: Parsed syntax tree
         """
+        pass
     
     @abstractmethod
     def extract_nonlocal_info(self) -> None:

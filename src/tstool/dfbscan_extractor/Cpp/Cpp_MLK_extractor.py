@@ -4,7 +4,7 @@ from ..dfbscan_extractor import *
 
 
 class Cpp_MLK_Extractor(DFBScanExtractor):
-    def is_global_source(self, global_declarator_node: Tree) -> bool:
+    def is_global_source(self, global_declarator_node: Node) -> bool:
         """
         Determines whether the global variable is initially a source.
         Currently not implemented.

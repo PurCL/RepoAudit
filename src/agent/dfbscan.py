@@ -544,6 +544,7 @@ class DFBScanAgent(Agent):
                         sink_values,
                         call_statements,
                         ret_values,
+                        non_locals=[]
                     )
 
                     # Invoke the intra-procedural data-flow analysis

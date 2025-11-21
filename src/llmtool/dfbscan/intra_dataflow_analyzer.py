@@ -19,7 +19,7 @@ class IntraDataFlowAnalyzerInput(LLMToolInput):
         sink_values: List[Tuple[str, int]],
         call_statements: List[Tuple[str, int]],
         ret_values: List[Tuple[str, int]],
-        non_locals: List[Value]
+        non_locals: List[Tuple[str, int]]
     ) -> None:
         self.function = function
         self.summary_start = summary_start

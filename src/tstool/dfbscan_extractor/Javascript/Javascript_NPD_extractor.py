@@ -6,7 +6,7 @@ from ..dfbscan_extractor import *
 class Javascript_NPD_Extractor(DFBScanExtractor):
     NULLISH_VALUES = {"null", "undefined"}
     
-    def is_expression_delete(self, expr: Tree) -> bool:
+    def is_expression_delete(self, expr: Node) -> bool:
         if expr.type == "unary_expression":
             operator = expr.child(0)
             if operator and operator.type == "delete":
@@ -14,44 +14,64 @@ class Javascript_NPD_Extractor(DFBScanExtractor):
                 
         return False
     
-    def is_expression_null(self, expr: Tree) -> bool:
+    def is_expression_null(self, expr: Node) -> bool:
         if expr.type != "assignment_expression":
             return False
 
         value_node = expr.child(2)
-        value_type = value_node.type
+        value_type = value_node.type if value_node else ""
 
         # Nullish constant (e.g. null/undefined)
         if value_type in self.NULLISH_VALUES:
             return True
+        
+        return False
 
-    def is_global_source(self, global_declaration_node: Tree) -> bool:
-        """
-        Determines whether the global variable is initially a source.
-        1. globa_var = null;
-        3. delete globa_var.prop;
-        """
-        global_name = global_declaration_node.child(1).child_by_field_name("name").text
-        sibling = global_declaration_node.next_sibling
+    def is_global_source(self, global_declaration_node: Node) -> bool:
+        # global_name is usually bytes, decode for safe string comparison
+        name_node = global_declaration_node.child(1)
+        if name_node is None:
+            return False
+
+        name_field = name_node.child_by_field_name("name")
+        if name_field is None or name_field.text is None:
+            return False
+
+        global_name = name_field.text.decode("utf-8")
+
+        sibling: Optional[Node] = global_declaration_node.next_sibling
 
         while sibling is not None:
-            if len(sibling.children) == 0:
+            # Skip empty siblings
+            if not sibling.children:
                 sibling = sibling.next_sibling
                 continue
 
             expr = sibling.child(0)
-            
+            if expr is None:
+                sibling = sibling.next_sibling
+                continue
+
+            # Handle deletion of property
             if self.is_expression_delete(expr):
-                # the target object with property being deleted
-                obj_node = expr.child(1).child_by_field_name("object")
-                if obj_node and obj_node.text == global_name:
-                    return True
-                
-            if self.is_expression_null(expr) and expr.child(0).text == global_name:
-                return True
+                second_child = expr.child(1)
+                if second_child is not None:
+                    obj_node = second_child.child_by_field_name("object")
+                    if obj_node is not None and obj_node.text is not None:
+                        if obj_node.text.decode("utf-8") == global_name:
+                            return True
+
+            # Handle nullish assignment
+            if self.is_expression_null(expr):
+                lhs = expr.child(0)
+                if lhs is not None and lhs.text is not None:
+                    if lhs.text.decode("utf-8") == global_name:
+                        return True
 
             sibling = sibling.next_sibling
+
         return False
+
 
     def extract_sources(self, function: Function) -> List[Value]:
         """

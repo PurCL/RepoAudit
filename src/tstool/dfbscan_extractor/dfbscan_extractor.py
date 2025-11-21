@@ -54,7 +54,7 @@ class DFBScanExtractor(ABC):
         return self.sources, self.sinks
 
     @abstractmethod
-    def is_global_source(self, global_var: Tree) -> bool:
+    def is_global_source(self, global_var: Node) -> bool:
         pass
 
     @abstractmethod

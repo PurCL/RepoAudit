@@ -30,29 +30,33 @@ class Javascript_TSAnalyzer(TSAnalyzer):
             for child in root.children:
                 if child.type == "statement_block":
                     if len(scope_stack) > 0:
-                        self.scope_env[scope_stack[-1]][1].append(scope_id)
+                        self.scope_env[scope_stack[-1]][1].add(scope_id)
 
-                    self.scope_env[scope_id] = (child, [])
+                    self.scope_env[scope_id] = (child, set())
                     self.scope_root_to_scope_id[child] = scope_id
                     scope_stack.append(scope_id)
 
-                    if child.parent.type == "function_declaration":
-                        self.function_root_to_scope_id[child.parent] = scope_id
-                    elif (
-                        child.parent.type == "arrow_function"
-                        or child.parent.type == "function_expression"
-                    ):
-                        self.function_root_to_scope_id[child.parent.parent] = scope_id
+                    if child.parent:
+                        if child.parent.type == "function_declaration":
+                            self.function_root_to_scope_id[child.parent] = scope_id
+                        elif (
+                            child.parent.type == "arrow_function"
+                            or child.parent.type == "function_expression"
+                        ):
+                            if child.parent.parent:
+                                self.function_root_to_scope_id[child.parent.parent] = (
+                                    scope_id
+                                )
 
-                    scope_id += 1
-                    search(child)
-                    scope_stack.pop()
+                        scope_id += 1
+                        search(child)
+                        scope_stack.pop()
                 else:
                     search(child)
 
             return
 
-        self.scope_env[scope_id] = (tree.root_node, [])
+        self.scope_env[scope_id] = (tree.root_node, set())
         self.scope_root_to_scope_id[tree.root_node] = scope_id
         scope_stack.append(scope_id)
         scope_id += 1
@@ -60,81 +64,104 @@ class Javascript_TSAnalyzer(TSAnalyzer):
         return
 
     def extract_nonlocal_info(self) -> None:
-        identifiers_per_scope = dict()
+        identifiers_per_scope: Dict[int, List[Node]] = {}
+
         for _, scope_data in self.scope_env.items():
             scope_root, child_scope_ids = scope_data
+
             for scope_child in scope_root.children:
-                # Skips expressions that does not resemble variable declarations
-                if (
-                    scope_child.type != "lexical_declaration"
-                    and scope_child.type != "variable_declaration"
+                # Only process lexical/variable declarations
+                if scope_child.type not in (
+                    "lexical_declaration",
+                    "variable_declaration",
                 ):
                     continue
 
-                variable_name = (
-                    scope_child.child(1).child_by_field_name("name").text.decode()
-                )
+                decl_child = scope_child.child(1)
+                if decl_child is None:
+                    continue
 
-                label = ValueLabel.LOCAL
-                if scope_root.type == "program":
-                    label = ValueLabel.GLOBAL
+                name_node = decl_child.child_by_field_name("name")
+                if name_node is None or name_node.text is None:
+                    continue
+
+                variable_name: str = name_node.text.decode("utf-8")
+
+                label = (
+                    ValueLabel.GLOBAL
+                    if scope_root.type == "program"
+                    else ValueLabel.LOCAL
+                )
 
                 non_local_value = Value(
-                    variable_name, scope_child.start_point[0] + 1, label, -1
+                    variable_name,
+                    scope_child.start_point[0] + 1,
+                    label,
+                    file="",
+                    index=-1,
                 )
 
+                effective_child_scope_ids = child_scope_ids
                 if scope_child.type == "variable_declaration":
-                    # In JavaScript, the variable declared in var propagates to the function's scope
-                    function_root = scope_root
-                    while function_root.parent:
+                    function_root: Optional[Node] = scope_root
+
+                    # Find closest parent function
+                    while (
+                        function_root is not None and function_root.parent is not None
+                    ):
                         parent = function_root.parent
-                        if parent and (
-                            parent.type == "arrow_function"
-                            or parent.type == "function_declaration"
-                            or parent.type == "function_expression"
+                        if parent.type in (
+                            "arrow_function",
+                            "function_declaration",
+                            "function_expression",
                         ):
                             break
-
                         function_root = parent
 
                     if (
-                        not function_root
+                        function_root is None
                         or function_root not in self.scope_root_to_scope_id
                     ):
                         continue
 
                     function_scope_id = self.scope_root_to_scope_id[function_root]
-                    child_scope_ids = self.scope_env[function_scope_id][1]
+                    effective_child_scope_ids = self.scope_env[function_scope_id][1]
 
-                # Determines whether the variable is used in child functions and should be analyzed separately
-                for child_scope_id in child_scope_ids:
-                    child_scope = self.scope_env[child_scope_id]
-                    child_scope_root, _ = child_scope
+                # Process child scopes
+                for child_scope_id in effective_child_scope_ids:
+                    child_scope_root, _ = self.scope_env[child_scope_id]
 
-                    # Skips if the nested scope does not resemble a nested function
-                    if not child_scope_root.parent or (
-                        child_scope_root.parent.type != "arrow_function"
-                        and child_scope_root.parent.type != "function_declaration"
-                        and child_scope_root.parent.type != "function_expression"
+                    # Must be inside a function-like construct
+                    parent_node: Optional[Node] = child_scope_root.parent
+                    if parent_node is None or parent_node.type not in (
+                        "arrow_function",
+                        "function_declaration",
+                        "function_expression",
                     ):
                         continue
 
-                    # Finds all identifier nodes for each scope with memorization
+                    # Cache identifiers per scope
                     if child_scope_id not in identifiers_per_scope:
                         identifiers_per_scope[child_scope_id] = find_nodes_by_type(
                             child_scope_root, "identifier"
                         )
 
                     for candidate_node in identifiers_per_scope[child_scope_id]:
-                        # Skip identifiers with different names
-                        if candidate_node.text.decode() != variable_name:
+                        if candidate_node:
                             continue
 
-                        # Skip declarations of variables with the same name in the child scopes
+                        # Name mismatch
+                        if candidate_node.text is None:
+                            continue
+                        if candidate_node.text.decode("utf-8") != variable_name:
+                            continue
+
+                        # Skip if this identifier declares a new variable in this scope with the same name
+                        candidate_parent = candidate_node.parent
                         if (
-                            candidate_node.parent.type == "variable_declarator"
-                            and candidate_node.parent.child_by_field_name("name")
-                            == candidate_node
+                            candidate_parent is not None
+                            and candidate_parent.type == "variable_declarator"
+                            and candidate_parent.child_by_field_name("name") is candidate_node
                         ):
                             continue
 
