@@ -16,6 +16,21 @@ class Python_TSAnalyzer(TSAnalyzer):
     Implements Python-specific parsing and analysis.
     """
 
+    def extract_scope_info(self, tree: tree_sitter.Tree) -> None:
+        """
+        Parse source code to extract scope topography
+        :param tree: Parsed syntax tree
+        """
+        # TODO: Add scope extraction if needed
+        pass
+
+    def extract_nonlocal_info(self) -> None:
+        """
+        Traverse the scopes to identify declarations of non locals
+        """
+        # TODO: add non local variable extraction if needed
+        pass
+
     def extract_function_info(
         self, file_path: str, source_code: str, tree: tree_sitter.Tree
     ) -> None:
@@ -279,3 +294,15 @@ class Python_TSAnalyzer(TSAnalyzer):
                 end_line,
             )
         return loops
+
+    def get_global_expressions_by_identifier(
+        self, identifier: str, program_root: Node
+    ) -> List[Node]:
+        """
+        Extracts all expressions related to a specific identifier in the global scope
+        :param identifier: The identifier
+        :param program_root: Program root node
+        :return: A list of extracted nodes
+        """
+        # TODO: implement if needed
+        return []

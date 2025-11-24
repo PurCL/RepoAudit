@@ -156,6 +156,8 @@ class TSAnalyzer(ABC):
             self.language = Language(str(language_path), "java")
         elif language_name == "Python":
             self.language = Language(str(language_path), "python")
+        elif language_name == "Javascript":
+            self.language = Language(str(language_path), "javascript")
         elif language_name == "Go":
             self.language = Language(str(language_path), "go")
         else:
@@ -168,9 +170,25 @@ class TSAnalyzer(ABC):
         self.functionToFile: Dict[int, str] = {}
         self.fileContentDic: Dict[str, str] = {}
         self.glb_var_map: Dict[str, str] = {}  # global var info
+        self.globalsRawDataDic: Dict[int, Tuple[str, int, Node]] = {}
+        self.globalsToFile: Dict[int, str] = {}
 
         self.function_env: Dict[int, Function] = {}
+        self.globals_env: Dict[int, Value] = {}
+        self.scope_env: Dict[int, Tuple[Node, Set[int]]] = {}
         self.api_env: Dict[int, API] = {}
+
+        # Dictionary storing mapping from the root node of the scope to its scope id
+        self.scope_root_to_scope_id: Dict[Node, int] = {}
+
+        # Dictionary storing mapping from function root node to its scope id
+        self.function_root_to_scope_id: Dict[Node, int] = {}
+
+        # Dictionary storing mapping from a scope id to all the non locals it is depended on
+        self.child_scope_id_to_non_locals: Dict[int, Set[Value]] = {}
+
+        # Dictionary storing mapping from a non local value to its child scopes
+        self.non_local_to_child_scopes: Dict[Value, Set[int]] = {}
 
         # Results of call graph analysis
         ## Caller-callee relationship between user-defined functions
@@ -201,6 +219,7 @@ class TSAnalyzer(ABC):
         # Call user-defined processing.
         self.extract_function_info(file_path, source_code, tree)
         self.extract_global_info(file_path, source_code, tree)
+        self.extract_scope_info(tree)
         return file_path, source_code
 
     def _analyze_single_function(
@@ -229,6 +248,7 @@ class TSAnalyzer(ABC):
         """
         Parse all project files using tree-sitter.
         """
+        # Parses files in the project
         with concurrent.futures.ThreadPoolExecutor(
             max_workers=self.max_symbolic_workers_num
         ) as executor:
@@ -247,6 +267,9 @@ class TSAnalyzer(ABC):
                 pbar.update(1)
             pbar.close()
 
+        self.extract_nonlocal_info()
+
+        # Analyzes extracted functions
         with concurrent.futures.ThreadPoolExecutor(
             max_workers=self.max_symbolic_workers_num
         ) as executor:
@@ -265,6 +288,25 @@ class TSAnalyzer(ABC):
                 self.function_env[func_id] = current_function
                 pbar.update(1)
             pbar.close()
+
+        # Analyzes extracted global variables
+        pbar = tqdm(
+            total=len(self.globalsRawDataDic), desc="Analyzing Global Variables"
+        )
+        for global_id, global_var_tuple in self.globalsRawDataDic.items():
+            name = global_var_tuple[0]
+            line = global_var_tuple[1]
+            value = Value(
+                name=name,
+                line_number=line,
+                label=ValueLabel.GLOBAL,
+                file=self.globalsToFile[global_id],
+            )
+
+            self.globals_env[global_id] = value
+            pbar.update(1)
+        pbar.close()
+
         return
 
     def analyze_call_graph(self) -> None:
@@ -294,6 +336,21 @@ class TSAnalyzer(ABC):
     ###########################################
     # Helper function for project AST parsing #
     ###########################################
+    @abstractmethod
+    def extract_scope_info(self, tree: tree_sitter.Tree) -> None:
+        """
+        Parse source code to extract scope topography
+        :param tree: Parsed syntax tree
+        """
+        pass
+
+    @abstractmethod
+    def extract_nonlocal_info(self) -> None:
+        """
+        Traverse the scopes to identify declarations of non locals
+        """
+        pass
+
     @abstractmethod
     def extract_function_info(
         self, file_path: str, source_code: str, tree: Tree
@@ -354,7 +411,11 @@ class TSAnalyzer(ABC):
         file_content = self.fileContentDic[file_name]
 
         call_node_type = None
-        if self.language_name == "C" or self.language_name == "Cpp":
+        if (
+            self.language_name == "C"
+            or self.language_name == "Cpp"
+            or self.language_name == "Javascript"
+        ):
             call_node_type = "call_expression"
         elif self.language_name == "Java":
             call_node_type = "method_invocation"
@@ -397,7 +458,7 @@ class TSAnalyzer(ABC):
                 tmp_api = API(-1, callee_name, len(arguments))
 
                 # Insert the API into the API environment if it does not exist previously
-                for single_api_id in self.api_env:
+                for single_api_id in list(self.api_env):
                     if self.api_env[single_api_id] == tmp_api:
                         api_id = single_api_id
                 if api_id == None:
@@ -670,6 +731,18 @@ class TSAnalyzer(ABC):
         """
         pass
 
+    @abstractmethod
+    def get_global_expressions_by_identifier(
+        self, identifier: str, program_root: Node
+    ) -> List[Node]:
+        """
+        Extracts all expressions related to a specific identifier in the global scope
+        :param identifier: The identifier
+        :param program_root: Program root node
+        :return: A list of extracted nodes
+        """
+        pass
+
     def check_control_order(
         self, function: Function, src_line_number: int, sink_line_number: int
     ) -> bool:
@@ -760,6 +833,44 @@ class TSAnalyzer(ABC):
                 if start_line == end_line == line_number:
                     code_node_list.append((function.function_code, node))
         return code_node_list
+
+    def get_function_global_value_reference(
+        self, global_value: Value
+    ) -> Dict[Function, List[Value]]:
+        """
+        Find references to a given global value in all functions
+        belonging to the same source file.
+
+        Args:
+            global_value: The global Value to search for.
+
+        Returns:
+            A dictionary mapping each Function to a list of Value
+            references where the global is used.
+        """
+        file_name = global_value.file
+        references: Dict[Function, List[Value]] = {}
+
+        for _, function in self.function_env.items():
+            if function.file_path != file_name:
+                continue
+
+            identifiers = find_nodes_by_type(
+                function.parse_tree_root_node, "identifier"
+            )
+            for identifier in identifiers:
+                if global_value.name == identifier.text.decode():
+                    line_number = identifier.start_point[0] + 1
+                    ref_value = Value(
+                        global_value.name,
+                        line_number,
+                        ValueLabel.GLOBAL,
+                        function.file_path,
+                        -1,
+                    )
+                    references.setdefault(function, []).append(ref_value)
+
+        return references
 
     def get_function_from_localvalue(self, value: Value) -> Optional[Function]:
         """

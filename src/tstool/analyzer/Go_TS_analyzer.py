@@ -16,6 +16,21 @@ class Go_TSAnalyzer(TSAnalyzer):
     Implements Go-specific parsing and analysis.
     """
 
+    def extract_scope_info(self, tree: tree_sitter.Tree) -> None:
+        """
+        Parse source code to extract scope topography.
+        Currently Not implemented.
+        :param tree: Parsed syntax tree
+        """
+        pass
+
+    def extract_nonlocal_info(self) -> None:
+        """
+        Traverse the scopes to identify declarations of non locals.
+        Currently Not implemented.
+        """
+        pass
+
     def extract_function_info(
         self, file_path: str, source_code: str, tree: tree_sitter.Tree
     ) -> None:
@@ -349,3 +364,15 @@ class Go_TSAnalyzer(TSAnalyzer):
                 loop_body_end_line,
             )
         return loop_statements
+
+    def get_global_expressions_by_identifier(
+        self, identifier: str, program_root: Node
+    ) -> List[Node]:
+        """
+        Extracts all expressions related to a specific identifier in the global scope.
+        Currently not implemented.
+        :param identifier: The identifier
+        :param program_root: Program root node
+        :return: A list of extracted nodes
+        """
+        return []

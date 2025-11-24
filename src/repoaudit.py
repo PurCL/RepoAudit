@@ -10,6 +10,7 @@ from tstool.analyzer.Cpp_TS_analyzer import *
 from tstool.analyzer.Go_TS_analyzer import *
 from tstool.analyzer.Java_TS_analyzer import *
 from tstool.analyzer.Python_TS_analyzer import *
+from tstool.analyzer.Javascript_TS_analyzer import *
 
 from typing import List
 
@@ -17,6 +18,7 @@ default_dfbscan_checkers = {
     "Cpp": ["MLK", "NPD", "UAF"],
     "Java": ["NPD"],
     "Python": ["NPD"],
+    "Javascript": ["NPD"],
     "Go": ["NPD"],
 }
 
@@ -59,6 +61,8 @@ class RepoAudit:
             suffixs = ["java"]
         elif self.language == "Python":
             suffixs = ["py"]
+        elif self.language == "Javascript":
+            suffixs = ["js", "jsx"]
         else:
             raise ValueError("Invalid language setting")
 
@@ -80,6 +84,10 @@ class RepoAudit:
             )
         elif self.language == "Python":
             self.ts_analyzer = Python_TSAnalyzer(
+                self.code_in_files, self.language, self.max_symbolic_workers
+            )
+        elif self.language == "Javascript":
+            self.ts_analyzer = Javascript_TSAnalyzer(
                 self.code_in_files, self.language, self.max_symbolic_workers
             )
         return
