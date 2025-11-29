@@ -147,7 +147,7 @@ class Javascript_TSAnalyzer(TSAnalyzer):
                         )
 
                     for candidate_node in identifiers_per_scope[child_scope_id]:
-                        if candidate_node:
+                        if not candidate_node:
                             continue
 
                         # Name mismatch
