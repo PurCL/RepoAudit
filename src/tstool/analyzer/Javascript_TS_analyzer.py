@@ -22,33 +22,32 @@ class Javascript_TSAnalyzer(TSAnalyzer):
         :param tree: Parsed syntax tree
         """
         scope_stack: List[int] = []
-        scope_id: int = 0
 
         def search(root: Node) -> None:
-            nonlocal scope_id
-
             for child in root.children:
                 if child.type == "statement_block":
                     if len(scope_stack) > 0:
-                        self.scope_env[scope_stack[-1]][1].add(scope_id)
+                        self.scope_env[scope_stack[-1]][1].add(self.current_scope_id)
 
-                    self.scope_env[scope_id] = (child, set())
-                    self.scope_root_to_scope_id[child] = scope_id
-                    scope_stack.append(scope_id)
+                    self.scope_env[self.current_scope_id] = (child, set())
+                    self.scope_root_to_scope_id[child] = self.current_scope_id
+                    scope_stack.append(self.current_scope_id)
 
                     if child.parent:
                         if child.parent.type == "function_declaration":
-                            self.function_root_to_scope_id[child.parent] = scope_id
+                            self.function_root_to_scope_id[child.parent] = (
+                                self.current_scope_id
+                            )
                         elif (
                             child.parent.type == "arrow_function"
                             or child.parent.type == "function_expression"
                         ):
                             if child.parent.parent:
                                 self.function_root_to_scope_id[child.parent.parent] = (
-                                    scope_id
+                                    self.current_scope_id
                                 )
 
-                        scope_id += 1
+                        self.current_scope_id += 1
                         search(child)
                         scope_stack.pop()
                 else:
@@ -56,10 +55,10 @@ class Javascript_TSAnalyzer(TSAnalyzer):
 
             return
 
-        self.scope_env[scope_id] = (tree.root_node, set())
-        self.scope_root_to_scope_id[tree.root_node] = scope_id
-        scope_stack.append(scope_id)
-        scope_id += 1
+        self.scope_env[self.current_scope_id] = (tree.root_node, set())
+        self.scope_root_to_scope_id[tree.root_node] = self.current_scope_id
+        scope_stack.append(self.current_scope_id)
+        self.current_scope_id += 1
         search(tree.root_node)
         return
 
@@ -147,7 +146,7 @@ class Javascript_TSAnalyzer(TSAnalyzer):
                         )
 
                     for candidate_node in identifiers_per_scope[child_scope_id]:
-                        if candidate_node:
+                        if not candidate_node:
                             continue
 
                         # Name mismatch

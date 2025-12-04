@@ -178,6 +178,8 @@ class TSAnalyzer(ABC):
         self.scope_env: Dict[int, Tuple[Node, Set[int]]] = {}
         self.api_env: Dict[int, API] = {}
 
+        self.current_scope_id: int = 0
+
         # Dictionary storing mapping from the root node of the scope to its scope id
         self.scope_root_to_scope_id: Dict[Node, int] = {}
 
