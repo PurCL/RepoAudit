@@ -17,6 +17,7 @@ from tstool.dfbscan_extractor.dfbscan_extractor import *
 from tstool.dfbscan_extractor.Cpp.Cpp_MLK_extractor import *
 from tstool.dfbscan_extractor.Cpp.Cpp_NPD_extractor import *
 from tstool.dfbscan_extractor.Cpp.Cpp_UAF_extractor import *
+from tstool.dfbscan_extractor.Cpp.Cpp_Race_extractor import *
 from tstool.dfbscan_extractor.Java.Java_NPD_extractor import *
 from tstool.dfbscan_extractor.Python.Python_NPD_extractor import *
 from tstool.dfbscan_extractor.Go.Go_NPD_extractor import *
@@ -103,6 +104,8 @@ class DFBScanAgent(Agent):
                 return Cpp_NPD_Extractor(self.ts_analyzer)
             elif self.bug_type == "UAF":
                 return Cpp_UAF_Extractor(self.ts_analyzer)
+            elif self.bug_type == "RACE":
+                return Cpp_Race_Extractor(self.ts_analyzer)
         elif self.language == "Java":
             if self.bug_type == "NPD":
                 return Java_NPD_Extractor(self.ts_analyzer)

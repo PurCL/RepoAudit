@@ -1,7 +1,7 @@
 import os
-
-from tree_sitter import Language, Parser
 from pathlib import Path
+
+from tree_sitter import Language
 
 cwd = Path(__file__).resolve().parent.absolute()
 

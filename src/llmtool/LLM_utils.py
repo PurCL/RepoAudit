@@ -2,7 +2,8 @@
 from openai import *
 from pathlib import Path
 from typing import Tuple
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 import anthropic
 import signal
 import sys
@@ -87,27 +88,53 @@ class LLM:
                 ("Operation timed out")
                 return ""
             except Exception as e:
+                self.logger.print_console(f"Operation failed: {e}")
                 self.logger.print_log(f"Operation failed: {e}")
                 return ""
 
     def infer_with_gemini(self, message: str) -> str:
-        """Infer using the Gemini model from Google Generative AI"""
-        gemini_model = genai.GenerativeModel("gemini-pro")
+        """Infer using the latest Gemini SDK (google-genai)"""
+        api_key = os.environ.get("GOOGLE_API_KEY") or os.environ.get("GEMINI_API_KEY")
+        
+        if not api_key:
+            raise EnvironmentError(
+                "Please set the GOOGLE_API_KEY or GEMINI_API_KEY environment variable."
+            )
+        
+        client = genai.Client(api_key=api_key)
+
+        model_name = self.online_model_name
+        if model_name == "gemini-pro":
+            model_name = "gemini-2.0-flash"
 
         def call_api():
-            message_with_role = self.systemRole + "\n" + message
             safety_settings = [
-                {
-                    "category": "HARM_CATEGORY_DANGEROUS",
-                    "threshold": "BLOCK_NONE",
-                },
-                # ...existing safety settings...
+                types.SafetySetting(
+                    category=types.HarmCategory.HARM_CATEGORY_HARASSMENT,
+                    threshold=types.HarmBlockThreshold.BLOCK_NONE,
+                ),
+                types.SafetySetting(
+                    category=types.HarmCategory.HARM_CATEGORY_HATE_SPEECH,
+                    threshold=types.HarmBlockThreshold.BLOCK_NONE,
+                ),
+                types.SafetySetting(
+                    category=types.HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
+                    threshold=types.HarmBlockThreshold.BLOCK_NONE,
+                ),
+                types.SafetySetting(
+                    category=types.HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
+                    threshold=types.HarmBlockThreshold.BLOCK_NONE,
+                ),
             ]
-            response = gemini_model.generate_content(
-                message_with_role,
-                safety_settings=safety_settings,
-                generation_config=genai.types.GenerationConfig(
-                    temperature=self.temperature
+
+            response = client.models.generate_content(
+                model=model_name,
+                contents=message,
+                config=types.GenerateContentConfig(
+                    system_instruction=self.systemRole,
+                    temperature=self.temperature,
+                    max_output_tokens=self.max_output_length,
+                    safety_settings=safety_settings,
                 ),
             )
             return response.text
@@ -118,14 +145,13 @@ class LLM:
             try:
                 output = self.run_with_timeout(call_api, timeout=50)
                 if output:
-                    self.logger.print_log("Inference succeeded...")
+                    self.logger.print_log(f"Gemini ({model_name}) inference succeeded...")
                     return output
             except Exception as e:
-                self.logger.print_log(f"API error: {e}")
+                self.logger.print_log(f"Gemini API error: {e}")
             time.sleep(2)
 
         return ""
-
     def infer_with_openai_model(self, message):
         """Infer using the OpenAI model"""
         api_key = os.environ.get("OPENAI_API_KEY").split(":")[0]
@@ -188,7 +214,8 @@ class LLM:
         """
         Infer using the DeepSeek model
         """
-        api_key = os.environ.get("DEEPSEEK_API_KEY2")
+        self.logger.print_console(f"Calling DeepSeek API ({self.online_model_name})...")
+        api_key = os.environ.get("DEEPSEEK_API_KEY") or os.environ.get("OPENAI_API_KEY2")
         model_input = [
             {
                 "role": "system",
@@ -298,6 +325,7 @@ class LLM:
 
     def infer_with_claude_key(self, message):
         """Infer using the Claude model via API key, with thinking mode for 3.7"""
+        self.logger.print_console(f"Calling Claude API ({self.online_model_name})...")
         api_key = os.environ.get("ANTHROPIC_API_KEY")
         if not api_key:
             raise EnvironmentError(

@@ -3,10 +3,11 @@ set -euo pipefail
 IFS=$'\n\t'
 
 # --- Defaults ---
-LANGUAGE="Python"
-MODEL="claude-3.7"
+LANGUAGE="Cpp"
+MODEL="deepseek-chat"
+# MODEL="claude-3.7"
 DEFAULT_PROJECT_NAME="toy"
-DEFAULT_BUG_TYPE="NPD"     # allowed: MLK, NPD, UAF
+DEFAULT_BUG_TYPE="RACE"     # allowed: MLK, NPD, UAF, RACE
 SCAN_TYPE="dfbscan"
 
 # Construct the default project *path* from LANGUAGE + DEFAULT_PROJECT_NAME
@@ -19,12 +20,13 @@ Usage: run_scan.sh [PROJECT_PATH] [BUG_TYPE]
 Arguments:
   PROJECT_PATH   Optional absolute/relative path to the subject project.
                  Defaults to: ../benchmark/Python/toy
-  BUG_TYPE       Optional bug type. One of: MLK, NPD, UAF. Defaults to: NPD
+  BUG_TYPE       Optional bug type. One of: MLK, NPD, UAF, RACE. Defaults to: NPD
 
 Bug type meanings:
   MLK  - Memory Leak
   NPD  - Null Pointer Dereference
   UAF  - Use After Free
+  RACE - Race Condition
 
 Examples:
   ./run_scan.sh
@@ -48,10 +50,10 @@ BUG_TYPE="$(echo "$BUG_TYPE_RAW" | tr '[:lower:]' '[:upper:]')"
 
 # --- Validate BUG_TYPE ---
 case "$BUG_TYPE" in
-  MLK|NPD|UAF) : ;;
+  MLK|NPD|UAF|RACE) : ;;
   *)
-    echo "Error: BUG_TYPE must be one of: MLK, NPD, UAF (got '$BUG_TYPE_RAW')." >&2
-    echo "       MLK = Memory Leak; NPD = Null Pointer Dereference; UAF = Use After Free." >&2
+    echo "Error: BUG_TYPE must be one of: MLK, NPD, UAF, RACE (got '$BUG_TYPE_RAW')." >&2
+    echo "       MLK = Memory Leak; NPD = Null Pointer Dereference; UAF = Use After Free; RACE = Race Condition." >&2
     exit 1
     ;;
 esac

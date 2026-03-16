@@ -5,7 +5,7 @@ torch
 tiktoken
 replicate
 openai
-google-generativeai
+google-genai
 tqdm
 networkx
 streamlit

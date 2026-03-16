@@ -14,7 +14,7 @@ from tstool.analyzer.Python_TS_analyzer import *
 from typing import List
 
 default_dfbscan_checkers = {
-    "Cpp": ["MLK", "NPD", "UAF"],
+    "Cpp": ["MLK", "NPD", "UAF", "RACE"],
     "Java": ["NPD"],
     "Python": ["NPD"],
     "Go": ["NPD"],

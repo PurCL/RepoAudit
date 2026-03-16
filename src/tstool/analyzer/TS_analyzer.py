@@ -3,6 +3,7 @@ from os import path
 from pathlib import Path
 import copy
 import concurrent.futures
+import ctypes
 from typing import List, Optional, Tuple, Dict, Set
 from abc import ABC, abstractmethod
 
@@ -148,18 +149,41 @@ class TSAnalyzer(ABC):
         # Initialize tree-sitter parser
         self.parser = Parser()
         self.language_name = language_name
-        if language_name == "C":
-            self.language = Language(str(language_path), "c")
-        elif language_name == "Cpp":
-            self.language = Language(str(language_path), "cpp")
-        elif language_name == "Java":
-            self.language = Language(str(language_path), "java")
-        elif language_name == "Python":
-            self.language = Language(str(language_path), "python")
-        elif language_name == "Go":
-            self.language = Language(str(language_path), "go")
-        else:
-            raise ValueError("Invalid language setting")
+
+        # Load the language library
+        # Note: Language(path, name) is deprecated in tree-sitter 0.21.x.
+        # We use ctypes to load the library and get the language pointer to avoid the warning.
+        try:
+            lib = ctypes.cdll.LoadLibrary(str(language_path))
+            lang_map = {
+                "C": ("tree_sitter_c", "c"),
+                "Cpp": ("tree_sitter_cpp", "cpp"),
+                "Java": ("tree_sitter_java", "java"),
+                "Python": ("tree_sitter_python", "python"),
+                "Go": ("tree_sitter_go", "go"),
+            }
+            if language_name in lang_map:
+                func_name, lang_id = lang_map[language_name]
+                func = getattr(lib, func_name)
+                func.restype = ctypes.c_void_p
+                self.language = Language(func(), lang_id)
+            else:
+                raise ValueError(f"Unsupported language: {language_name}")
+        except Exception:
+            # Fallback to deprecated way if ctypes loading fails to ensure stability
+            if language_name == "C":
+                self.language = Language(str(language_path), "c")
+            elif language_name == "Cpp":
+                self.language = Language(str(language_path), "cpp")
+            elif language_name == "Java":
+                self.language = Language(str(language_path), "java")
+            elif language_name == "Python":
+                self.language = Language(str(language_path), "python")
+            elif language_name == "Go":
+                self.language = Language(str(language_path), "go")
+            else:
+                raise ValueError("Invalid language setting")
+        
         self.parser.set_language(self.language)
 
         # Results of parsing
